@@ -36,9 +36,7 @@ build/
 tmpclaude-*
 .mcp.json
 mcp-servers/
-.claude/settings.local.json
-.claude/worktrees/
-.claude/statusline.sh
+.claude/
 
 ### Node/Playwright ###
 node_modules/

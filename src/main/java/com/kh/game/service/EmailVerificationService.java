@@ -5,24 +5,24 @@ import com.kh.game.exception.BusinessException;
 import com.kh.game.repository.EmailVerificationRepository;
 import com.kh.game.repository.MemberRepository;
 import com.kh.game.util.SecurityInputValidator;
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.InternetAddress;
-import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
-import java.io.UnsupportedEncodingException;
 import java.security.SecureRandom;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
  * 이메일 인증 서비스
- * - 6자리 코드 발급 → Gmail SMTP 발송
+ * - 6자리 코드 발급 → Brevo Transactional Email API 호출 (HTTPS)
  * - 코드 검증 (만료/시도 횟수 제한)
  * - 인증 완료 후 10분 내 회원가입 가능
  */
@@ -33,7 +33,12 @@ public class EmailVerificationService {
 
     private final EmailVerificationRepository verificationRepository;
     private final MemberRepository memberRepository;
-    private final JavaMailSender mailSender;
+
+    @Value("${app.mail.brevo.api-key:}")
+    private String brevoApiKey;
+
+    @Value("${app.mail.brevo.base-url:https://api.brevo.com/v3}")
+    private String brevoBaseUrl;
 
     @Value("${app.mail.from:}")
     private String mailFrom;
@@ -41,14 +46,11 @@ public class EmailVerificationService {
     @Value("${app.mail.from-name:Song Quiz}")
     private String mailFromName;
 
-    private static final int CODE_TTL_MINUTES = 5;        // 코드 자체 만료 시간
-    public static final int VERIFICATION_VALID_MINUTES = 10; // 인증 완료 후 회원가입 유효 시간
+    private static final int CODE_TTL_MINUTES = 5;
+    public static final int VERIFICATION_VALID_MINUTES = 10;
     private static final int MAX_ATTEMPTS = 5;
     private static final SecureRandom RANDOM = new SecureRandom();
 
-    /**
-     * 인증 코드 발송 — 이메일 검증 + 중복 가입 차단 + 코드 발송
-     */
     @Transactional
     public void sendVerificationCode(String email) {
         SecurityInputValidator.validateEmailOrThrow(email);
@@ -57,12 +59,15 @@ public class EmailVerificationService {
             throw new BusinessException("이미 가입된 이메일입니다.");
         }
 
+        if (brevoApiKey == null || brevoApiKey.isBlank()) {
+            log.error("[EmailVerify] BREVO_API_KEY 환경변수가 설정되지 않았습니다.");
+            throw new BusinessException("이메일 발송 설정이 완료되지 않았습니다. 관리자에게 문의해주세요.");
+        }
         if (mailFrom == null || mailFrom.isBlank()) {
-            log.error("[EmailVerify] MAIL_USERNAME 환경변수가 설정되지 않았습니다.");
+            log.error("[EmailVerify] MAIL_FROM 환경변수가 설정되지 않았습니다.");
             throw new BusinessException("이메일 발송 설정이 완료되지 않았습니다. 관리자에게 문의해주세요.");
         }
 
-        // 기존 레코드 정리 → 신규 코드 발급
         verificationRepository.deleteAllByEmail(email);
 
         String code = generateCode();
@@ -73,9 +78,6 @@ public class EmailVerificationService {
         log.info("[EmailVerify] 인증 코드 발송 완료: email={}", maskEmail(email));
     }
 
-    /**
-     * 코드 검증
-     */
     @Transactional
     public void verifyCode(String email, String code) {
         SecurityInputValidator.validateEmailOrThrow(email);
@@ -108,9 +110,6 @@ public class EmailVerificationService {
         log.info("[EmailVerify] 인증 성공: email={}", maskEmail(email));
     }
 
-    /**
-     * 회원가입 시 호출 — 최근 인증된 상태인지 확인
-     */
     public boolean isRecentlyVerified(String email) {
         Optional<EmailVerification> recordOpt =
                 verificationRepository.findFirstByEmailAndVerifiedTrueOrderByVerifiedAtDesc(email);
@@ -118,9 +117,6 @@ public class EmailVerificationService {
                 .orElse(false);
     }
 
-    /**
-     * 회원가입 완료 후 호출 — 인증 레코드 정리
-     */
     @Transactional
     public void consumeVerification(String email) {
         verificationRepository.deleteAllByEmail(email);
@@ -130,17 +126,65 @@ public class EmailVerificationService {
         return String.format("%06d", RANDOM.nextInt(1_000_000));
     }
 
+    /**
+     * Brevo Transactional Email API 호출.
+     *
+     * 엔드포인트: POST {brevoBaseUrl}/smtp/email
+     * 헤더: api-key, accept, content-type
+     * 본문(JSON):
+     *   {
+     *     "sender":      { "name": "...", "email": "..." },
+     *     "to":          [ { "email": "..." } ],
+     *     "subject":     "...",
+     *     "htmlContent": "..."
+     *   }
+     * 성공: HTTP 201, { "messageId": "..." }
+     * 실패: 4xx { "code": "...", "message": "..." } / 5xx 일시 장애
+     */
     private void sendCodeEmail(String toEmail, String code) {
+        String subject = "[Song Quiz] 이메일 인증 코드";
+        String html = buildHtmlBody(code);
+
+        Map<String, Object> body = Map.of(
+                "sender", Map.of("name", mailFromName, "email", mailFrom),
+                "to", List.of(Map.of("email", toEmail)),
+                "subject", subject,
+                "htmlContent", html
+        );
+
+        RestClient client = RestClient.builder()
+                .baseUrl(brevoBaseUrl)
+                .defaultHeader("api-key", brevoApiKey)
+                .defaultHeader("accept", MediaType.APPLICATION_JSON_VALUE)
+                .build();
+
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
-            helper.setFrom(new InternetAddress(mailFrom, mailFromName, "UTF-8"));
-            helper.setTo(toEmail);
-            helper.setSubject("[Song Quiz] 이메일 인증 코드");
-            helper.setText(buildHtmlBody(code), true);
-            mailSender.send(message);
-        } catch (MessagingException | UnsupportedEncodingException e) {
-            log.error("[EmailVerify] 메일 발송 실패: email={}", maskEmail(toEmail), e);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = client.post()
+                    .uri("/smtp/email")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
+                        String errorBody = new String(
+                                res.getBody().readAllBytes(),
+                                java.nio.charset.StandardCharsets.UTF_8);
+                        log.error("[EmailVerify] Brevo 4xx 응답: status={}, body={}, email={}",
+                                res.getStatusCode(), errorBody, maskEmail(toEmail));
+                        throw new BusinessException("이메일 발송 요청이 거절되었습니다.");
+                    })
+                    .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
+                        log.warn("[EmailVerify] Brevo 5xx 응답: status={}, email={}",
+                                res.getStatusCode(), maskEmail(toEmail));
+                        throw new BusinessException("메일 서버 일시 장애입니다. 잠시 후 다시 시도해주세요.");
+                    })
+                    .body(Map.class);
+
+            String messageId = (response != null) ? String.valueOf(response.get("messageId")) : "null";
+            log.info("[EmailVerify] Brevo 메일 발송 성공: email={}, messageId={}",
+                    maskEmail(toEmail), messageId);
+        } catch (RestClientException e) {
+            log.error("[EmailVerify] Brevo API 호출 실패: email={}", maskEmail(toEmail), e);
             throw new BusinessException("이메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요.");
         }
     }

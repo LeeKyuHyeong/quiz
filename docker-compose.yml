@@ -36,6 +36,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mariadb://db:3306/song?useUnicode=true&characterEncoding=utf8mb4
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
       TZ: Asia/Seoul
     volumes:
       - khgame-uploads:/app/uploads

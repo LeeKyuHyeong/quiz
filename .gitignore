@@ -57,3 +57,11 @@ menu_renewal.md
 
 ### SSL/Certbot ###
 certbot/
+
+### Secrets / Local overrides ###
+.env
+.env.*
+*.env
+application-local.properties
+application-local.yml
+application-secret.properties

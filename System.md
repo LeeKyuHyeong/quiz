@@ -1,6 +1,6 @@
 # System.md — 면접 준비용 소스 분석 정리
 
-> 최종 업데이트: 2026-04-06
+> 최종 업데이트: 2026-05-11
 > 프로젝트: 멀티플레이어 음악 맞추기 게임 (Spring Boot 3.4.1 + Java 17 + MariaDB)
 
 ---
@@ -203,13 +203,39 @@ CustomAuthenticationSuccessHandler
 
 | 공격 | 방어 |
 |------|------|
-| SQL Injection | JPA 파라미터 바인딩, `@Param` |
+| SQL Injection | JPA 파라미터 바인딩, `@Param` + `SecurityInputValidator`의 페이로드 패턴 차단 (SLEEP, BENCHMARK, DBMS_PIPE, WAITFOR, UNION SELECT, XOR 등) |
 | XSS | `th:text` (자동 이스케이프), `textContent` |
 | CSRF | 모든 POST에 CSRF 토큰 필수 |
 | IDOR | Service 레벨에서 소유권 검증 |
-| Brute Force | 로그인 실패 시 일반 메시지("이메일 또는 비밀번호가 일치하지 않습니다") |
+| Brute Force / Bot | `LoginRateLimiter` — bucket4j 기반 IP별 분당 20회 토큰 버킷 + 화이트리스트. 로그인 실패 메시지 일반화 |
+| 가짜 이메일 가입 | 회원가입 전 6자리 이메일 인증(`EmailVerificationService`). 코드 TTL 5분, 인증 후 10분 내 가입 유효 |
 
-### 5.4 면접 질문
+### 5.4 이메일 인증 흐름
+
+```
+[Client] /auth/send-verification (email)
+          ↓ LoginRateLimiter.tryAcquire(ip)
+          ↓ SecurityInputValidator.validateEmailOrThrow(email)
+          ↓ memberRepository.existsByEmail() 차단
+          ↓ EmailVerification 레코드 저장 (코드 + 만료시각)
+          ↓ Brevo API 호출 (HTTPS POST /v3/smtp/email)
+[Brevo] → 사용자 메일함
+
+[Client] /auth/verify-code (email, code)
+          ↓ 만료/시도횟수 검사 (max 5회)
+          ↓ EmailVerification.verified=true, verifiedAt=now
+
+[Client] /auth/register
+          ↓ isRecentlyVerified(email) — 최근 10분 내 인증 여부
+          ↓ consumeVerification(email) — 사용 후 레코드 삭제
+```
+
+**왜 Gmail SMTP가 아닌 Brevo HTTP API인가**:
+- cafe24가 outbound SMTP 포트(25/465/587)를 전부 차단 → `java.net.SocketTimeoutException`
+- HTTPS(443) 기반 API는 호스팅사 정책 영향 없음
+- 대시보드 추적, 반송/스팸 통계 등 부가 가시성
+
+### 5.5 면접 질문
 
 - Q: 세션 기반 인증과 JWT 인증의 트레이드오프?
   - A: 세션은 서버 상태 유지 필요(수평 확장 어려움), JWT는 무상태지만 토큰 무효화 어려움. SSR + 단일 서버이므로 세션이 적합
@@ -217,6 +243,10 @@ CustomAuthenticationSuccessHandler
   - A: SockJS는 XHR transport 사용 시 HTTP 세션 쿠키를 자동 상속. STOMP CONNECT 헤더에도 CSRF 전달
 - Q: 동시 로그인 차단(maximumSessions=1) 구현 원리?
   - A: `SessionRegistry`가 사용자별 세션 추적, 새 로그인 시 기존 세션 만료 처리
+- Q: 토큰 버킷 vs 슬라이딩 윈도우 vs 고정 윈도우 Rate Limit의 차이?
+  - A: 토큰 버킷은 평균 속도 + 순간 버스트 모두 제어 가능. 고정 윈도우는 경계 시각에 2배 트래픽 허용 문제. 슬라이딩 윈도우는 정확하지만 메모리/연산 비용 큼. 본 프로젝트는 단일 인스턴스라 bucket4j 인메모리로 충분
+- Q: SMTP 차단 환경에서 메일 발송 방법?
+  - A: HTTPS API 기반 트랜잭셔널 메일 서비스(Brevo/Sendgrid/Resend/AWS SES). 포트 443은 어느 호스팅도 차단하지 않음. 추가로 도메인 평판/통계도 얻을 수 있음
 
 ---
 
@@ -479,12 +509,19 @@ app:
   image: khgame-app:latest
   memory: 512M (-Xms256m -Xmx512m, G1GC)
   base: eclipse-temurin:17-jre-alpine
+  environment:
+    SPRING_PROFILES_ACTIVE: prod
+    SPRING_DATASOURCE_*: ${DB_*}
+    BREVO_API_KEY: ${BREVO_API_KEY}    # 이메일 인증
+    MAIL_FROM:     ${MAIL_FROM}
 
 db:
   image: mariadb:10.11
   memory: 256M
   healthcheck: 10s interval
 ```
+
+**환경변수 적용 시점 트랩**: Docker Compose의 `${변수}` 치환은 **컨테이너 생성 순간**에 일어남. 컨테이너가 실행 중일 때 `.env`를 수정해도 다음 `--force-recreate`까지 반영되지 않음. 새 환경변수를 추가했을 때는 반드시 `docker compose up -d --no-deps --force-recreate app`.
 
 ### 12.2 CI/CD
 
@@ -495,6 +532,10 @@ Push to main → GitHub Actions
     ↓ Push to DockerHub
     ↓ SSH to server → docker-compose up -d
 ```
+
+**알려진 한계**:
+- 워크플로우가 `docker-compose`(v1) 명령을 호출하지만 운영 서버엔 v2 plugin(`docker compose`)만 설치됨. 컨테이너 교체가 silently 실패할 가능성이 있어 배포 후 수동 확인 권장
+- `docker-compose.yml` 자체는 자동 동기화되지 않음. 환경변수 매핑이 바뀌면 서버 파일을 직접 수정 필요
 
 ### 12.3 면접 질문
 
@@ -507,7 +548,7 @@ Push to main → GitHub Actions
 
 ## 13. 외부 API 연동
 
-### YouTube 영상 검증 (이중 체크)
+### 13.1 YouTube 영상 검증 (이중 체크)
 
 ```
 Phase 1: oEmbed API (noembed.com)
@@ -522,6 +563,51 @@ Phase 2: Thumbnail 크기 체크
 
 - 타임아웃: 10초
 - 배치에서 주기적 검증 (`YouTubeVideoCheckBatch`)
+
+### 13.2 Brevo Transactional Email API (이메일 인증)
+
+**엔드포인트**: `POST https://api.brevo.com/v3/smtp/email`
+
+```java
+// EmailVerificationService.sendCodeEmail
+RestClient client = RestClient.builder()
+    .baseUrl(brevoBaseUrl)
+    .defaultHeader("api-key", brevoApiKey)
+    .build();
+
+client.post().uri("/smtp/email")
+    .contentType(MediaType.APPLICATION_JSON)
+    .body(Map.of(
+        "sender",      Map.of("name", mailFromName, "email", mailFrom),
+        "to",          List.of(Map.of("email", toEmail)),
+        "subject",     subject,
+        "htmlContent", html
+    ))
+    .retrieve()
+    .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> { /* 본문 로깅 + BusinessException */ })
+    .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> { /* 일시 장애 BusinessException */ })
+    .body(Map.class);
+```
+
+**에러 응답 처리 분리**:
+
+| 응답 | 원인 | 사용자 메시지 | 로그 레벨 |
+|------|------|-------------|----------|
+| 4xx | API key 오류, sender 미검증, IP 미화이트리스트 | "이메일 발송 요청이 거절되었습니다." | `error` (응답 body 통째로) |
+| 5xx | Brevo 일시 장애 | "메일 서버 일시 장애입니다. 잠시 후 다시 시도해주세요." | `warn` |
+| 네트워크 (RestClientException) | 타임아웃, DNS | "이메일 발송에 실패했습니다." | `error` (스택트레이스) |
+
+**운영 주의사항**:
+- Brevo `Security → Authorised IPs`에 서버 IP 등록 필수 (미등록 시 모든 호출 401)
+- Sender 이메일은 Brevo에서 사전 검증 필요 (스푸핑 방지)
+- 무료 티어 300/일 제한 → 일일 한도 초과 시 4xx
+
+### 13.3 면접 질문
+
+- Q: 외부 API 호출에 `RestTemplate` 대신 `RestClient`를 쓴 이유?
+  - A: Spring 6.1+ 표준 동기 HTTP 클라이언트. `RestTemplate`은 유지보수 모드. `WebClient`는 리액티브 스택 의존성이 과함. `RestClient`는 fluent API + 동기 + 의존성 추가 불필요
+- Q: 외부 API 4xx/5xx를 다르게 처리한 이유?
+  - A: 4xx는 우리 코드/설정 버그(API key 오타, 미검증 sender) → `error` 로그 + 즉시 디버깅 신호. 5xx는 일시 장애 → `warn` + 재시도 가능 메시지. 알람 룰 만들 때 의미 분리됨
 
 ---
 

@@ -92,12 +92,13 @@ Controller (MVC + REST) → Service (Business Logic) → Repository (JPA) → Ma
 
 - **controller/client/** - User-facing: `HomeController`, `AuthController`, `GameGuessController`, `GameHostController`, `GameFanChallengeController`, `RetroGameController`, `MultiGameController`, `RankingController`, `SongReportController`, `BoardController`, `StatsController`, `MyPageController`
 - **controller/admin/** - Admin panel: `AdminController` (dashboard), `AdminSongController`, `AdminGenreController`, `AdminBatchController`, `AdminBadWordController`, `AdminRoomController`, `AdminChatController`, `AdminSongReportController`, `AdminMemberController`, `AdminGameHistoryController`, `AdminStatsController`, `AdminAnswerController`, `AdminLoginHistoryController`, `AdminFanChallengeController`, `AdminMenuController`
-- **service/** - Business logic: `GameSessionService`, `MultiGameService`, `SongService`, `MemberService`, `GameRoomService`, `AnswerValidationService`, `YouTubeValidationService`, `BoardService`, `WrongAnswerStatsService`, `BatchService`, `GenreMigrationService`, `GenreService`, `MultiTierService`, `FanChallengeService`, `BadgeService`, `MenuConfigService`
-- **entity/** - JPA entities: `Member`, `MemberLoginHistory`, `Song`, `SongAnswer`, `Genre`, `GameSession`, `GameRound`, `GameRoundAttempt`, `GameRoom`, `GameRoomParticipant`, `GameRoomChat`, `BadWord`, `SongReport`, `BatchConfig`, `BatchExecutionHistory`, `DailyStats`, `Board`, `BoardComment`, `BoardLike`, `Badge`, `MemberBadge`, `MultiTier`, `FanChallengeDifficulty`, `FanChallengeRecord`, `RankingHistory`, `MenuConfig`
+- **service/** - Business logic: `GameSessionService`, `MultiGameService`, `SongService`, `MemberService`, `GameRoomService`, `AnswerValidationService`, `YouTubeValidationService`, `BoardService`, `WrongAnswerStatsService`, `BatchService`, `GenreMigrationService`, `GenreService`, `MultiTierService`, `FanChallengeService`, `BadgeService`, `MenuConfigService`, `EmailVerificationService`
+- **entity/** - JPA entities: `Member`, `MemberLoginHistory`, `Song`, `SongAnswer`, `Genre`, `GameSession`, `GameRound`, `GameRoundAttempt`, `GameRoom`, `GameRoomParticipant`, `GameRoomChat`, `BadWord`, `SongReport`, `BatchConfig`, `BatchExecutionHistory`, `DailyStats`, `Board`, `BoardComment`, `BoardLike`, `Badge`, `MemberBadge`, `MultiTier`, `FanChallengeDifficulty`, `FanChallengeRecord`, `RankingHistory`, `MenuConfig`, `EmailVerification`
 - **repository/** - Spring Data JPA repositories
 - **batch/** - 26 scheduled batch jobs managed by `BatchScheduler`
 - **config/** - `SecurityConfig` (BCrypt), `WebConfig` (interceptors, file upload), `SchedulerConfig`, `DataInitializer`
-- **util/** - `AnswerGeneratorUtil` (English→Korean phonetic conversion for song titles)
+- **security/** - `LoginRateLimiter` (bucket4j 토큰 버킷, IP별 분당 20회 제한, 화이트리스트 지원)
+- **util/** - `AnswerGeneratorUtil` (English→Korean phonetic conversion for song titles), `SecurityInputValidator` (이메일 정규식 + SQL Injection 패턴 차단)
 - **dto/** - `GameSettings` (multiplayer room configuration)
 - **interceptor/** - `AdminInterceptor`, `SessionValidationInterceptor`
 
@@ -140,6 +141,9 @@ Controller (MVC + REST) → Service (Business Logic) → Repository (JPA) → Ma
 - **MultiTierService** - LP and tier management for multiplayer with ELO-based rating calculations
 - **FanChallengeService** - Artist challenge game logic with difficulty-based scoring
 - **BadgeService** - Achievement badge management with automatic and manual award conditions
+- **EmailVerificationService** - 회원가입 시 6자리 이메일 인증 코드 발급/검증. **Brevo Transactional Email API**(HTTPS) 사용 — cafe24가 SMTP 포트(25/465/587) outbound를 차단해 Gmail SMTP 대신 도입. `RestClient`로 호출하며 4xx/5xx/네트워크 에러를 분리 처리
+- **LoginRateLimiter** - IP별 토큰 버킷(bucket4j) 기반 분당 20회 제한. `X-Forwarded-For`/`X-Real-IP` 헤더 인식, 화이트리스트 IP 지원(`security.rate-limit.whitelist`). 로그인/회원가입/이메일 인증 엔드포인트에 적용
+- **SecurityInputValidator** - 이메일 정규식 검증 + SQLi 페이로드 패턴 차단(SLEEP, BENCHMARK, DBMS_PIPE, WAITFOR, UNION SELECT, XOR, %2527 등). 위반 시 `IllegalArgumentException` → 400 응답
 
 ### Tier System (Multiplayer)
 
@@ -208,6 +212,21 @@ All batches are DB-configurable via `BatchConfig` table with cron expressions:
 - **Session timeout:** 30 minutes
 - **Admin routes:** Protected by `AdminInterceptor` (/admin/**)
 - **Docker memory:** App 512MB, DB 256MB
+
+### 환경변수 (Production `.env` 필수 항목)
+
+| 변수 | 용도 | 예시 |
+|------|------|------|
+| `DOCKERHUB_USERNAME` | Docker Hub 사용자명 (이미지 pull) | `positivelee` |
+| `DB_USERNAME` / `DB_PASSWORD` | MariaDB 자격 증명 | `root` / `...` |
+| `BREVO_API_KEY` | Brevo Transactional Email API 키 (`xkeysib-...`) | brevo.com에서 발급 |
+| `MAIL_FROM` | 인증 메일 발신자 주소 (Brevo에서 사전 검증 필수) | `noreply@example.com` |
+
+> ⚠️ **Brevo 보안 설정**: Brevo 대시보드의 `Security → Authorised IPs`에 운영 서버 IP를 등록해야 함. 미등록 시 모든 API 호출이 `401 unauthorized`로 거부됨. 서버 IP가 바뀌면 재등록 필요.
+
+### `docker-compose.yml` 동기화 주의
+
+서버 `/root/game/docker-compose.yml`은 git 저장소의 파일과 **자동 동기화되지 않음**. compose 파일이 변경되면(예: 환경변수 추가/이름 변경) 서버에 직접 반영 후 `docker compose up -d --no-deps --force-recreate app` 실행 필요. 이미지만 갱신해도 새 환경변수는 적용 안 됨.
 
 ## CI/CD
 

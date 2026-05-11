@@ -640,7 +640,7 @@
 }
 
 /* PC 버튼 스타일 */
-.btn-login, .btn-register, .btn-logout, .btn-mypage, .btn-mafia, .btn-admin, .btn-theme {
+.btn-login, .btn-register, .btn-logout, .btn-mypage, .btn-admin, .btn-theme {
     padding: 0.5rem 1rem;
     border-radius: 0.5rem;
     font-size: 0.875rem;
@@ -682,17 +682,6 @@
 
 .btn-logout:hover {
     background: var(--overlay-light);
-}
-
-.btn-mafia {
-    background: var(--violet-bg-transparent);
-    border: 1px solid var(--violet);
-    color: var(--violet);
-}
-
-.btn-mafia:hover {
-    background: var(--violet);
-    color: white;
 }
 
 .btn-admin {
@@ -823,10 +812,6 @@
 
 .mobile-menu-link.primary:hover {
     background: var(--primary-hover);
-}
-
-.mobile-menu-link.mafia {
-    color: var(--violet);
 }
 
 .mobile-menu-link.admin {

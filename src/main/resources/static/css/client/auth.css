@@ -114,6 +114,91 @@
     color: var(--danger);
 }
 
+/* ========================================
+   Input with Verify Button - 기본 (라이트 + PC)
+   ======================================== */
+.input-with-button {
+    display: flex;
+    gap: 0.5rem;
+    align-items: stretch;
+}
+
+.input-with-button input {
+    flex: 1;
+    min-width: 0;
+}
+
+.btn-verify {
+    flex-shrink: 0;
+    padding: 0 1rem;
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.btn-verify:hover:not(:disabled) {
+    background: var(--primary-color);
+    color: var(--text-on-gradient);
+    border-color: var(--primary-color);
+}
+
+.btn-verify:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ========================================
+   Input with Verify Button - 다크 모드
+   ======================================== */
+[data-theme="dark"] .btn-verify {
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .btn-verify:hover:not(:disabled) {
+    background: var(--primary-color);
+    color: var(--text-on-gradient);
+}
+
+/* ========================================
+   Hidden utility (인증 코드 입력 그룹)
+   ======================================== */
+.form-group.hidden {
+    display: none;
+}
+
+/* ========================================
+   Input with Verify Button - 태블릿
+   ======================================== */
+@media (max-width: 768px) {
+    .btn-verify {
+        font-size: 0.8125rem;
+        padding: 0 0.75rem;
+    }
+}
+
+/* ========================================
+   Input with Verify Button - 모바일
+   ======================================== */
+@media (max-width: 480px) {
+    .input-with-button {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .btn-verify {
+        width: 100%;
+        padding: 0.625rem;
+    }
+}
+
 /* Field Hints */
 .field-hint {
     font-size: 0.75rem;

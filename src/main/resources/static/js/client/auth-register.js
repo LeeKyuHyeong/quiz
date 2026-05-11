@@ -1,18 +1,53 @@
 /**
- * client/auth/register.html - 회원가입
+ * client/auth/register.html - 회원가입 (이메일 인증 포함)
+ *
+ * 흐름:
+ * 1. 이메일 입력 → [인증코드 받기] 클릭 → /auth/send-verification
+ * 2. 메일로 받은 6자리 코드 입력 → [인증 확인] 클릭 → /auth/verify-code
+ * 3. 인증 완료 시에만 [회원가입] 버튼이 동작
  */
 
+let emailVerified = false;
 let emailAvailable = false;
 
-// 이메일 중복 체크
-document.getElementById('email').addEventListener('blur', async function() {
-    const email = this.value;
-    const emailCheck = document.getElementById('emailCheck');
-    const emailHint = document.getElementById('emailHint');
+const $ = (id) => document.getElementById(id);
 
+const emailEl = $('email');
+const sendCodeBtn = $('sendCodeBtn');
+const codeGroup = $('codeGroup');
+const verifyCodeEl = $('verifyCode');
+const verifyCodeBtn = $('verifyCodeBtn');
+const emailHint = $('emailHint');
+const verifyHint = $('verifyHint');
+const errorMessage = $('errorMessage');
+const successMessage = $('successMessage');
+
+function setHint(el, text, type) {
+    el.textContent = text;
+    el.className = 'field-hint' + (type ? ' ' + type : '');
+}
+
+function lockEmailField(lock) {
+    emailEl.readOnly = lock;
+    sendCodeBtn.disabled = lock;
+}
+
+// 이메일 변경 시 인증 상태 리셋
+emailEl.addEventListener('input', () => {
+    if (emailVerified) {
+        emailVerified = false;
+        codeGroup.classList.add('hidden');
+        setHint(emailHint, '', '');
+        setHint(verifyHint, '', '');
+        lockEmailField(false);
+    }
+});
+
+// 이메일 중복 체크 (blur 시)
+emailEl.addEventListener('blur', async function () {
+    const email = this.value.trim();
     if (!email || !email.match(/^[A-Za-z0-9+_.-]+@(.+)$/)) {
-        emailCheck.textContent = '';
-        emailHint.textContent = '';
+        setHint(emailHint, '', '');
         emailAvailable = false;
         return;
     }
@@ -20,30 +55,115 @@ document.getElementById('email').addEventListener('blur', async function() {
     try {
         const response = await fetch(`/auth/check-email?email=${encodeURIComponent(email)}`);
         const result = await response.json();
-
         if (result.available) {
-            emailCheck.textContent = '✓';
-            emailCheck.className = 'check-icon available';
-            emailHint.textContent = '사용 가능한 이메일입니다.';
-            emailHint.className = 'field-hint success';
+            setHint(emailHint, '사용 가능한 이메일입니다. 인증을 진행해주세요.', 'success');
             emailAvailable = true;
         } else {
-            emailCheck.textContent = '✗';
-            emailCheck.className = 'check-icon unavailable';
-            emailHint.textContent = '이미 사용 중인 이메일입니다.';
-            emailHint.className = 'field-hint error';
+            setHint(emailHint, '이미 사용 중인 이메일입니다.', 'error');
             emailAvailable = false;
         }
-    } catch (error) {
-        // console.error(error);
+    } catch (e) {
+        // ignore network error here
     }
 });
 
-// 비밀번호 확인
-document.getElementById('passwordConfirm').addEventListener('input', function() {
-    const password = document.getElementById('password').value;
-    const passwordHint = document.getElementById('passwordHint');
+// 인증 코드 발송
+sendCodeBtn.addEventListener('click', async () => {
+    const email = emailEl.value.trim();
+    if (!email || !email.match(/^[A-Za-z0-9+_.-]+@(.+)$/)) {
+        setHint(emailHint, '올바른 이메일을 입력해주세요.', 'error');
+        return;
+    }
+    if (!emailAvailable) {
+        setHint(emailHint, '사용 가능한 이메일을 먼저 확인해주세요.', 'error');
+        return;
+    }
 
+    sendCodeBtn.disabled = true;
+    setHint(emailHint, '인증 코드 발송 중...', '');
+
+    try {
+        const response = await fetch('/auth/send-verification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+            setHint(emailHint, '메일을 확인하고 6자리 코드를 입력해주세요. (5분 내 유효)', 'success');
+            codeGroup.classList.remove('hidden');
+            verifyCodeEl.focus();
+            startResendCooldown(30);
+        } else {
+            setHint(emailHint, result.message || '코드 발송에 실패했습니다.', 'error');
+            sendCodeBtn.disabled = false;
+        }
+    } catch (e) {
+        setHint(emailHint, '서버 오류로 코드 발송에 실패했습니다.', 'error');
+        sendCodeBtn.disabled = false;
+    }
+});
+
+// 재발송 쿨다운 (스팸 방지 UX)
+function startResendCooldown(seconds) {
+    const originalText = '인증코드 받기';
+    let remaining = seconds;
+    sendCodeBtn.disabled = true;
+    sendCodeBtn.textContent = `재발송 (${remaining}s)`;
+    const timer = setInterval(() => {
+        remaining -= 1;
+        if (remaining <= 0) {
+            clearInterval(timer);
+            sendCodeBtn.disabled = false;
+            sendCodeBtn.textContent = originalText;
+        } else {
+            sendCodeBtn.textContent = `재발송 (${remaining}s)`;
+        }
+    }, 1000);
+}
+
+// 코드 검증
+verifyCodeBtn.addEventListener('click', async () => {
+    const email = emailEl.value.trim();
+    const code = verifyCodeEl.value.trim();
+
+    if (!code.match(/^\d{6}$/)) {
+        setHint(verifyHint, '6자리 숫자 코드를 입력해주세요.', 'error');
+        return;
+    }
+
+    verifyCodeBtn.disabled = true;
+    setHint(verifyHint, '확인 중...', '');
+
+    try {
+        const response = await fetch('/auth/verify-code', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, code })
+        });
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+            emailVerified = true;
+            setHint(verifyHint, '✓ 이메일 인증 완료', 'success');
+            verifyCodeEl.readOnly = true;
+            verifyCodeBtn.disabled = true;
+            lockEmailField(true);
+        } else {
+            setHint(verifyHint, result.message || '인증에 실패했습니다.', 'error');
+            verifyCodeBtn.disabled = false;
+        }
+    } catch (e) {
+        setHint(verifyHint, '서버 오류로 인증에 실패했습니다.', 'error');
+        verifyCodeBtn.disabled = false;
+    }
+});
+
+// 비밀번호 확인 (기존 기능)
+$('passwordConfirm').addEventListener('input', function () {
+    const password = $('password').value;
+    const passwordHint = $('passwordHint');
     if (this.value && this.value !== password) {
         passwordHint.textContent = '비밀번호가 일치하지 않습니다.';
         passwordHint.className = 'field-hint error';
@@ -56,23 +176,20 @@ document.getElementById('passwordConfirm').addEventListener('input', function() 
 });
 
 // 회원가입 폼 제출
-document.getElementById('registerForm').addEventListener('submit', async function(e) {
+$('registerForm').addEventListener('submit', async function (e) {
     e.preventDefault();
 
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    const passwordConfirm = document.getElementById('passwordConfirm').value;
-    const nickname = document.getElementById('nickname').value;
-    const username = document.getElementById('username').value;
-    const errorMessage = document.getElementById('errorMessage');
-    const successMessage = document.getElementById('successMessage');
+    const email = emailEl.value.trim();
+    const password = $('password').value;
+    const passwordConfirm = $('passwordConfirm').value;
+    const nickname = $('nickname').value;
+    const username = $('username').value;
 
     errorMessage.style.display = 'none';
     successMessage.style.display = 'none';
 
-    // 유효성 검사
-    if (!emailAvailable) {
-        errorMessage.textContent = '사용 가능한 이메일을 입력해주세요.';
+    if (!emailVerified) {
+        errorMessage.textContent = '이메일 인증을 먼저 완료해주세요.';
         errorMessage.style.display = 'block';
         return;
     }
@@ -89,20 +206,17 @@ document.getElementById('registerForm').addEventListener('submit', async functio
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password, nickname, username })
         });
-
         const result = await response.json();
 
         if (result.success) {
             successMessage.textContent = '회원가입이 완료되었습니다. 로그인 페이지로 이동합니다.';
             successMessage.style.display = 'block';
-            setTimeout(() => {
-                window.location.href = '/auth/login';
-            }, 1500);
+            setTimeout(() => { window.location.href = '/auth/login'; }, 1500);
         } else {
             errorMessage.textContent = result.message;
             errorMessage.style.display = 'block';
         }
-    } catch (error) {
+    } catch (e) {
         errorMessage.textContent = '회원가입 처리 중 오류가 발생했습니다.';
         errorMessage.style.display = 'block';
     }

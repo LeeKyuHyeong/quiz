@@ -2,6 +2,25 @@
  * client/ranking.html - 전체 랭킹
  */
 
+// XSS 방어: innerHTML에 삽입되는 사용자 데이터(닉네임/뱃지명 등)는 반드시 escape
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// CSS 색상값 화이트리스트: #RGB / #RRGGBB / #RRGGBBAA 만 허용 (CSS injection 차단)
+// 형식이 어긋나면 기본 브론즈 색상으로 폴백
+const SAFE_COLOR_PATTERN = /^#[0-9a-fA-F]{3,8}$/;
+function safeColor(value, fallback) {
+    if (value && SAFE_COLOR_PATTERN.test(value)) return value;
+    return fallback;
+}
+
 let currentTab = 'tier';      // tier, best30, retro, fanChallenge, genreChallenge, stats
 let best30Period = 'weekly';  // weekly, monthly, alltime
 let retroPeriod = 'score';    // score, best30, weekly
@@ -28,7 +47,7 @@ async function loadGenreList() {
         const dropdown = document.getElementById('genreSelectDropdown');
         if (dropdown && genreList.length > 0) {
             dropdown.innerHTML = '<option value="">장르를 선택하세요</option>' +
-                genreList.map(g => `<option value="${g.code}">${g.name}</option>`).join('');
+                genreList.map(g => `<option value="${escapeHtml(g.code)}">${escapeHtml(g.name)}</option>`).join('');
         }
     } catch (error) {
         // 장르 목록 로드 실패
@@ -309,9 +328,10 @@ function updateTierPodium(rankings) {
             el.querySelector('.podium-stand').textContent = place.index + 1;
 
             const tierEl = el.querySelector('.podium-tier');
-            tierEl.textContent = member.multiTierDisplayName || '';
-            tierEl.style.color = member.multiTierColor || '#cd7f32';
-            tierEl.className = 'podium-tier tier-badge tier-' + (member.multiTier || 'BRONZE').toLowerCase();
+            tierEl.textContent = member.multiTierDisplayName || '';  // textContent — escape 불필요
+            tierEl.style.color = safeColor(member.multiTierColor, '#cd7f32');
+            const safeTierEnum = (member.multiTier || 'BRONZE').replace(/[^A-Z]/g, '').toLowerCase();
+            tierEl.className = 'podium-tier tier-badge tier-' + safeTierEnum;
             tierEl.style.display = 'block';
         } else {
             el.classList.add('empty');
@@ -326,10 +346,12 @@ function updateTierTable(rankings) {
     const table = document.getElementById('rankingTable');
 
     table.innerHTML = rankings.map((member, index) => {
-        const tierName = member.multiTier || 'BRONZE';
-        const tierColor = member.multiTierColor || '#cd7f32';
-        const tierDisplayName = member.multiTierDisplayName || '';
-        const badgeEmoji = member.badgeEmoji ? `<span class="member-badge" title="${member.badgeName || ''}">${member.badgeEmoji}</span>` : '';
+        const tierName = (member.multiTier || 'BRONZE').replace(/[^A-Z]/g, '');  // enum 화이트리스트
+        const tierColor = safeColor(member.multiTierColor, '#cd7f32');
+        const tierDisplayName = escapeHtml(member.multiTierDisplayName);
+        const badgeEmoji = member.badgeEmoji
+            ? `<span class="member-badge" title="${escapeHtml(member.badgeName)}">${escapeHtml(member.badgeEmoji)}</span>`
+            : '';
 
         return `
             <div class="ranking-row ${index < 3 ? 'top-' + (index + 1) : ''}">
@@ -339,7 +361,7 @@ function updateTierTable(rankings) {
                 <div class="name-cell">
                     <span class="tier-badge tier-${tierName.toLowerCase()}" style="color: ${tierColor}">${tierDisplayName}</span>
                     ${badgeEmoji}
-                    <span class="member-name">${member.nickname}</span>
+                    <span class="member-name">${escapeHtml(member.nickname)}</span>
                 </div>
                 <div class="stats-cell">
                     <span class="main-stat">${(member.multiLp || 0)} LP</span>
@@ -404,7 +426,9 @@ function updateBest30Table(rankings) {
     const rest = rankings.slice(10);
 
     let html = top10.map((member, index) => {
-        const badgeEmoji = member.badgeEmoji ? `<span class="member-badge" title="${member.badgeName || ''}">${member.badgeEmoji}</span>` : '';
+        const badgeEmoji = member.badgeEmoji
+            ? `<span class="member-badge" title="${escapeHtml(member.badgeName)}">${escapeHtml(member.badgeEmoji)}</span>`
+            : '';
         const achievedDate = member.achievedAt ? new Date(member.achievedAt).toLocaleDateString('ko-KR') : '';
 
         return `
@@ -414,7 +438,7 @@ function updateBest30Table(rankings) {
                 </div>
                 <div class="name-cell">
                     ${badgeEmoji}
-                    <span class="member-name">${member.nickname}</span>
+                    <span class="member-name">${escapeHtml(member.nickname)}</span>
                 </div>
                 <div class="stats-cell">
                     <span class="main-stat">${(member.score || 0).toLocaleString()}점</span>
@@ -427,7 +451,9 @@ function updateBest30Table(rankings) {
     // 10위 이후 접기/펼치기
     if (rest.length > 0) {
         const restHtml = rest.map((member) => {
-            const badgeEmoji = member.badgeEmoji ? `<span class="member-badge" title="${member.badgeName || ''}">${member.badgeEmoji}</span>` : '';
+            const badgeEmoji = member.badgeEmoji
+                ? `<span class="member-badge" title="${escapeHtml(member.badgeName)}">${escapeHtml(member.badgeEmoji)}</span>`
+                : '';
             const achievedDate = member.achievedAt ? new Date(member.achievedAt).toLocaleDateString('ko-KR') : '';
 
             return `
@@ -435,7 +461,7 @@ function updateBest30Table(rankings) {
                     <div class="rank-cell">${member.rank}위</div>
                     <div class="name-cell">
                         ${badgeEmoji}
-                        <span class="member-name">${member.nickname}</span>
+                        <span class="member-name">${escapeHtml(member.nickname)}</span>
                     </div>
                     <div class="stats-cell">
                         <span class="main-stat">${(member.score || 0).toLocaleString()}점</span>
@@ -526,7 +552,9 @@ function updateRetroTable(rankings) {
     const table = document.getElementById('rankingTable');
 
     table.innerHTML = rankings.map((member, index) => {
-        const badgeEmoji = member.badgeEmoji ? `<span class="member-badge" title="${member.badgeName || ''}">${member.badgeEmoji}</span>` : '';
+        const badgeEmoji = member.badgeEmoji
+            ? `<span class="member-badge" title="${escapeHtml(member.badgeName)}">${escapeHtml(member.badgeEmoji)}</span>`
+            : '';
         let subStat = '';
 
         if (retroPeriod === 'best30') {
@@ -543,7 +571,7 @@ function updateRetroTable(rankings) {
                 </div>
                 <div class="name-cell">
                     ${badgeEmoji}
-                    <span class="member-name">${member.nickname}</span>
+                    <span class="member-name">${escapeHtml(member.nickname)}</span>
                 </div>
                 <div class="stats-cell">
                     <span class="main-stat">${(member.totalScore || 0).toLocaleString()}점</span>
@@ -611,7 +639,9 @@ function updateFanChallengeTable(rankings) {
     const table = document.getElementById('rankingTable');
 
     table.innerHTML = rankings.map((member, index) => {
-        const badgeEmoji = member.badgeEmoji ? `<span class="member-badge" title="${member.badgeName || ''}">${member.badgeEmoji}</span>` : '';
+        const badgeEmoji = member.badgeEmoji
+            ? `<span class="member-badge" title="${escapeHtml(member.badgeName)}">${escapeHtml(member.badgeEmoji)}</span>`
+            : '';
 
         let mainStat = '';
         let subStat = '';
@@ -631,7 +661,7 @@ function updateFanChallengeTable(rankings) {
                 </div>
                 <div class="name-cell">
                     ${badgeEmoji}
-                    <span class="member-name">${member.nickname}</span>
+                    <span class="member-name">${escapeHtml(member.nickname)}</span>
                 </div>
                 <div class="stats-cell">
                     <span class="main-stat">${mainStat}</span>
@@ -708,7 +738,9 @@ function updateGenreChallengeTable(rankings) {
     const table = document.getElementById('rankingTable');
 
     table.innerHTML = rankings.map((member, index) => {
-        const badgeEmoji = member.badgeEmoji ? `<span class="member-badge" title="${member.badgeName || ''}">${member.badgeEmoji}</span>` : '';
+        const badgeEmoji = member.badgeEmoji
+            ? `<span class="member-badge" title="${escapeHtml(member.badgeName)}">${escapeHtml(member.badgeEmoji)}</span>`
+            : '';
 
         // 메인: 정답수/총곡수
         const mainStat = (member.correctCount || 0) + '/' + (member.totalSongs || 0) + '곡';
@@ -722,7 +754,7 @@ function updateGenreChallengeTable(rankings) {
                 </div>
                 <div class="name-cell">
                     ${badgeEmoji}
-                    <span class="member-name">${member.nickname}</span>
+                    <span class="member-name">${escapeHtml(member.nickname)}</span>
                 </div>
                 <div class="stats-cell">
                     <span class="main-stat">${mainStat}</span>
@@ -790,7 +822,9 @@ function updateStatsTable(rankings) {
     const table = document.getElementById('rankingTable');
 
     table.innerHTML = rankings.map((member, index) => {
-        const badgeEmoji = member.badgeEmoji ? `<span class="member-badge" title="${member.badgeName || ''}">${member.badgeEmoji}</span>` : '';
+        const badgeEmoji = member.badgeEmoji
+            ? `<span class="member-badge" title="${escapeHtml(member.badgeName)}">${escapeHtml(member.badgeEmoji)}</span>`
+            : '';
 
         return `
             <div class="ranking-row ${index < 3 ? 'top-' + (index + 1) : ''}">
@@ -799,7 +833,7 @@ function updateStatsTable(rankings) {
                 </div>
                 <div class="name-cell">
                     ${badgeEmoji}
-                    <span class="member-name">${member.nickname}</span>
+                    <span class="member-name">${escapeHtml(member.nickname)}</span>
                 </div>
                 <div class="stats-cell">
                     <span class="main-stat">${formatStatsValue(member)}</span>

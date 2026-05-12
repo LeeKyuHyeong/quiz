@@ -93,6 +93,14 @@ public class AuthController {
         if (nickname == null || nickname.length() < 2 || nickname.length() > 20) {
             throw new IllegalArgumentException("닉네임은 2~20자 이내로 입력해주세요.");
         }
+        if (username == null || username.isBlank() || username.length() > 50) {
+            throw new IllegalArgumentException("성명은 1~50자 이내로 입력해주세요.");
+        }
+        // 성명 SQLi 페이로드 차단 (이메일과 동일한 보안 정책 적용)
+        if (SecurityInputValidator.containsSqlInjectionPattern(username)
+                || SecurityInputValidator.containsSqlInjectionPattern(nickname)) {
+            throw new IllegalArgumentException("허용되지 않는 문자가 포함되어 있습니다.");
+        }
 
         if (!emailVerificationService.isRecentlyVerified(email)) {
             throw new BusinessException("이메일 인증이 필요합니다. 인증 코드를 받아 입력해주세요.");

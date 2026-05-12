@@ -3,15 +3,60 @@
  * Phase 2: Spring Security formLogin 연동
  */
 
+// 서버 SecurityInputValidator.EMAIL_PATTERN과 동일 (^[A-Za-z0-9+_.-]+@(.+)$)
+const EMAIL_REGEX = /^[A-Za-z0-9+_.-]+@(.+)$/;
+const EMAIL_MAX_LENGTH = 320;
+
+function validateEmailClient(email) {
+    if (!email || email.trim().length === 0) {
+        return '이메일을 입력해주세요.';
+    }
+    if (email.length > EMAIL_MAX_LENGTH) {
+        return '이메일이 너무 깁니다.';
+    }
+    if (!EMAIL_REGEX.test(email)) {
+        return '올바른 이메일 형식이 아닙니다.';
+    }
+    return null;
+}
+
+// 이메일 입력 시 실시간 형식 피드백
+const emailInputEl = document.getElementById('email');
+const errorMessageEl = document.getElementById('errorMessage');
+emailInputEl.addEventListener('blur', function () {
+    const email = this.value.trim();
+    if (!email) return;
+    const err = validateEmailClient(email);
+    if (err) {
+        errorMessageEl.textContent = err;
+        errorMessageEl.style.display = 'block';
+    } else {
+        errorMessageEl.style.display = 'none';
+    }
+});
+
 document.getElementById('loginForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     await attemptLogin(false);
 });
 
 async function attemptLogin(forceLogin) {
-    const email = document.getElementById('email').value;
+    const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
     const errorMessage = document.getElementById('errorMessage');
+
+    // 이메일 형식 사전 검증 (불필요한 서버 호출 차단)
+    const emailErr = validateEmailClient(email);
+    if (emailErr) {
+        errorMessage.textContent = emailErr;
+        errorMessage.style.display = 'block';
+        return;
+    }
+    if (!password) {
+        errorMessage.textContent = '비밀번호를 입력해주세요.';
+        errorMessage.style.display = 'block';
+        return;
+    }
 
     try {
         // Step 1: 중복 로그인 사전 체크 (forceLogin이 아닌 경우)

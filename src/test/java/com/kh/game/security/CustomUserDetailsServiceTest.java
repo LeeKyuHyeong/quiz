@@ -151,4 +151,33 @@ class CustomUserDetailsServiceTest {
         assertThat(customUserDetails.getMember().getId()).isEqualTo(1L);
         assertThat(customUserDetails.getMember().getNickname()).isEqualTo("testUser");
     }
+
+    @Test
+    @DisplayName("이메일 형식이 잘못되면 UsernameNotFoundException (Repository 접근 안 함)")
+    void loadUserByUsername_invalidFormat_throwsException() {
+        assertThatThrownBy(() -> customUserDetailsService.loadUserByUsername("not-an-email"))
+                .isInstanceOf(UsernameNotFoundException.class);
+
+        verifyNoInteractions(memberRepository);
+    }
+
+    @Test
+    @DisplayName("SQLi 페이로드가 포함된 이메일은 UsernameNotFoundException")
+    void loadUserByUsername_sqlInjectionPayload_throwsException() {
+        assertThatThrownBy(() -> customUserDetailsService.loadUserByUsername("admin' OR 1=1--"))
+                .isInstanceOf(UsernameNotFoundException.class);
+
+        verifyNoInteractions(memberRepository);
+    }
+
+    @Test
+    @DisplayName("null/공백 이메일은 UsernameNotFoundException")
+    void loadUserByUsername_blankEmail_throwsException() {
+        assertThatThrownBy(() -> customUserDetailsService.loadUserByUsername(""))
+                .isInstanceOf(UsernameNotFoundException.class);
+        assertThatThrownBy(() -> customUserDetailsService.loadUserByUsername("   "))
+                .isInstanceOf(UsernameNotFoundException.class);
+
+        verifyNoInteractions(memberRepository);
+    }
 }

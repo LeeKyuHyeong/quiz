@@ -7,6 +7,17 @@
  * 3. 인증 완료 시에만 [회원가입] 버튼이 동작
  */
 
+// 서버 SecurityInputValidator.EMAIL_PATTERN과 동일
+const EMAIL_REGEX = /^[A-Za-z0-9+_.-]+@(.+)$/;
+const EMAIL_MAX_LENGTH = 320;
+
+function validateEmailClient(email) {
+    if (!email || email.trim().length === 0) return '이메일을 입력해주세요.';
+    if (email.length > EMAIL_MAX_LENGTH) return '이메일이 너무 깁니다.';
+    if (!EMAIL_REGEX.test(email)) return '올바른 이메일 형식이 아닙니다.';
+    return null;
+}
+
 let emailVerified = false;
 let emailAvailable = false;
 
@@ -46,8 +57,14 @@ emailEl.addEventListener('input', () => {
 // 이메일 중복 체크 (blur 시)
 emailEl.addEventListener('blur', async function () {
     const email = this.value.trim();
-    if (!email || !email.match(/^[A-Za-z0-9+_.-]+@(.+)$/)) {
+    if (!email) {
         setHint(emailHint, '', '');
+        emailAvailable = false;
+        return;
+    }
+    const formatErr = validateEmailClient(email);
+    if (formatErr) {
+        setHint(emailHint, formatErr, 'error');
         emailAvailable = false;
         return;
     }
@@ -70,8 +87,9 @@ emailEl.addEventListener('blur', async function () {
 // 인증 코드 발송
 sendCodeBtn.addEventListener('click', async () => {
     const email = emailEl.value.trim();
-    if (!email || !email.match(/^[A-Za-z0-9+_.-]+@(.+)$/)) {
-        setHint(emailHint, '올바른 이메일을 입력해주세요.', 'error');
+    const formatErr = validateEmailClient(email);
+    if (formatErr) {
+        setHint(emailHint, formatErr, 'error');
         return;
     }
     if (!emailAvailable) {
@@ -188,8 +206,22 @@ $('registerForm').addEventListener('submit', async function (e) {
     errorMessage.style.display = 'none';
     successMessage.style.display = 'none';
 
+    // 이메일 형식 최종 검증 (인증 후 사용자가 임의로 값을 바꾼 경우 대비)
+    const emailFormatErr = validateEmailClient(email);
+    if (emailFormatErr) {
+        errorMessage.textContent = emailFormatErr;
+        errorMessage.style.display = 'block';
+        return;
+    }
+
     if (!emailVerified) {
         errorMessage.textContent = '이메일 인증을 먼저 완료해주세요.';
+        errorMessage.style.display = 'block';
+        return;
+    }
+
+    if (!username || username.trim().length === 0 || username.length > 50) {
+        errorMessage.textContent = '성명을 1~50자 이내로 입력해주세요.';
         errorMessage.style.display = 'block';
         return;
     }

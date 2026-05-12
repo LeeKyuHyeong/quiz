@@ -17,6 +17,8 @@ import com.kh.game.service.SongService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -38,6 +40,11 @@ public class DataInitializer implements CommandLineRunner {
     private final FanChallengeStageConfigRepository fanChallengeStageConfigRepository;
     private final SongService songService;
     private final MenuConfigService menuConfigService;
+    private final Environment environment;
+
+    private boolean isProdProfile() {
+        return environment.acceptsProfiles(Profiles.of("prod"));
+    }
 
     @Override
     public void run(String... args) {
@@ -58,18 +65,23 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     /**
-     * 기본 관리자 계정 생성
+     * 기본 관리자 계정 생성 (dev 프로파일 전용)
+     * - prod에서는 자동 생성 차단 (운영자가 직접 admin 계정 생성 필요)
+     * - 비밀번호는 로그에 출력하지 않음 (로그 유출 시 즉시 권한 탈취 가능)
      */
     private void initAdminAccount() {
-        String adminEmail = "a@a.com";
-
-        // 이미 관리자 계정이 있는지 확인
-        if (memberRepository.findByEmail(adminEmail).isPresent()) {
-            log.info("관리자 계정이 이미 존재합니다: {}", adminEmail);
+        if (isProdProfile()) {
+            log.info("[DataInitializer] prod 프로파일: 기본 관리자 계정 자동 생성을 건너뜁니다.");
             return;
         }
 
-        // 기본 관리자 계정 생성
+        String adminEmail = "a@a.com";
+
+        if (memberRepository.findByEmail(adminEmail).isPresent()) {
+            log.debug("[DataInitializer] 기본 관리자 계정이 이미 존재합니다.");
+            return;
+        }
+
         Member admin = new Member();
         admin.setEmail(adminEmail);
         admin.setPassword(passwordEncoder.encode("1234"));
@@ -79,7 +91,7 @@ public class DataInitializer implements CommandLineRunner {
         admin.setStatus(Member.MemberStatus.ACTIVE);
 
         memberRepository.save(admin);
-        log.info("기본 관리자 계정 생성 완료: {} (비밀번호: 1234)", adminEmail);
+        log.info("[DataInitializer] 기본 관리자 계정 생성 완료 (dev 전용 — 비밀번호는 application-dev.yml 참고)");
     }
 
     private void initBadWords() {
@@ -257,9 +269,15 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     /**
-     * 팬 챌린지 테스트 데이터 등록 (실제 DB의 아티스트 사용)
+     * 팬 챌린지 테스트 데이터 등록 (dev 프로파일 전용 — 실제 DB의 아티스트 사용)
+     * - 테스트 멤버(test1@~test6@)와 더미 랭킹 레코드를 생성하므로 운영에선 차단
      */
     private void initFanChallengeTestData() {
+        if (isProdProfile()) {
+            log.info("[DataInitializer] prod 프로파일: 팬 챌린지 테스트 데이터 생성을 건너뜁니다.");
+            return;
+        }
+
         if (fanChallengeRecordRepository.count() > 0) {
             log.info("팬 챌린지 데이터가 이미 존재합니다. 초기화 건너뜀.");
             return;

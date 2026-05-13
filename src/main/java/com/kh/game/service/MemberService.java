@@ -186,11 +186,11 @@ public class MemberService {
     }
 
     @Transactional
-    public String resetPasswordToDefault(Long memberId) {
-        Member member = memberRepository.findById(memberId).orElseThrow();
+    public void resetPasswordToDefault(Long memberId) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new BusinessException("대상 회원을 찾을 수 없습니다."));
         String tempPassword = "temp" + System.currentTimeMillis() % 10000;
         member.setPassword(passwordEncoder.encode(tempPassword));
-        return tempPassword;
     }
 
     // ========== 로그인 ==========

@@ -227,13 +227,20 @@ public class AdminMemberController {
 
     @PostMapping("/reset-password/{id}")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> resetPassword(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> resetPassword(@PathVariable Long id,
+                                                             @AuthenticationPrincipal CustomUserDetails actor) {
         Map<String, Object> result = new HashMap<>();
         try {
-            String tempPassword = memberService.resetPasswordToDefault(id);
+            memberService.resetPasswordToDefault(id);
+            log.info("Admin password reset: actorId={}, targetId={}",
+                    actor.getMember().getId(), id);
             result.put("success", true);
-            result.put("message", "비밀번호가 초기화되었습니다. 임시 비밀번호: " + tempPassword);
+            result.put("message", "비밀번호가 초기화되었습니다. 해당 회원에게 비밀번호 찾기로 재설정하도록 안내해주세요.");
+        } catch (BusinessException e) {
+            result.put("success", false);
+            result.put("message", e.getMessage());
         } catch (Exception e) {
+            log.error("비밀번호 초기화 실패: targetId={}", id, e);
             result.put("success", false);
             result.put("message", "비밀번호 초기화 중 오류가 발생했습니다.");
         }

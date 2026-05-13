@@ -164,6 +164,22 @@ public class MemberService {
     }
 
     @Transactional
+    public void updateRoleSafely(Long targetMemberId, Member.MemberRole newRole, Long actorMemberId) {
+        if (targetMemberId.equals(actorMemberId)) {
+            throw new BusinessException("자기 자신의 권한은 변경할 수 없습니다.");
+        }
+        Member target = memberRepository.findById(targetMemberId)
+                .orElseThrow(() -> new BusinessException("대상 회원을 찾을 수 없습니다."));
+        if (target.getRole() == Member.MemberRole.ADMIN && newRole != Member.MemberRole.ADMIN) {
+            long remainingAdmins = memberRepository.countByRole(Member.MemberRole.ADMIN);
+            if (remainingAdmins <= 1) {
+                throw new BusinessException("마지막 관리자는 강등할 수 없습니다.");
+            }
+        }
+        target.setRole(newRole);
+    }
+
+    @Transactional
     public void resetWeeklyStats(Long memberId) {
         Member member = memberRepository.findById(memberId).orElseThrow();
         member.resetWeeklyStats();

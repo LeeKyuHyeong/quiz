@@ -2,9 +2,13 @@ package com.kh.game.controller.admin;
 
 import com.kh.game.entity.Member;
 import com.kh.game.entity.MemberBadge;
+import com.kh.game.exception.BusinessException;
 import com.kh.game.repository.MemberBadgeRepository;
+import com.kh.game.security.CustomUserDetails;
 import com.kh.game.service.MemberService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.session.SessionInformation;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.data.domain.Page;
@@ -22,6 +26,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+@Slf4j
 @Controller
 @RequestMapping("/admin/member")
 @RequiredArgsConstructor
@@ -182,13 +187,23 @@ public class AdminMemberController {
     @PostMapping("/update-role/{id}")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> updateRole(@PathVariable Long id,
-                                                          @RequestParam String role) {
+                                                          @RequestParam String role,
+                                                          @AuthenticationPrincipal CustomUserDetails actor) {
         Map<String, Object> result = new HashMap<>();
         try {
-            memberService.updateRole(id, Member.MemberRole.valueOf(role));
+            memberService.updateRoleSafely(id, Member.MemberRole.valueOf(role), actor.getMember().getId());
+            log.info("Admin role change: actorId={}, targetId={}, newRole={}",
+                    actor.getMember().getId(), id, role);
             result.put("success", true);
             result.put("message", "권한이 변경되었습니다.");
+        } catch (BusinessException e) {
+            result.put("success", false);
+            result.put("message", e.getMessage());
+        } catch (IllegalArgumentException e) {
+            result.put("success", false);
+            result.put("message", "올바르지 않은 권한 값입니다.");
         } catch (Exception e) {
+            log.error("권한 변경 실패: targetId={}", id, e);
             result.put("success", false);
             result.put("message", "권한 변경 중 오류가 발생했습니다.");
         }

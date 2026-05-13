@@ -282,7 +282,9 @@
                             </td>
                             <td data-label="액션">
                                 <button class="btn btn-sm btn-primary"
-                                        th:onclick="'updatePopularity(' + ${item.songId} + ', ' + (${item.recommend == 'CHANGE_TO_POPULAR'}) + ')'"
+                                        th:data-song-id="${item.songId}"
+                                        th:data-make-popular="${item.recommend == 'CHANGE_TO_POPULAR'}"
+                                        onclick="updatePopularity(this.dataset.songId, this.dataset.makePopular === 'true')"
                                         th:text="${item.recommend == 'CHANGE_TO_POPULAR'} ? '대중적으로' : '매니악으로'">변경</button>
                             </td>
                         </tr>

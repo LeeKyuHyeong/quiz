@@ -60,13 +60,13 @@
     </div>
 
     <div class="pagination" th:if="${totalPages > 0}">
-        <a href="#" th:classappend="${currentPage == 0} ? 'disabled'" class="page-link" th:onclick="'goToPage(0); return false;'">«</a>
-        <a href="#" th:classappend="${currentPage == 0} ? 'disabled'" class="page-link" th:onclick="'goToPage(' + ${currentPage - 1} + '); return false;'">‹</a>
+        <a href="#" th:classappend="${currentPage == 0} ? 'disabled'" class="page-link" data-page="0" onclick="goToPage(this.dataset.page); return false;">«</a>
+        <a href="#" th:classappend="${currentPage == 0} ? 'disabled'" class="page-link" th:data-page="${currentPage - 1}" onclick="goToPage(this.dataset.page); return false;">‹</a>
         <th:block th:each="i : ${#numbers.sequence(0, totalPages - 1)}">
-            <a th:if="${i >= currentPage - 2 and i <= currentPage + 2}" href="#" th:text="${i + 1}" th:classappend="${i == currentPage} ? 'active'" class="page-link" th:onclick="'goToPage(' + ${i} + '); return false;'"></a>
+            <a th:if="${i >= currentPage - 2 and i <= currentPage + 2}" href="#" th:text="${i + 1}" th:classappend="${i == currentPage} ? 'active'" class="page-link" th:data-page="${i}" onclick="goToPage(this.dataset.page); return false;"></a>
         </th:block>
-        <a href="#" th:classappend="${currentPage >= totalPages - 1} ? 'disabled'" class="page-link" th:onclick="'goToPage(' + ${currentPage + 1} + '); return false;'">›</a>
-        <a href="#" th:classappend="${currentPage >= totalPages - 1} ? 'disabled'" class="page-link" th:onclick="'goToPage(' + ${totalPages - 1} + '); return false;'">»</a>
+        <a href="#" th:classappend="${currentPage >= totalPages - 1} ? 'disabled'" class="page-link" th:data-page="${currentPage + 1}" onclick="goToPage(this.dataset.page); return false;">›</a>
+        <a href="#" th:classappend="${currentPage >= totalPages - 1} ? 'disabled'" class="page-link" th:data-page="${totalPages - 1}" onclick="goToPage(this.dataset.page); return false;">»</a>
     </div>
 </div>
 

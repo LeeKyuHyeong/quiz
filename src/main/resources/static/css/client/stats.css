@@ -193,17 +193,17 @@
 }
 
 .rank-badge.top-1 {
-    background: linear-gradient(135deg, #ffd700, #ffb347);
-    color: #1a1a2e;
+    background: var(--gradient-gold);
+    color: var(--rank-badge-text-dark);
 }
 
 .rank-badge.top-2 {
-    background: linear-gradient(135deg, #c0c0c0, #a8a8a8);
-    color: #1a1a2e;
+    background: var(--gradient-silver);
+    color: var(--rank-badge-text-dark);
 }
 
 .rank-badge.top-3 {
-    background: linear-gradient(135deg, #cd7f32, #b87333);
+    background: var(--rank-badge-gradient-bronze-alt);
 }
 
 .song-info {
@@ -242,18 +242,18 @@
 }
 
 .rate-badge.hard {
-    background: rgba(255, 71, 87, 0.3);
-    color: #ff4757;
+    background: var(--rating-5-bg);
+    color: var(--rating-5-text);
 }
 
 .rate-badge.medium {
-    background: rgba(255, 193, 7, 0.3);
-    color: #ffc107;
+    background: var(--rating-3-bg);
+    color: var(--rating-3-text);
 }
 
 .rate-badge.easy {
-    background: rgba(76, 175, 80, 0.3);
-    color: #4caf50;
+    background: var(--rating-1-bg);
+    color: var(--rating-1-text);
 }
 
 .play-count {

@@ -61,19 +61,20 @@
 
     <!-- 페이징 -->
     <div class="pagination" th:if="${totalPages > 0}">
-        <a href="javascript:void(0)" onclick="loadGenrePage(0)" th:classappend="${currentPage == 0} ? 'disabled'" class="page-link">«</a>
-        <a href="javascript:void(0)" th:onclick="'loadGenrePage(' + ${currentPage - 1} + ')'" th:classappend="${currentPage == 0} ? 'disabled'" class="page-link">‹</a>
+        <a href="javascript:void(0)" th:data-page="0" onclick="loadGenrePage(Number(this.dataset.page))" th:classappend="${currentPage == 0} ? 'disabled'" class="page-link">«</a>
+        <a href="javascript:void(0)" th:data-page="${currentPage - 1}" onclick="loadGenrePage(Number(this.dataset.page))" th:classappend="${currentPage == 0} ? 'disabled'" class="page-link">‹</a>
 
         <th:block th:each="i : ${#numbers.sequence(0, totalPages - 1)}">
             <a th:if="${i >= currentPage - 2 and i <= currentPage + 2}"
                href="javascript:void(0)"
-               th:onclick="'loadGenrePage(' + ${i} + ')'"
+               th:data-page="${i}"
+               onclick="loadGenrePage(Number(this.dataset.page))"
                th:text="${i + 1}"
                th:classappend="${i == currentPage} ? 'active'" class="page-link"></a>
         </th:block>
 
-        <a href="javascript:void(0)" th:onclick="'loadGenrePage(' + ${currentPage + 1} + ')'" th:classappend="${currentPage >= totalPages - 1} ? 'disabled'" class="page-link">›</a>
-        <a href="javascript:void(0)" th:onclick="'loadGenrePage(' + ${totalPages - 1} + ')'" th:classappend="${currentPage >= totalPages - 1} ? 'disabled'" class="page-link">»</a>
+        <a href="javascript:void(0)" th:data-page="${currentPage + 1}" onclick="loadGenrePage(Number(this.dataset.page))" th:classappend="${currentPage >= totalPages - 1} ? 'disabled'" class="page-link">›</a>
+        <a href="javascript:void(0)" th:data-page="${totalPages - 1}" onclick="loadGenrePage(Number(this.dataset.page))" th:classappend="${currentPage >= totalPages - 1} ? 'disabled'" class="page-link">»</a>
     </div>
 
     <!-- 장르 모달 -->

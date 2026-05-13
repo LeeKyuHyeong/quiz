@@ -308,56 +308,175 @@ function viewBatchDetail(batchId) {
         .then(function(data) {
             document.getElementById('batchDetailTitle').textContent = data.name + ' 상세';
 
-            var html = '<div class="detail-grid">';
-            html += '<div class="detail-item"><span class="detail-label">배치 ID</span><span class="detail-value"><code>' + data.batchId + '</code></span></div>';
-            html += '<div class="detail-item"><span class="detail-label">대상 엔티티</span><span class="detail-value">' + data.targetEntity + '</span></div>';
-            html += '<div class="detail-item"><span class="detail-label">우선순위</span><span class="detail-value"><span class="batch-priority ' + data.priority.toLowerCase() + '">' + data.priority + '</span></span></div>';
-            html += '<div class="detail-item"><span class="detail-label">Cron 표현식</span><span class="detail-value"><code>' + data.cronExpression + '</code></span></div>';
-            html += '<div class="detail-item"><span class="detail-label">실행 주기</span><span class="detail-value">' + data.scheduleText + '</span></div>';
-            html += '<div class="detail-item"><span class="detail-label">상태</span><span class="detail-value">';
-            html += data.implemented ? '<span class="status-badge active">구현됨</span>' : '<span class="status-badge inactive">미구현</span>';
-            html += data.enabled ? '<span class="status-badge active">활성화</span>' : '<span class="status-badge inactive">비활성화</span>';
-            if (data.isScheduled) html += '<span class="status-badge scheduled">스케줄됨</span>';
-            html += '</span></div>';
-            html += '<div class="detail-item full-width"><span class="detail-label">설명</span><span class="detail-value">' + data.description + '</span></div>';
-            html += '</div>';
-
-            if (data.lastExecutedAt) {
-                html += '<div class="detail-section"><h4>마지막 실행 정보</h4><div class="detail-grid">';
-                html += '<div class="detail-item"><span class="detail-label">실행 시간</span><span class="detail-value">' + formatDateTime(data.lastExecutedAt) + '</span></div>';
-                html += '<div class="detail-item"><span class="detail-label">결과</span><span class="detail-value"><span class="result-badge ' + (data.lastResult === 'SUCCESS' ? 'success' : 'fail') + '">' + data.lastResult + '</span></span></div>';
-                html += '<div class="detail-item"><span class="detail-label">처리 건수</span><span class="detail-value">' + (data.lastAffectedCount !== null ? data.lastAffectedCount + '건' : '-') + '</span></div>';
-                html += '<div class="detail-item"><span class="detail-label">소요 시간</span><span class="detail-value">' + (data.lastExecutionTimeMs !== null ? data.lastExecutionTimeMs + 'ms' : '-') + '</span></div>';
-                if (data.lastResultMessage) {
-                    html += '<div class="detail-item full-width"><span class="detail-label">메시지</span><span class="detail-value result-message">' + data.lastResultMessage + '</span></div>';
-                }
-                html += '</div></div>';
-            }
-
-            if (data.recentHistory && data.recentHistory.length > 0) {
-                html += '<div class="detail-section"><h4>최근 실행 이력 (최대 10건)</h4>';
-                html += '<div class="history-table-wrapper"><table class="data-table mini-table"><thead><tr><th>실행 시간</th><th>유형</th><th>결과</th><th>처리</th><th>소요</th><th>메시지</th></tr></thead><tbody>';
-                data.recentHistory.forEach(function(h) {
-                    html += '<tr class="' + (h.result === 'FAIL' ? 'fail-row' : '') + '">';
-                    html += '<td>' + formatDateTime(h.executedAt) + '</td>';
-                    html += '<td><span class="exec-type ' + h.executionType.toLowerCase() + '">' + h.executionType + '</span></td>';
-                    html += '<td><span class="result-badge ' + (h.result === 'SUCCESS' ? 'success' : 'fail') + '">' + h.result + '</span></td>';
-                    html += '<td>' + (h.affectedCount !== null ? h.affectedCount + '건' : '-') + '</td>';
-                    html += '<td>' + (h.executionTimeMs !== null ? h.executionTimeMs + 'ms' : '-') + '</td>';
-                    html += '<td class="message-cell">' + (h.message || '-') + '</td>';
-                    html += '</tr>';
-                });
-                html += '</tbody></table></div></div>';
-            } else {
-                html += '<div class="detail-section"><h4>최근 실행 이력</h4><p class="no-data">실행 이력이 없습니다.</p></div>';
-            }
-
-            document.getElementById('batchDetailContent').innerHTML = html;
+            var container = document.getElementById('batchDetailContent');
+            container.textContent = '';
+            container.appendChild(buildBatchDetailDom(data));
             openModal('batchDetailModal');
         })
         .catch(function() {
             showToast('배치 상세 정보를 불러오는 중 오류가 발생했습니다.', 'error');
         });
+}
+
+function buildBatchDetailDom(data) {
+    var frag = document.createDocumentFragment();
+    var grid = createDetailGrid();
+
+    grid.appendChild(createDetailItem('배치 ID', data.batchId, { code: true }));
+    grid.appendChild(createDetailItem('대상 엔티티', data.targetEntity));
+    grid.appendChild(createDetailItemNode('우선순위', createBadge('batch-priority ' + data.priority.toLowerCase(), data.priority)));
+    grid.appendChild(createDetailItem('Cron 표현식', data.cronExpression, { code: true }));
+    grid.appendChild(createDetailItem('실행 주기', data.scheduleText));
+
+    var statusValue = document.createElement('span');
+    statusValue.className = 'detail-value';
+    statusValue.appendChild(createBadge('status-badge ' + (data.implemented ? 'active' : 'inactive'), data.implemented ? '구현됨' : '미구현'));
+    statusValue.appendChild(createBadge('status-badge ' + (data.enabled ? 'active' : 'inactive'), data.enabled ? '활성화' : '비활성화'));
+    if (data.isScheduled) statusValue.appendChild(createBadge('status-badge scheduled', '스케줄됨'));
+    grid.appendChild(createDetailItemNode('상태', statusValue, { rawValue: true }));
+
+    grid.appendChild(createDetailItem('설명', data.description, { fullWidth: true }));
+    frag.appendChild(grid);
+
+    if (data.lastExecutedAt) {
+        var section = document.createElement('div');
+        section.className = 'detail-section';
+        var h4 = document.createElement('h4');
+        h4.textContent = '마지막 실행 정보';
+        section.appendChild(h4);
+
+        var lastGrid = createDetailGrid();
+        lastGrid.appendChild(createDetailItem('실행 시간', formatDateTime(data.lastExecutedAt)));
+        lastGrid.appendChild(createDetailItemNode('결과', createBadge('result-badge ' + (data.lastResult === 'SUCCESS' ? 'success' : 'fail'), data.lastResult)));
+        lastGrid.appendChild(createDetailItem('처리 건수', data.lastAffectedCount !== null ? data.lastAffectedCount + '건' : '-'));
+        lastGrid.appendChild(createDetailItem('소요 시간', data.lastExecutionTimeMs !== null ? data.lastExecutionTimeMs + 'ms' : '-'));
+        if (data.lastResultMessage) {
+            lastGrid.appendChild(createDetailItem('메시지', data.lastResultMessage, { fullWidth: true, valueClass: 'result-message' }));
+        }
+        section.appendChild(lastGrid);
+        frag.appendChild(section);
+    }
+
+    var historySection = document.createElement('div');
+    historySection.className = 'detail-section';
+    var historyTitle = document.createElement('h4');
+    if (data.recentHistory && data.recentHistory.length > 0) {
+        historyTitle.textContent = '최근 실행 이력 (최대 10건)';
+        historySection.appendChild(historyTitle);
+
+        var wrapper = document.createElement('div');
+        wrapper.className = 'history-table-wrapper';
+        var table = document.createElement('table');
+        table.className = 'data-table mini-table';
+
+        var thead = document.createElement('thead');
+        var headRow = document.createElement('tr');
+        ['실행 시간', '유형', '결과', '처리', '소요', '메시지'].forEach(function(label) {
+            var th = document.createElement('th');
+            th.textContent = label;
+            headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        var tbody = document.createElement('tbody');
+        data.recentHistory.forEach(function(h) {
+            var tr = document.createElement('tr');
+            if (h.result === 'FAIL') tr.className = 'fail-row';
+
+            appendCellText(tr, formatDateTime(h.executedAt));
+            appendCellBadge(tr, 'exec-type ' + h.executionType.toLowerCase(), h.executionType);
+            appendCellBadge(tr, 'result-badge ' + (h.result === 'SUCCESS' ? 'success' : 'fail'), h.result);
+            appendCellText(tr, h.affectedCount !== null ? h.affectedCount + '건' : '-');
+            appendCellText(tr, h.executionTimeMs !== null ? h.executionTimeMs + 'ms' : '-');
+            appendCellText(tr, h.message || '-', 'message-cell');
+
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        wrapper.appendChild(table);
+        historySection.appendChild(wrapper);
+    } else {
+        historyTitle.textContent = '최근 실행 이력';
+        historySection.appendChild(historyTitle);
+        var noData = document.createElement('p');
+        noData.className = 'no-data';
+        noData.textContent = '실행 이력이 없습니다.';
+        historySection.appendChild(noData);
+    }
+    frag.appendChild(historySection);
+
+    return frag;
+}
+
+function createDetailGrid() {
+    var grid = document.createElement('div');
+    grid.className = 'detail-grid';
+    return grid;
+}
+
+function createDetailItem(label, value, opts) {
+    opts = opts || {};
+    var item = document.createElement('div');
+    item.className = 'detail-item' + (opts.fullWidth ? ' full-width' : '');
+
+    var labelEl = document.createElement('span');
+    labelEl.className = 'detail-label';
+    labelEl.textContent = label;
+    item.appendChild(labelEl);
+
+    var valueEl = document.createElement('span');
+    valueEl.className = 'detail-value' + (opts.valueClass ? ' ' + opts.valueClass : '');
+    if (opts.code) {
+        var code = document.createElement('code');
+        code.textContent = value;
+        valueEl.appendChild(code);
+    } else {
+        valueEl.textContent = value;
+    }
+    item.appendChild(valueEl);
+    return item;
+}
+
+function createDetailItemNode(label, valueNode, opts) {
+    opts = opts || {};
+    var item = document.createElement('div');
+    item.className = 'detail-item' + (opts.fullWidth ? ' full-width' : '');
+
+    var labelEl = document.createElement('span');
+    labelEl.className = 'detail-label';
+    labelEl.textContent = label;
+    item.appendChild(labelEl);
+
+    if (opts.rawValue) {
+        item.appendChild(valueNode);
+    } else {
+        var valueEl = document.createElement('span');
+        valueEl.className = 'detail-value';
+        valueEl.appendChild(valueNode);
+        item.appendChild(valueEl);
+    }
+    return item;
+}
+
+function createBadge(className, text) {
+    var span = document.createElement('span');
+    span.className = className;
+    span.textContent = text;
+    return span;
+}
+
+function appendCellText(tr, text, cellClass) {
+    var td = document.createElement('td');
+    if (cellClass) td.className = cellClass;
+    td.textContent = text;
+    tr.appendChild(td);
+}
+
+function appendCellBadge(tr, badgeClass, text) {
+    var td = document.createElement('td');
+    td.appendChild(createBadge(badgeClass, text));
+    tr.appendChild(td);
 }
 
 // 배치 설정 수정 모달

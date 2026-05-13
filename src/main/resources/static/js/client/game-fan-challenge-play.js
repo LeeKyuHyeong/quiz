@@ -109,12 +109,14 @@ function updateUI() {
     // 라이프 표시 동적 생성 (난이도별 라이프 수)
     const livesContainer = document.getElementById('livesContainer');
     if (livesContainer) {
-        let livesHtml = '';
+        livesContainer.textContent = '';
         for (let i = 1; i <= INITIAL_LIVES; i++) {
-            const activeClass = i <= remainingLives ? 'active' : 'lost';
-            livesHtml += `<span class="life ${activeClass}" id="life${i}">&#10084;</span>`;
+            const life = document.createElement('span');
+            life.className = 'life ' + (i <= remainingLives ? 'active' : 'lost');
+            life.id = 'life' + i;
+            life.textContent = '❤';
+            livesContainer.appendChild(life);
         }
-        livesContainer.innerHTML = livesHtml;
     }
 }
 
@@ -370,15 +372,14 @@ function showAnswerResult(result) {
     correctAnswerEl.textContent = result.correctAnswer;
 
     // 라이프 표시 (난이도별 동적)
-    let livesHtml = '';
+    const modalLives = document.getElementById('modalLives');
+    modalLives.textContent = '';
     for (let i = 0; i < INITIAL_LIVES; i++) {
-        if (i < result.remainingLives) {
-            livesHtml += '<span class="life active">&#10084;</span>';
-        } else {
-            livesHtml += '<span class="life lost">&#10084;</span>';
-        }
+        const life = document.createElement('span');
+        life.className = 'life ' + (i < result.remainingLives ? 'active' : 'lost');
+        life.textContent = '❤';
+        modalLives.appendChild(life);
     }
-    document.getElementById('modalLives').innerHTML = livesHtml;
     document.getElementById('modalCorrect').textContent = result.correctCount;
 
     // 게임 오버 체크

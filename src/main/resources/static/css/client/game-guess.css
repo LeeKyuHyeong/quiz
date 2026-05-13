@@ -849,12 +849,12 @@
 }
 
 .unified-header .btn-end {
-    background: rgba(239, 68, 68, 0.4);
+    background: var(--status-danger-bg-strong);
     color: white !important;
 }
 
 .unified-header .btn-end:hover {
-    background: rgba(239, 68, 68, 0.6);
+    background: var(--status-danger-bg-strong-hover);
     color: white !important;
 }
 
@@ -903,7 +903,7 @@
 
 .btn-ready:hover {
     transform: scale(1.05);
-    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+    box-shadow: var(--shadow-glow-success);
 }
 
 /* ========================================
@@ -940,8 +940,8 @@
    정답 모달 내 점수 표시 영역
    ======================================== */
 .answer-modal .user-answer-info {
-    background: rgba(34, 197, 94, 0.15);
-    border: 1px solid rgba(34, 197, 94, 0.3);
+    background: var(--success-bg-transparent);
+    border: 1px solid var(--status-success-bg-hover);
     border-radius: 0.75rem;
     padding: 1rem;
     margin-bottom: 1rem;

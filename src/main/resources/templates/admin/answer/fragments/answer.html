@@ -85,19 +85,20 @@
 
     <!-- 페이징 -->
     <div class="pagination" th:if="${totalPages > 0}">
-        <a href="javascript:void(0)" onclick="loadAnswerPage(0)" th:classappend="${currentPage == 0} ? 'disabled'" class="page-link">«</a>
-        <a href="javascript:void(0)" th:onclick="'loadAnswerPage(' + ${currentPage - 1} + ')'" th:classappend="${currentPage == 0} ? 'disabled'" class="page-link">‹</a>
+        <a href="javascript:void(0)" th:data-page="0" onclick="loadAnswerPage(Number(this.dataset.page))" th:classappend="${currentPage == 0} ? 'disabled'" class="page-link">«</a>
+        <a href="javascript:void(0)" th:data-page="${currentPage - 1}" onclick="loadAnswerPage(Number(this.dataset.page))" th:classappend="${currentPage == 0} ? 'disabled'" class="page-link">‹</a>
 
         <th:block th:each="i : ${#numbers.sequence(0, totalPages - 1)}">
             <a th:if="${i >= currentPage - 2 and i <= currentPage + 2}"
                href="javascript:void(0)"
-               th:onclick="'loadAnswerPage(' + ${i} + ')'"
+               th:data-page="${i}"
+               onclick="loadAnswerPage(Number(this.dataset.page))"
                th:text="${i + 1}"
                th:classappend="${i == currentPage} ? 'active'" class="page-link"></a>
         </th:block>
 
-        <a href="javascript:void(0)" th:onclick="'loadAnswerPage(' + ${currentPage + 1} + ')'" th:classappend="${currentPage >= totalPages - 1} ? 'disabled'" class="page-link">›</a>
-        <a href="javascript:void(0)" th:onclick="'loadAnswerPage(' + ${totalPages - 1} + ')'" th:classappend="${currentPage >= totalPages - 1} ? 'disabled'" class="page-link">»</a>
+        <a href="javascript:void(0)" th:data-page="${currentPage + 1}" onclick="loadAnswerPage(Number(this.dataset.page))" th:classappend="${currentPage >= totalPages - 1} ? 'disabled'" class="page-link">›</a>
+        <a href="javascript:void(0)" th:data-page="${totalPages - 1}" onclick="loadAnswerPage(Number(this.dataset.page))" th:classappend="${currentPage >= totalPages - 1} ? 'disabled'" class="page-link">»</a>
     </div>
 
     <!-- 안내 -->

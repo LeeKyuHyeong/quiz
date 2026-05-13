@@ -1329,22 +1329,22 @@
 }
 
 [data-theme="dark"] .guess-item.artist:hover {
-    background: rgba(245, 158, 11, 0.2);
+    background: var(--guess-hover-warning);
     border-color: var(--warning);
 }
 
 [data-theme="dark"] .guess-item.genre:hover {
-    background: rgba(34, 197, 94, 0.2);
+    background: var(--guess-hover-success);
     border-color: var(--success);
 }
 
 [data-theme="dark"] .guess-item.retro:hover {
-    background: rgba(59, 130, 246, 0.2);
+    background: var(--guess-hover-info);
     border-color: var(--info);
 }
 
 [data-theme="dark"] .bento-host {
-    background: linear-gradient(135deg, rgba(146, 112, 12, 0.3) 0%, rgba(146, 112, 12, 0.2) 100%);
+    background: var(--bento-bg-dark-gold);
 }
 
 [data-theme="dark"] .bento-host h2,
@@ -1357,7 +1357,7 @@
 }
 
 [data-theme="dark"] .bento-myrank {
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.3) 0%, rgba(99, 102, 241, 0.2) 100%);
+    background: var(--bento-bg-dark-primary);
 }
 
 [data-theme="dark"] .bento-myrank h2,
@@ -1391,7 +1391,7 @@
 }
 
 [data-theme="dark"] .bento-community {
-    background: linear-gradient(135deg, rgba(236, 72, 153, 0.3) 0%, rgba(236, 72, 153, 0.2) 100%);
+    background: var(--bento-bg-dark-pink);
 }
 
 [data-theme="dark"] .bento-community h2,
@@ -1404,7 +1404,7 @@
 }
 
 [data-theme="dark"] .bento-stats {
-    background: linear-gradient(135deg, rgba(34, 197, 94, 0.3) 0%, rgba(34, 197, 94, 0.2) 100%);
+    background: var(--bento-bg-dark-success);
 }
 
 [data-theme="dark"] .bento-stats h2,
@@ -1417,7 +1417,7 @@
 }
 
 [data-theme="dark"] .bento-ranking {
-    background: linear-gradient(135deg, rgba(245, 158, 11, 0.3) 0%, rgba(245, 158, 11, 0.2) 100%);
+    background: var(--bento-bg-dark-warning);
 }
 
 [data-theme="dark"] .bento-ranking h2,

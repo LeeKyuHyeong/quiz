@@ -826,7 +826,7 @@ function showAnswerModal(winner, isGameOver) {
     if (winner) {
         header.textContent = '🎉 정답!';
         header.className = 'answer-header correct';
-        winnerInfo.innerHTML = `<span class="winner-name">${winner}</span> 정답! +100점`;
+        winnerInfo.innerHTML = `<span class="winner-name">${escapeHtml(winner)}</span> 정답! +100점`;
     } else {
         header.textContent = '⏭ 스킵';
         header.className = 'answer-header skip';

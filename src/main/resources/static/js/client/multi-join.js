@@ -90,7 +90,7 @@ function showRoomInfo(data) {
     const participantList = document.getElementById('participantList');
     participantList.innerHTML = data.participants.map(p => `
         <span class="participant-tag ${p.isHost ? 'host' : ''}">
-            ${p.isHost ? '👑 ' : ''}${p.nickname}
+            ${p.isHost ? '👑 ' : ''}${escapeHtml(p.nickname)}
             ${p.isReady ? ' ✓' : ''}
         </span>
     `).join('');

@@ -838,7 +838,7 @@ function showAnswerModal(isCorrect, userAnswer, answerInfo, isGameOver, isSkip =
         header.className = 'answer-header wrong';
         userAnswerInfo.innerHTML = `
             <span class="attempt-info">3번 모두 실패</span>
-            <span class="wrong-text">내 마지막 답: ${userAnswer}</span>
+            <span class="wrong-text">내 마지막 답: ${escapeHtml(userAnswer)}</span>
         `;
     }
 

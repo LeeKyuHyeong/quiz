@@ -36,9 +36,11 @@ async function checkLoginStatus() {
             const adminBtn = result.role === 'ADMIN' ? '<a href="/admin/login" class="btn btn-admin">관리자</a>' : '';
             const adminBtnMobile = result.role === 'ADMIN' ? '<a href="/admin/login" class="mobile-menu-link admin">🛠️ 관리자</a>' : '';
 
+            const safeNickname = escapeHtml(result.nickname);
+
             // 데스크탑 UI
             userInfoDesktop.innerHTML = `
-                <span class="user-greeting">안녕하세요, <strong>${result.nickname}</strong>님!</span>
+                <span class="user-greeting">안녕하세요, <strong>${safeNickname}</strong>님!</span>
                 <a href="/mypage" class="btn btn-mypage">마이페이지</a>
                 <button class="btn btn-logout" onclick="logout()">로그아웃</button>
                 ${adminBtn}
@@ -46,7 +48,7 @@ async function checkLoginStatus() {
 
             // 모바일 UI
             userInfoMobile.innerHTML = `
-                <div class="mobile-user-greeting">안녕하세요, <strong>${result.nickname}</strong>님!</div>
+                <div class="mobile-user-greeting">안녕하세요, <strong>${safeNickname}</strong>님!</div>
                 <a href="/mypage" class="mobile-menu-link">👤 마이페이지</a>
                 <button class="mobile-menu-link" onclick="logout()">🚪 로그아웃</button>
                 ${adminBtnMobile}
@@ -249,11 +251,13 @@ async function loadArtistChallengeRanking(stageLevel = 1) {
                 ? `<div class="artist-card-time">${(item.bestTimeMs / 1000).toFixed(1)}s</div>`
                 : '';
 
+            const safeArtist = escapeHtml(item.artist);
+            const safeNickname = escapeHtml(item.nickname);
             html += `
                 <div class="artist-card">
                     <div class="artist-card-icon">🎵</div>
-                    <div class="artist-card-name" title="${item.artist}">${item.artist}</div>
-                    <div class="artist-card-user">${item.nickname}</div>
+                    <div class="artist-card-name" title="${safeArtist}">${safeArtist}</div>
+                    <div class="artist-card-user">${safeNickname}</div>
                     <div class="artist-card-score">${scoreText}</div>
                     ${timeHtml}
                     ${badgeHtml}
@@ -299,11 +303,13 @@ async function loadGenreChallengeRanking() {
                 ? `<div class="artist-card-time">${(item.bestTimeMs / 1000).toFixed(1)}s</div>`
                 : '';
 
+            const safeGenre = escapeHtml(item.genreName);
+            const safeNickname = escapeHtml(item.nickname);
             html += `
                 <div class="artist-card">
                     <div class="artist-card-icon">🎸</div>
-                    <div class="artist-card-name" title="${item.genreName}">${item.genreName}</div>
-                    <div class="artist-card-user">${item.nickname}</div>
+                    <div class="artist-card-name" title="${safeGenre}">${safeGenre}</div>
+                    <div class="artist-card-user">${safeNickname}</div>
                     <div class="artist-card-score">${scoreText}</div>
                     ${timeHtml}
                 </div>
@@ -364,7 +370,7 @@ async function loadRankingPreview() {
             html += `
                 <div class="ranking-preview-item">
                     <span class="ranking-preview-rank">${medals[index]}</span>
-                    <span class="ranking-preview-name">${item.nickname}</span>
+                    <span class="ranking-preview-name">${escapeHtml(item.nickname)}</span>
                     <span class="ranking-preview-score">${item.totalScore?.toLocaleString() || 0}</span>
                 </div>
             `;

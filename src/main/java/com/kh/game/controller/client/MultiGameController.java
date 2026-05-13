@@ -4,6 +4,7 @@ import com.kh.game.dto.GameSettings;
 import com.kh.game.entity.GameRoom;
 import com.kh.game.entity.GameRoomParticipant;
 import com.kh.game.entity.Member;
+import com.kh.game.exception.BusinessException;
 import com.kh.game.security.CustomUserDetails;
 import com.kh.game.service.GameBroadcastService;
 import com.kh.game.service.GameRoomService;
@@ -14,6 +15,7 @@ import com.kh.game.service.SongService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -26,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Controller
 @RequestMapping("/game/multi")
 @RequiredArgsConstructor
@@ -38,6 +41,18 @@ public class MultiGameController {
     private final SongService songService;
     private final ObjectMapper objectMapper;
     private final GameBroadcastService gameBroadcastService;
+
+    /**
+     * 권한/비즈니스 규칙 위반(방장 검증 실패, 라운드 상태 불일치 등)을
+     * 일관된 JSON 응답으로 변환. 클라이언트 fetch가 Accept 헤더 없이도
+     * JSON.parse 가능하게 보장하고, 감사 로그를 남긴다.
+     */
+    @ExceptionHandler(BusinessException.class)
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> handleBusinessException(BusinessException e) {
+        log.warn("Multi game permission/rule denied: {}", e.getMessage());
+        return ResponseEntity.ok(Map.of("success", false, "message", e.getMessage()));
+    }
 
     // ========== 페이지 ==========
 

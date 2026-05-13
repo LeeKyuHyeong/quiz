@@ -171,13 +171,20 @@ public class AdminMemberController {
     @PostMapping("/update-status/{id}")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> updateStatus(@PathVariable Long id,
-                                                            @RequestParam String status) {
+                                                            @RequestParam String status,
+                                                            @AuthenticationPrincipal CustomUserDetails actor) {
         Map<String, Object> result = new HashMap<>();
         try {
             memberService.updateStatus(id, Member.MemberStatus.valueOf(status));
+            log.info("Admin status change: actorId={}, targetId={}, newStatus={}",
+                    actor.getMember().getId(), id, status);
             result.put("success", true);
             result.put("message", "상태가 변경되었습니다.");
+        } catch (IllegalArgumentException e) {
+            result.put("success", false);
+            result.put("message", "올바르지 않은 상태 값입니다.");
         } catch (Exception e) {
+            log.error("회원 상태 변경 실패: targetId={}", id, e);
             result.put("success", false);
             result.put("message", "상태 변경 중 오류가 발생했습니다.");
         }
@@ -212,13 +219,17 @@ public class AdminMemberController {
 
     @PostMapping("/reset-weekly/{id}")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> resetWeeklyStats(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> resetWeeklyStats(@PathVariable Long id,
+                                                                @AuthenticationPrincipal CustomUserDetails actor) {
         Map<String, Object> result = new HashMap<>();
         try {
             memberService.resetWeeklyStats(id);
+            log.info("Admin weekly stats reset: actorId={}, targetId={}",
+                    actor.getMember().getId(), id);
             result.put("success", true);
             result.put("message", "주간 통계가 초기화되었습니다.");
         } catch (Exception e) {
+            log.error("주간 통계 초기화 실패: targetId={}", id, e);
             result.put("success", false);
             result.put("message", "초기화 중 오류가 발생했습니다.");
         }
@@ -249,7 +260,8 @@ public class AdminMemberController {
 
     @PostMapping("/kick-session/{id}")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> kickSession(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> kickSession(@PathVariable Long id,
+                                                           @AuthenticationPrincipal CustomUserDetails actor) {
         Map<String, Object> result = new HashMap<>();
         try {
             // SessionRegistry에서 해당 사용자의 모든 세션 만료 처리
@@ -264,9 +276,12 @@ public class AdminMemberController {
                     }
                 }
             }
+            log.info("Admin session kick: actorId={}, targetId={}",
+                    actor.getMember().getId(), id);
             result.put("success", true);
             result.put("message", "세션이 강제 종료되었습니다.");
         } catch (Exception e) {
+            log.error("세션 강제 종료 실패: targetId={}", id, e);
             result.put("success", false);
             result.put("message", "세션 종료 중 오류가 발생했습니다.");
         }

@@ -7,6 +7,7 @@ import com.kh.game.repository.GameRoomParticipantRepository;
 import com.kh.game.repository.GameRoomRepository;
 import com.kh.game.service.GameRoomService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -21,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Controller
 @RequestMapping("/admin/room")
 @RequiredArgsConstructor
@@ -162,9 +164,13 @@ public class AdminRoomController {
 
             result.put("success", true);
             result.put("message", "방이 종료되었습니다.");
-        } catch (Exception e) {
+        } catch (IllegalArgumentException e) {
             result.put("success", false);
-            result.put("message", "방 종료 중 오류가 발생했습니다: " + e.getMessage());
+            result.put("message", e.getMessage());
+        } catch (Exception e) {
+            log.error("방 종료 실패: roomId={}", id, e);
+            result.put("success", false);
+            result.put("message", "방 종료 중 오류가 발생했습니다.");
         }
         return ResponseEntity.ok(result);
     }
@@ -188,9 +194,13 @@ public class AdminRoomController {
 
             result.put("success", true);
             result.put("message", "방이 삭제되었습니다.");
-        } catch (Exception e) {
+        } catch (IllegalArgumentException e) {
             result.put("success", false);
-            result.put("message", "방 삭제 중 오류가 발생했습니다: " + e.getMessage());
+            result.put("message", e.getMessage());
+        } catch (Exception e) {
+            log.error("방 삭제 실패: roomId={}", id, e);
+            result.put("success", false);
+            result.put("message", "방 삭제 중 오류가 발생했습니다.");
         }
         return ResponseEntity.ok(result);
     }
@@ -226,9 +236,13 @@ public class AdminRoomController {
             result.put("roomCode", room.getRoomCode());
             result.put("chats", chatList);
             result.put("totalCount", chatList.size());
-        } catch (Exception e) {
+        } catch (IllegalArgumentException e) {
             result.put("success", false);
-            result.put("message", "채팅 내역 조회 중 오류가 발생했습니다: " + e.getMessage());
+            result.put("message", e.getMessage());
+        } catch (Exception e) {
+            log.error("채팅 내역 조회 실패: roomId={}", id, e);
+            result.put("success", false);
+            result.put("message", "채팅 내역 조회 중 오류가 발생했습니다.");
         }
         return ResponseEntity.ok(result);
     }
@@ -245,8 +259,9 @@ public class AdminRoomController {
             result.put("success", true);
             result.put("message", "채팅이 삭제되었습니다.");
         } catch (Exception e) {
+            log.error("채팅 삭제 실패: chatId={}", chatId, e);
             result.put("success", false);
-            result.put("message", "채팅 삭제 중 오류가 발생했습니다: " + e.getMessage());
+            result.put("message", "채팅 삭제 중 오류가 발생했습니다.");
         }
         return ResponseEntity.ok(result);
     }
@@ -266,9 +281,13 @@ public class AdminRoomController {
 
             result.put("success", true);
             result.put("message", "모든 채팅이 삭제되었습니다.");
-        } catch (Exception e) {
+        } catch (IllegalArgumentException e) {
             result.put("success", false);
-            result.put("message", "채팅 삭제 중 오류가 발생했습니다: " + e.getMessage());
+            result.put("message", e.getMessage());
+        } catch (Exception e) {
+            log.error("방 전체 채팅 삭제 실패: roomId={}", roomId, e);
+            result.put("success", false);
+            result.put("message", "채팅 삭제 중 오류가 발생했습니다.");
         }
         return ResponseEntity.ok(result);
     }

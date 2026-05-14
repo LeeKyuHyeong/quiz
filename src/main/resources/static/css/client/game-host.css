@@ -349,7 +349,7 @@
 
 .btn-ready:hover {
     transform: scale(1.05);
-    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+    box-shadow: var(--shadow-glow-success);
 }
 
 /* ========================================

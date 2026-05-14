@@ -1044,30 +1044,30 @@
 }
 
 [data-theme="dark"] .home-btn {
-    background: rgba(99, 102, 241, 0.2);
+    background: var(--status-primary-bg);
     color: #a5b4fc;
 }
 
 [data-theme="dark"] .home-btn:hover {
-    background: rgba(99, 102, 241, 0.3);
+    background: var(--status-primary-bg-hover);
 }
 
 [data-theme="dark"] .logout-btn {
-    background: rgba(239, 68, 68, 0.2);
+    background: var(--status-danger-bg);
     color: #fca5a5;
 }
 
 [data-theme="dark"] .logout-btn:hover {
-    background: rgba(239, 68, 68, 0.3);
+    background: var(--status-danger-bg-hover);
 }
 
 [data-theme="dark"] .theme-toggle-btn {
-    background: rgba(251, 191, 36, 0.2);
+    background: var(--status-warning-bg);
     color: #fcd34d;
 }
 
 [data-theme="dark"] .theme-toggle-btn:hover {
-    background: rgba(251, 191, 36, 0.3);
+    background: var(--status-warning-bg-hover);
 }
 
 [data-theme="dark"] .mobile-menu-btn {

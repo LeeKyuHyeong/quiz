@@ -80,7 +80,7 @@
 
 .btn-ready:hover {
     transform: scale(1.05);
-    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+    box-shadow: var(--shadow-glow-success);
 }
 
 /* ========================================
@@ -118,7 +118,7 @@
    ======================================== */
 .answer-modal .user-answer-info {
     background: rgba(34, 197, 94, 0.15);
-    border: 1px solid rgba(34, 197, 94, 0.3);
+    border: 1px solid var(--game-correct-glow);
     border-radius: 0.75rem;
     padding: 1rem;
     margin-bottom: 1rem;

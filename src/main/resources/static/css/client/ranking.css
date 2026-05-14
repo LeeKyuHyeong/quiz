@@ -128,7 +128,7 @@
 
 .mobile-tab-select select:focus {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 0 0 3px var(--game-focus-outline);
 }
 
 /* Ranking Type Tabs */
@@ -234,7 +234,7 @@
 
 .genre-select-container select:focus {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 0 0 3px var(--game-focus-outline);
 }
 
 /* Stats Tabs Container */

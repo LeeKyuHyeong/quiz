@@ -54,23 +54,20 @@ jobs:
         key: ${{ secrets.SERVER_SSH_KEY }}
         port: ${{ secrets.SERVER_PORT }}
         script: |
+          set -euo pipefail
           echo "========== 배포 시작 =========="
           cd /root/game
 
-          echo "1. 최신 이미지 Pull"
-          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/khgame-app:latest
+          echo "1. 최신 이미지 Pull (compose 기준)"
+          docker compose pull app
 
-          echo "2. 기존 앱 컨테이너 중지"
-          docker-compose stop app 2>/dev/null || true
-          docker-compose rm -f app 2>/dev/null || true
+          echo "2. 앱 컨테이너 강제 재생성 (DB는 건드리지 않음)"
+          docker compose up -d --no-deps --force-recreate app
 
-          echo "3. 앱 컨테이너 시작"
-          docker-compose up -d app
-
-          echo "4. 사용하지 않는 이미지 정리"
+          echo "3. 사용하지 않는 이미지 정리"
           docker image prune -f
 
-          echo "5. 컨테이너 상태 확인"
-          docker-compose ps
+          echo "4. 컨테이너 상태 확인"
+          docker compose ps
 
           echo "========== 배포 완료 =========="

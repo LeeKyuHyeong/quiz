@@ -347,3 +347,41 @@
 .report-detail p {
     margin: 0.5rem 0;
 }
+
+/* ========================================
+   Report Process Modal - 기본 스타일 (라이트 모드 + PC)
+   ======================================== */
+.form-readonly {
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    color: var(--text-primary);
+    font-size: 0.9375rem;
+    min-height: 2.25rem;
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.form-readonly-multiline {
+    white-space: pre-wrap;
+    min-height: 3.5rem;
+    max-height: 12rem;
+    overflow-y: auto;
+}
+
+.text-muted {
+    color: var(--text-muted);
+}
+
+/* 모바일 (480px 이하) */
+@media (max-width: 480px) {
+    .form-readonly {
+        font-size: 0.875rem;
+        padding: 0.5rem;
+    }
+
+    .form-readonly-multiline {
+        max-height: 8rem;
+    }
+}

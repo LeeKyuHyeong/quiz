@@ -688,6 +688,68 @@ async function processReport(id, status) {
     }
 }
 
+function openProcessModal(button) {
+    const id = button.dataset.id;
+    const title = button.dataset.songTitle || '';
+    const artist = button.dataset.songArtist || '';
+    const reportType = button.dataset.reportType || '';
+    const description = button.dataset.description || '';
+    const currentStatus = button.dataset.status || 'PENDING';
+
+    document.getElementById('reportProcessId').value = id;
+    document.getElementById('reportProcessSongTitle').textContent = title;
+    document.getElementById('reportProcessSongArtist').textContent = artist;
+    document.getElementById('reportProcessType').textContent = reportType;
+    document.getElementById('reportProcessDescription').textContent = description || '(내용 없음)';
+
+    const statusSelect = document.getElementById('reportProcessStatus');
+    statusSelect.value = (currentStatus === 'PENDING') ? 'CONFIRMED' : currentStatus;
+
+    document.getElementById('reportProcessAdminNote').value = '';
+
+    openModal('reportProcessModal');
+}
+
+function closeProcessModal() {
+    closeModal('reportProcessModal');
+}
+
+async function submitProcessReport(event) {
+    event.preventDefault();
+
+    const id = document.getElementById('reportProcessId').value;
+    const status = document.getElementById('reportProcessStatus').value;
+    const adminNote = document.getElementById('reportProcessAdminNote').value || '';
+
+    if (!id || !status) {
+        showToast('필수 정보가 누락되었습니다.', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/admin/report/process/${id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: status, adminNote: adminNote })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            showToast(result.message || '처리되었습니다.', 'success');
+            closeProcessModal();
+            loadTabContent('report');
+        } else {
+            showToast(result.message || '처리에 실패했습니다.', 'error');
+        }
+    } catch (error) {
+        showToast('처리 중 오류가 발생했습니다.', 'error');
+    }
+}
+
+function disableSong(id) {
+    return disableReportedSong(id);
+}
+
 async function disableReportedSong(id) {
     if (!confirm('해당 곡을 비활성화하고 신고를 승인 처리하시겠습니까?')) return;
 

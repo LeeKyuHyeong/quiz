@@ -242,6 +242,57 @@
     </div>
 </div>
 
+<!-- 신고 처리 모달 -->
+<div id="reportProcessModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>신고 처리</h2>
+            <button class="close-btn" onclick="closeProcessModal()">&times;</button>
+        </div>
+        <form id="reportProcessForm" class="modal-form" onsubmit="submitProcessReport(event)">
+            <input type="hidden" id="reportProcessId">
+
+            <div class="form-group">
+                <label>곡 정보</label>
+                <div class="form-readonly">
+                    <span id="reportProcessSongTitle"></span>
+                    <span class="text-muted"> - </span>
+                    <span id="reportProcessSongArtist"></span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>신고 유형</label>
+                <div class="form-readonly" id="reportProcessType"></div>
+            </div>
+
+            <div class="form-group">
+                <label>신고 내용</label>
+                <div class="form-readonly form-readonly-multiline" id="reportProcessDescription"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="reportProcessStatus">처리 상태 *</label>
+                <select id="reportProcessStatus" required>
+                    <option value="CONFIRMED">확인됨 (유효한 신고)</option>
+                    <option value="REJECTED">반려 (신고 사유 부적합)</option>
+                    <option value="RESOLVED">해결됨 (조치 완료)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="reportProcessAdminNote">관리자 메모</label>
+                <textarea id="reportProcessAdminNote" rows="3" placeholder="처리 사유 또는 메모 (선택사항)"></textarea>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-cancel" onclick="closeProcessModal()">취소</button>
+                <button type="submit" class="btn btn-primary">처리</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- 곡 상세 모달 (대중성 투표) -->
 <div id="songDetailModal" class="modal">
     <div class="modal-content modal-md">

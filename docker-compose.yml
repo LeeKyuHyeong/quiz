@@ -7,6 +7,7 @@ services:
     container_name: khgame-db
     restart: unless-stopped
     environment:
+      TZ: Asia/Seoul
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_DATABASE: song
       MYSQL_USER: ${DB_USERNAME}

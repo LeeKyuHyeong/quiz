@@ -16,10 +16,13 @@ services:
       - khgame-db-data:/var/lib/mysql
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      # healthcheck.sh 는 볼륨 init 때 생성되는 전용 계정 필요 — 구버전 init 볼륨이라 항상 unhealthy
+      # → root SELECT 1 로 교체 (2026-06-05, khshop 과 동일 문제 예방)
+      test: ["CMD-SHELL", "mariadb -u root -p\"$$MYSQL_ROOT_PASSWORD\" -e 'SELECT 1'"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     deploy:
       resources:
         limits:

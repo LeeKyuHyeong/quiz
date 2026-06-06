@@ -34,7 +34,7 @@ services:
     container_name: quiz-app
     restart: unless-stopped
     ports:
-      - "8082:8082"
+      - "127.0.0.1:8082:8082"  # 앱 포트는 localhost 전용(nginx 프록시만 접근) — dashboard 헬스체크는 공개 도메인이라 무관
     environment:
       SPRING_PROFILES_ACTIVE: prod
       SPRING_DATASOURCE_URL: jdbc:mariadb://db:3306/song?useUnicode=true&characterEncoding=utf8mb4

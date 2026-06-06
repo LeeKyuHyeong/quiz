@@ -58,8 +58,12 @@ jobs:
           echo "========== 배포 시작 =========="
           cd /root/quiz
 
-          echo "1. 최신 이미지 Pull (compose 기준)"
-          docker compose pull app
+          echo "0. compose/설정 동기화 (compose 변경도 푸시만으로 반영)"
+          git pull --ff-only
+
+          echo "1. 이미지 Pull (커밋 SHA 태그 — :latest 전파 지연 레이스 방지)"
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/quiz-app:${{ github.sha }}
+          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/quiz-app:${{ github.sha }} ${{ secrets.DOCKERHUB_USERNAME }}/quiz-app:latest
 
           echo "2. 앱 컨테이너 강제 재생성 (DB는 건드리지 않음)"
           docker compose up -d --no-deps --force-recreate app

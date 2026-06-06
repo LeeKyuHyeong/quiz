@@ -4,7 +4,7 @@ services:
     image: mariadb:10.11
     ports:
       - "3308:3306"
-    container_name: khgame-db
+    container_name: quiz-db
     restart: unless-stopped
     environment:
       TZ: Asia/Seoul
@@ -13,7 +13,7 @@ services:
       MYSQL_USER: ${DB_USERNAME}
       MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - khgame-db-data:/var/lib/mysql
+      - db-data:/var/lib/mysql
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     healthcheck:
       # healthcheck.sh 는 볼륨 init 때 생성되는 전용 계정 필요 — 구버전 init 볼륨이라 항상 unhealthy
@@ -30,8 +30,8 @@ services:
 
   # Spring Boot App
   app:
-    image: ${DOCKERHUB_USERNAME}/khgame-app:latest
-    container_name: khgame-app
+    image: ${DOCKERHUB_USERNAME}/quiz-app:latest
+    container_name: quiz-app
     restart: unless-stopped
     ports:
       - "8082:8082"
@@ -44,7 +44,7 @@ services:
       MAIL_FROM: ${MAIL_FROM}
       TZ: Asia/Seoul
     volumes:
-      - khgame-uploads:/app/uploads
+      - uploads:/app/uploads
       - /etc/localtime:/etc/localtime:ro
     depends_on:
       db:
@@ -55,5 +55,5 @@ services:
           memory: 512M
 
 volumes:
-  khgame-db-data:
-  khgame-uploads:
+  db-data:
+  uploads:

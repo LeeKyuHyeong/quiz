@@ -506,7 +506,7 @@ function startPollingFallback() {
 
 ```yaml
 app:
-  image: khgame-app:latest
+  image: quiz-app:latest
   memory: 512M (-Xms256m -Xmx512m, G1GC)
   base: eclipse-temurin:17-jre-alpine
   environment:

@@ -50,6 +50,7 @@ services:
       BREVO_API_KEY: ${BREVO_API_KEY}
       MAIL_FROM: ${MAIL_FROM}
       TZ: Asia/Seoul
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60 -XX:+UseSerialGC"
     volumes:
       - uploads:/app/uploads
       - /etc/localtime:/etc/localtime:ro

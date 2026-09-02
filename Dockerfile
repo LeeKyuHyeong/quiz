@@ -16,7 +16,8 @@ RUN mkdir -p /app/uploads/songs
 COPY target/*.war app.war
 
 # 메모리 제한 설정
-ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC"
+# 미적용 — exec-form ENTRYPOINT는 env 미확장. 다음 재빌드 때 제거
+#ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC"
 
 EXPOSE 8082
 

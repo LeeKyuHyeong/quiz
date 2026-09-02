@@ -12,7 +12,7 @@
 
 노래를 듣고 제목을 맞추는 실시간 대전 게임 · 솔로/멀티/팬챌린지 등 5가지 게임 모드
 
-[🎮 플레이하기](https://game.kiryong.com)
+[🎮 플레이하기](https://game.kyuhyeong.com)
 
 </div>
 

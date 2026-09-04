@@ -50,7 +50,8 @@ services:
       BREVO_API_KEY: ${BREVO_API_KEY}
       MAIL_FROM: ${MAIL_FROM}
       TZ: Asia/Seoul
-      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60 -XX:+UseSerialGC"
+      # 50%: limit 상향분을 힙이 먹지 않도록. 힙 320MiB 유지가 목적
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=50 -XX:+UseSerialGC"
     volumes:
       - uploads:/app/uploads
       - /etc/localtime:/etc/localtime:ro
@@ -61,9 +62,6 @@ services:
       resources:
         limits:
           memory: 640M      # 512M → 640M. peak 471/512=92% (2026-09-04 측정)
-      environment:
-        # 50%: limit 상향분을 힙이 먹지 않도록. 힙 320MiB 유지가 목적
-        JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=50 -XX:+UseSerialGC"
     logging:
       driver: json-file
       options:

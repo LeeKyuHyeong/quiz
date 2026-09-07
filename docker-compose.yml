@@ -1,7 +1,7 @@
 services:
   # MariaDB
   db:
-    image: mariadb:10.11
+    image: mariadb:11.8
     # localhost 전용 (2026-07-24) — 외부 접속은 SSH 터널(Tailscale). 0.0.0.0 금지.
     ports:
       - "127.0.0.1:3308:3306"
@@ -13,6 +13,7 @@ services:
       MYSQL_DATABASE: song
       MYSQL_USER: ${DB_USERNAME}
       MYSQL_PASSWORD: ${DB_PASSWORD}
+      MARIADB_AUTO_UPGRADE: "1"
     volumes:
       - db-data:/var/lib/mysql
     # 뒤쪽 3개 플래그: 메모리 튜닝 (2026-07-24) — 버퍼풀 96M, 커넥션 50, perf 스키마 OFF

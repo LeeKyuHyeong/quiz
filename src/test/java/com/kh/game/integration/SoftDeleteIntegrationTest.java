@@ -1,6 +1,7 @@
 package com.kh.game.integration;
 
 import com.kh.game.entity.*;
+import com.kh.game.exception.BusinessException;
 import com.kh.game.repository.*;
 import com.kh.game.service.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -229,8 +230,8 @@ class SoftDeleteIntegrationTest {
             // When & Then: 0곡이면 20곡 이상 에러
             assertThatThrownBy(() ->
                     fanChallengeService.startChallenge(testMember, "테스터", "Test Artist", FanChallengeDifficulty.HARDCORE)
-            ).isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("20곡 이상")
+            ).isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("도전할 수 없습니다")
                     .hasMessageContaining("현재 0곡");
         }
     }

@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -139,6 +140,7 @@ class GameHostControllerTest {
                 """;
 
             mockMvc.perform(post("/game/solo/host/song-count")
+                    .with(csrf())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(requestBody))
                 .andExpect(status().isOk())
@@ -155,6 +157,7 @@ class GameHostControllerTest {
                 """;
 
             mockMvc.perform(post("/game/solo/host/song-count")
+                    .with(csrf())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(requestBody))
                 .andExpect(status().isOk())
@@ -171,6 +174,7 @@ class GameHostControllerTest {
                 """;
 
             mockMvc.perform(post("/game/solo/host/song-count")
+                    .with(csrf())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(requestBody))
                 .andExpect(status().isOk())
@@ -187,6 +191,7 @@ class GameHostControllerTest {
                 """;
 
             mockMvc.perform(post("/game/solo/host/song-count")
+                    .with(csrf())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(requestBody))
                 .andExpect(status().isOk())
@@ -204,6 +209,7 @@ class GameHostControllerTest {
                 """;
 
             mockMvc.perform(post("/game/solo/host/song-count")
+                    .with(csrf())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(requestBody))
                 .andExpect(status().isOk())
@@ -230,6 +236,7 @@ class GameHostControllerTest {
                 """;
 
             mockMvc.perform(post("/game/solo/host/start")
+                    .with(csrf())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(requestBody))
                 .andExpect(status().isOk())
@@ -252,6 +259,7 @@ class GameHostControllerTest {
                 """;
 
             mockMvc.perform(post("/game/solo/host/start")
+                    .with(csrf())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(requestBody))
                 .andExpect(status().isOk())

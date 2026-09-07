@@ -34,7 +34,7 @@ public class GameRoomParticipant {
     @Column(nullable = false)
     private Boolean roundReady = false;  // 라운드 준비 상태 (광고 시청 완료)
 
-    @Column(nullable = false, columnDefinition = "TINYINT(1) DEFAULT 0")
+    @Column(nullable = false)
     private Boolean skipVote = false;  // 라운드 스킵 투표 여부
 
     @Column(nullable = false)

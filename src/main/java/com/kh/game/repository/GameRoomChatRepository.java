@@ -12,7 +12,9 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 @Repository
@@ -60,9 +62,15 @@ public interface GameRoomChatRepository extends JpaRepository<GameRoomChat, Long
             @Param("endDate") LocalDateTime endDate,
             Pageable pageable);
 
-    // 오늘 채팅 수
-    @Query("SELECT COUNT(c) FROM GameRoomChat c WHERE c.createdAt >= CURRENT_DATE")
-    long countTodayChats();
+    // 오늘 채팅 수 (createdAt 기준, 오늘 0시 이후)
+    @Query("SELECT COUNT(c) FROM GameRoomChat c WHERE c.createdAt >= :start")
+    long countByCreatedAtGreaterThanEqual(@Param("start") LocalDateTime start);
+
+    // "오늘"은 Asia/Seoul 기준 (DB 세션 TZ에 의존하지 않도록 코드에 명시)
+    default long countTodayChats() {
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        return countByCreatedAtGreaterThanEqual(today.atStartOfDay());
+    }
 
     // 기간별 채팅 수 (배치용)
     long countByCreatedAtBetween(LocalDateTime start, LocalDateTime end);

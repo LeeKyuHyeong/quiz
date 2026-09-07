@@ -1,6 +1,7 @@
 package com.kh.game.service;
 
 import com.kh.game.entity.*;
+import com.kh.game.exception.BusinessException;
 import com.kh.game.repository.GameSessionRepository;
 import com.kh.game.repository.GenreRepository;
 import com.kh.game.repository.SongAnswerRepository;
@@ -116,8 +117,8 @@ class FanChallengeServiceTest {
             // When & Then
             assertThatThrownBy(() -> fanChallengeService.startChallenge(
                     null, "테스터", "Few Songs Artist", FanChallengeDifficulty.HARDCORE))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("20곡 이상");
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("도전할 수 없습니다");
         }
 
         @Test
@@ -131,8 +132,8 @@ class FanChallengeServiceTest {
             // When & Then
             assertThatThrownBy(() -> fanChallengeService.startChallenge(
                     null, "테스터", "Boundary Artist", FanChallengeDifficulty.HARDCORE))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("20곡 이상")
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("도전할 수 없습니다")
                     .hasMessageContaining("현재 19곡");
         }
 
@@ -410,8 +411,8 @@ class FanChallengeServiceTest {
             // When & Then: 0곡이면 "20곡 이상" 에러 메시지
             assertThatThrownBy(() ->
                     fanChallengeService.startChallenge(null, "테스터", "없는 아티스트", FanChallengeDifficulty.HARDCORE)
-            ).isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("20곡 이상")
+            ).isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("도전할 수 없습니다")
                     .hasMessageContaining("현재 0곡");
         }
     }
@@ -448,7 +449,7 @@ class FanChallengeServiceTest {
             // When & Then: 완료된 게임에 다시 답안 제출
             assertThatThrownBy(() ->
                     fanChallengeService.processAnswer(session.getId(), 1, "다른 답", 5000)
-            ).isInstanceOf(IllegalStateException.class)
+            ).isInstanceOf(BusinessException.class)
                     .hasMessageContaining("게임이 진행 중이 아닙니다");
         }
     }
@@ -491,11 +492,11 @@ class FanChallengeServiceTest {
         @Test
         @DisplayName("난이도별 시간 제한 확인")
         void difficultyTimeSettings() {
-            // 노말: 5초 + 5초 = 10초
-            assertThat(FanChallengeDifficulty.NORMAL.getTotalTimeMs()).isEqualTo(10000);
+            // 노말: 7초(재생) + 6초(입력) = 13초
+            assertThat(FanChallengeDifficulty.NORMAL.getTotalTimeMs()).isEqualTo(13000);
 
-            // 하드코어: 3초 + 5초 = 8초
-            assertThat(FanChallengeDifficulty.HARDCORE.getTotalTimeMs()).isEqualTo(8000);
+            // 하드코어: 5초(재생) + 5초(입력) = 10초
+            assertThat(FanChallengeDifficulty.HARDCORE.getTotalTimeMs()).isEqualTo(10000);
         }
 
         @Test
@@ -751,8 +752,8 @@ class FanChallengeServiceTest {
             // When & Then: 19곡만 남아 시작 불가
             assertThatThrownBy(() -> fanChallengeService.startChallenge(
                     null, "테스터", "Deactivation Artist", FanChallengeDifficulty.HARDCORE))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("20곡 이상");
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("도전할 수 없습니다");
         }
 
         @Test
@@ -774,8 +775,8 @@ class FanChallengeServiceTest {
             // When & Then: 19곡만 남아 시작 불가
             assertThatThrownBy(() -> fanChallengeService.startChallenge(
                     null, "테스터", "Exact20 Artist", FanChallengeDifficulty.HARDCORE))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("20곡 이상");
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("도전할 수 없습니다");
         }
 
         @Test
@@ -854,8 +855,8 @@ class FanChallengeServiceTest {
             // When & Then: 19곡만 남아 시작 불가
             assertThatThrownBy(() -> fanChallengeService.startChallenge(
                     null, "테스터", "SoftDelete Artist", FanChallengeDifficulty.HARDCORE))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("20곡 이상");
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("도전할 수 없습니다");
         }
     }
 

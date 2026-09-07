@@ -11,6 +11,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -92,9 +95,15 @@ public interface GenreChallengeRecordRepository extends JpaRepository<GenreChall
            "FROM GenreChallengeRecord r GROUP BY r.genre.code, r.genre.name ORDER BY COUNT(r) DESC")
     List<Object[]> getGenreStatistics();
 
-    // 오늘 도전 기록 수
-    @Query("SELECT COUNT(r) FROM GenreChallengeRecord r WHERE DATE(r.achievedAt) = CURRENT_DATE")
-    long countTodayRecords();
+    // 오늘 도전 기록 수 (achievedAt 기준, 반열림 구간 [start, end))
+    @Query("SELECT COUNT(r) FROM GenreChallengeRecord r WHERE r.achievedAt >= :start AND r.achievedAt < :end")
+    long countByAchievedAtBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    // "오늘"은 Asia/Seoul 기준 (DB 세션 TZ에 의존하지 않도록 코드에 명시)
+    default long countTodayRecords() {
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        return countByAchievedAtBetween(today.atStartOfDay(), today.plusDays(1).atStartOfDay());
+    }
 
     // 고유 장르 수
     @Query("SELECT COUNT(DISTINCT r.genre) FROM GenreChallengeRecord r")

@@ -25,6 +25,7 @@ import java.util.Map;
 import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -171,7 +172,7 @@ class RetroGameControllerTest {
             request.put("totalRounds", 5);
             request.put("settings", new HashMap<>());
 
-            mockMvc.perform(post("/game/retro/start")
+            mockMvc.perform(post("/game/retro/start").with(csrf())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -192,7 +193,7 @@ class RetroGameControllerTest {
             request.put("totalRounds", 5);
             request.put("settings", new HashMap<>());
 
-            mockMvc.perform(post("/game/retro/start")
+            mockMvc.perform(post("/game/retro/start").with(csrf())
                     .session(session)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
@@ -223,7 +224,7 @@ class RetroGameControllerTest {
         void songCount_shouldReturnRetroSongCount() throws Exception {
             Map<String, Object> request = new HashMap<>();
 
-            mockMvc.perform(post("/game/retro/song-count")
+            mockMvc.perform(post("/game/retro/song-count").with(csrf())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -241,7 +242,7 @@ class RetroGameControllerTest {
             Map<String, Object> request = new HashMap<>();
             request.put("soloOnly", true);
 
-            mockMvc.perform(post("/game/retro/song-count")
+            mockMvc.perform(post("/game/retro/song-count").with(csrf())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -263,7 +264,7 @@ class RetroGameControllerTest {
             request.put("roundNumber", 1);
             request.put("answer", "테스트답변");
 
-            mockMvc.perform(post("/game/retro/answer")
+            mockMvc.perform(post("/game/retro/answer").with(csrf())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -282,7 +283,7 @@ class RetroGameControllerTest {
             startRequest.put("totalRounds", 5);
             startRequest.put("settings", new HashMap<>());
 
-            mockMvc.perform(post("/game/retro/start")
+            mockMvc.perform(post("/game/retro/start").with(csrf())
                     .session(session)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(startRequest)))
@@ -302,14 +303,14 @@ class RetroGameControllerTest {
 
             // 3번 틀려서 라운드 종료
             for (int i = 0; i < 3; i++) {
-                mockMvc.perform(post("/game/retro/answer")
+                mockMvc.perform(post("/game/retro/answer").with(csrf())
                         .session(session)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(answerRequest)));
             }
 
             // 마지막 응답 확인
-            mockMvc.perform(post("/game/retro/answer")
+            mockMvc.perform(post("/game/retro/answer").with(csrf())
                     .session(session)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(answerRequest)))
@@ -359,7 +360,7 @@ class RetroGameControllerTest {
             startRequest.put("totalRounds", 5);
             startRequest.put("settings", new HashMap<>());
 
-            mockMvc.perform(post("/game/retro/start")
+            mockMvc.perform(post("/game/retro/start").with(csrf())
                     .session(session)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(startRequest)))
@@ -390,13 +391,13 @@ class RetroGameControllerTest {
             startRequest.put("totalRounds", 5);
             startRequest.put("settings", new HashMap<>());
 
-            mockMvc.perform(post("/game/retro/start")
+            mockMvc.perform(post("/game/retro/start").with(csrf())
                     .session(session)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(startRequest)));
 
             // 게임 종료
-            mockMvc.perform(post("/game/retro/end").session(session))
+            mockMvc.perform(post("/game/retro/end").with(csrf()).session(session))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success", is(true)));
         }
@@ -428,7 +429,7 @@ class RetroGameControllerTest {
             startRequest.put("totalRounds", 5);
             startRequest.put("settings", new HashMap<>());
 
-            mockMvc.perform(post("/game/retro/start")
+            mockMvc.perform(post("/game/retro/start").with(csrf())
                     .session(session)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(startRequest)));

@@ -90,9 +90,9 @@ class AdminFanChallengeControllerTest {
         createTestRecords();
 
         // When & Then
-        mockMvc.perform(get("/admin/fan-challenge").session(adminSession))
+        mockMvc.perform(get("/admin/fan-challenge/content").session(adminSession))
                 .andExpect(status().isOk())
-                .andExpect(view().name("admin/fan-challenge/list"))
+                .andExpect(view().name("admin/challenge/fragments/fan-challenge"))
                 .andExpect(model().attributeExists("records"))
                 .andExpect(model().attributeExists("totalCount"))
                 .andExpect(model().attributeExists("perfectCount"));
@@ -105,11 +105,11 @@ class AdminFanChallengeControllerTest {
         createTestRecords();
 
         // When & Then
-        mockMvc.perform(get("/admin/fan-challenge")
+        mockMvc.perform(get("/admin/fan-challenge/content")
                         .session(adminSession)
                         .param("keyword", "BTS"))
                 .andExpect(status().isOk())
-                .andExpect(view().name("admin/fan-challenge/list"))
+                .andExpect(view().name("admin/challenge/fragments/fan-challenge"))
                 .andExpect(model().attribute("keyword", "BTS"));
     }
 
@@ -120,11 +120,11 @@ class AdminFanChallengeControllerTest {
         createTestRecords();
 
         // When & Then
-        mockMvc.perform(get("/admin/fan-challenge")
+        mockMvc.perform(get("/admin/fan-challenge/content")
                         .session(adminSession)
                         .param("difficulty", "HARDCORE"))
                 .andExpect(status().isOk())
-                .andExpect(view().name("admin/fan-challenge/list"))
+                .andExpect(view().name("admin/challenge/fragments/fan-challenge"))
                 .andExpect(model().attribute("difficulty", "HARDCORE"));
     }
 
@@ -135,11 +135,11 @@ class AdminFanChallengeControllerTest {
         createTestRecords();
 
         // When & Then
-        mockMvc.perform(get("/admin/fan-challenge")
+        mockMvc.perform(get("/admin/fan-challenge/content")
                         .session(adminSession)
                         .param("perfect", "true"))
                 .andExpect(status().isOk())
-                .andExpect(view().name("admin/fan-challenge/list"))
+                .andExpect(view().name("admin/challenge/fragments/fan-challenge"))
                 .andExpect(model().attribute("perfect", "true"));
     }
 

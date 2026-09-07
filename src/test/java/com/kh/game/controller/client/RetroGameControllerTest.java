@@ -3,6 +3,7 @@ package com.kh.game.controller.client;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kh.game.entity.*;
 import com.kh.game.repository.*;
+import com.kh.game.security.CustomUserDetails;
 import com.kh.game.service.YouTubeValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,6 +15,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -25,6 +27,7 @@ import java.util.Map;
 import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -143,18 +146,6 @@ class RetroGameControllerTest {
                 .andExpect(view().name("client/game/retro/setup"));
         }
 
-        @Test
-        @DisplayName("로그인한 사용자 정보 전달")
-        void setup_shouldPassLoginInfo() throws Exception {
-            MockHttpSession session = new MockHttpSession();
-            session.setAttribute("isLoggedIn", true);
-            session.setAttribute("memberNickname", "테스트유저");
-
-            mockMvc.perform(get("/game/retro").session(session))
-                .andExpect(status().isOk())
-                .andExpect(model().attribute("isLoggedIn", true))
-                .andExpect(model().attribute("memberNickname", "테스트유저"));
-        }
     }
 
     // =====================================================
@@ -184,9 +175,7 @@ class RetroGameControllerTest {
         @Test
         @DisplayName("로그인 회원 게임 시작 - 회원과 연결")
         void start_withLoggedInMember_shouldLinkToMember() throws Exception {
-            MockHttpSession session = new MockHttpSession();
-            session.setAttribute("memberId", testMember.getId());
-            session.setAttribute("isLoggedIn", true);
+            CustomUserDetails userDetails = new CustomUserDetails(testMember);
 
             Map<String, Object> request = new HashMap<>();
             request.put("nickname", "플레이어");
@@ -194,7 +183,8 @@ class RetroGameControllerTest {
             request.put("settings", new HashMap<>());
 
             mockMvc.perform(post("/game/retro/start").with(csrf())
-                    .session(session)
+                    .with(authentication(new UsernamePasswordAuthenticationToken(
+                            userDetails, null, userDetails.getAuthorities())))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())

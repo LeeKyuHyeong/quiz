@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional
+@WithMockUser(roles = "ADMIN")
 @DisplayName("AdminSongController 테스트")
 class AdminSongControllerTest {
 
@@ -77,7 +79,7 @@ class AdminSongControllerTest {
     @Test
     @DisplayName("노래 목록 조회 - 파라미터 없이 접근하면 전체 조회")
     void list_noParams_returnsAll() throws Exception {
-        mockMvc.perform(get("/admin/song")
+        mockMvc.perform(get("/admin/song/content")
                 .session(adminSession))
             .andExpect(status().isOk())
             .andExpect(model().attribute("totalItems", 4L))
@@ -87,7 +89,7 @@ class AdminSongControllerTest {
     @Test
     @DisplayName("노래 목록 조회 - 빈 문자열 파라미터로 검색해도 전체 조회 (버그 수정 검증)")
     void list_emptyStringParams_returnsAll() throws Exception {
-        mockMvc.perform(get("/admin/song")
+        mockMvc.perform(get("/admin/song/content")
                 .session(adminSession)
                 .param("keyword", "")
                 .param("useYn", "")
@@ -100,7 +102,7 @@ class AdminSongControllerTest {
     @Test
     @DisplayName("노래 목록 조회 - keyword로 제목 검색")
     void list_searchByKeyword_title() throws Exception {
-        mockMvc.perform(get("/admin/song")
+        mockMvc.perform(get("/admin/song/content")
                 .session(adminSession)
                 .param("keyword", "Dynamite"))
             .andExpect(status().isOk())
@@ -111,7 +113,7 @@ class AdminSongControllerTest {
     @Test
     @DisplayName("노래 목록 조회 - keyword로 아티스트 검색")
     void list_searchByKeyword_artist() throws Exception {
-        mockMvc.perform(get("/admin/song")
+        mockMvc.perform(get("/admin/song/content")
                 .session(adminSession)
                 .param("keyword", "BTS"))
             .andExpect(status().isOk())
@@ -122,7 +124,7 @@ class AdminSongControllerTest {
     @Test
     @DisplayName("노래 목록 조회 - 사용여부 필터 (사용)")
     void list_filterByUseYn_active() throws Exception {
-        mockMvc.perform(get("/admin/song")
+        mockMvc.perform(get("/admin/song/content")
                 .session(adminSession)
                 .param("useYn", "Y"))
             .andExpect(status().isOk())
@@ -132,7 +134,7 @@ class AdminSongControllerTest {
     @Test
     @DisplayName("노래 목록 조회 - 사용여부 필터 (미사용)")
     void list_filterByUseYn_inactive() throws Exception {
-        mockMvc.perform(get("/admin/song")
+        mockMvc.perform(get("/admin/song/content")
                 .session(adminSession)
                 .param("useYn", "N"))
             .andExpect(status().isOk())
@@ -142,7 +144,7 @@ class AdminSongControllerTest {
     @Test
     @DisplayName("노래 목록 조회 - 장르 필터")
     void list_filterByGenre() throws Exception {
-        mockMvc.perform(get("/admin/song")
+        mockMvc.perform(get("/admin/song/content")
                 .session(adminSession)
                 .param("genreId", kpopGenre.getId().toString()))
             .andExpect(status().isOk())
@@ -152,7 +154,7 @@ class AdminSongControllerTest {
     @Test
     @DisplayName("노래 목록 조회 - 솔로 필터")
     void list_filterByIsSolo() throws Exception {
-        mockMvc.perform(get("/admin/song")
+        mockMvc.perform(get("/admin/song/content")
                 .session(adminSession)
                 .param("isSolo", "true"))
             .andExpect(status().isOk())
@@ -162,7 +164,7 @@ class AdminSongControllerTest {
     @Test
     @DisplayName("노래 목록 조회 - 그룹 필터")
     void list_filterByIsGroup() throws Exception {
-        mockMvc.perform(get("/admin/song")
+        mockMvc.perform(get("/admin/song/content")
                 .session(adminSession)
                 .param("isSolo", "false"))
             .andExpect(status().isOk())
@@ -172,7 +174,7 @@ class AdminSongControllerTest {
     @Test
     @DisplayName("노래 목록 조회 - 단일 아티스트 필터")
     void list_filterBySingleArtist() throws Exception {
-        mockMvc.perform(get("/admin/song")
+        mockMvc.perform(get("/admin/song/content")
                 .session(adminSession)
                 .param("artists", "BTS"))
             .andExpect(status().isOk())
@@ -182,7 +184,7 @@ class AdminSongControllerTest {
     @Test
     @DisplayName("노래 목록 조회 - 다중 아티스트 필터")
     void list_filterByMultipleArtists() throws Exception {
-        mockMvc.perform(get("/admin/song")
+        mockMvc.perform(get("/admin/song/content")
                 .session(adminSession)
                 .param("artists", "BTS")
                 .param("artists", "aespa"))
@@ -193,7 +195,7 @@ class AdminSongControllerTest {
     @Test
     @DisplayName("노래 목록 조회 - 복합 조건 (keyword + useYn + isSolo)")
     void list_multipleFilters() throws Exception {
-        mockMvc.perform(get("/admin/song")
+        mockMvc.perform(get("/admin/song/content")
                 .session(adminSession)
                 .param("keyword", "")
                 .param("useYn", "Y")
@@ -205,7 +207,7 @@ class AdminSongControllerTest {
     @Test
     @DisplayName("노래 목록 조회 - 정렬 (제목 오름차순)")
     void list_sortByTitle_asc() throws Exception {
-        mockMvc.perform(get("/admin/song")
+        mockMvc.perform(get("/admin/song/content")
                 .session(adminSession)
                 .param("sort", "title")
                 .param("direction", "asc"))
@@ -216,7 +218,7 @@ class AdminSongControllerTest {
     @Test
     @DisplayName("노래 목록 조회 - 페이징")
     void list_pagination() throws Exception {
-        mockMvc.perform(get("/admin/song")
+        mockMvc.perform(get("/admin/song/content")
                 .session(adminSession)
                 .param("page", "0")
                 .param("size", "2"))
@@ -229,7 +231,7 @@ class AdminSongControllerTest {
     @Test
     @DisplayName("노래 목록 조회 - 뷰 모드 (그리드)")
     void list_viewMode_grid() throws Exception {
-        mockMvc.perform(get("/admin/song")
+        mockMvc.perform(get("/admin/song/content")
                 .session(adminSession)
                 .param("viewMode", "grid"))
             .andExpect(status().isOk())
@@ -239,7 +241,7 @@ class AdminSongControllerTest {
     @Test
     @DisplayName("노래 목록 조회 - 연도 필터")
     void list_filterByReleaseYear() throws Exception {
-        mockMvc.perform(get("/admin/song")
+        mockMvc.perform(get("/admin/song/content")
                 .session(adminSession)
                 .param("releaseYear", "2021"))
             .andExpect(status().isOk())
@@ -249,7 +251,7 @@ class AdminSongControllerTest {
     @Test
     @DisplayName("노래 목록 조회 - 연도 목록이 model에 포함됨")
     void list_hasYearsInModel() throws Exception {
-        mockMvc.perform(get("/admin/song")
+        mockMvc.perform(get("/admin/song/content")
                 .session(adminSession))
             .andExpect(status().isOk())
             .andExpect(model().attributeExists("years"));

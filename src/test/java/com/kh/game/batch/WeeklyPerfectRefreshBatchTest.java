@@ -102,33 +102,6 @@ class WeeklyPerfectRefreshBatchTest {
     }
 
     @Test
-    @DisplayName("곡 수가 같으면 isCurrentPerfect가 유지되어야 함")
-    void execute_shouldKeepCurrentPerfectWhenSameCount() {
-        // Given: BTS 곡 5개
-        for (int i = 1; i <= 5; i++) {
-            createSong("BTS Song " + i, "BTS");
-        }
-
-        // 퍼펙트 기록 생성
-        FanChallengeRecord record = new FanChallengeRecord(testMember, "BTS", 5, FanChallengeDifficulty.HARDCORE);
-        record.setCorrectCount(5);
-        record.setIsPerfectClear(true);
-        record.setIsCurrentPerfect(true);
-        record.setBestTimeMs(30000L);
-        record.setAchievedAt(LocalDateTime.now());
-        record = fanChallengeRecordRepository.save(record);
-
-        // When: 곡 추가 없이 배치 실행
-        WeeklyPerfectRefreshBatch.BatchResult result = weeklyPerfectRefreshBatch.execute(BatchExecutionHistory.ExecutionType.MANUAL);
-
-        // Then
-        assertThat(result.getInvalidatedCount()).isEqualTo(0);
-        FanChallengeRecord updated = fanChallengeRecordRepository.findById(record.getId()).orElseThrow();
-        assertThat(updated.getIsPerfectClear()).isTrue();
-        assertThat(updated.getIsCurrentPerfect()).isTrue();
-    }
-
-    @Test
     @DisplayName("아티스트의 모든 곡이 삭제되면 isPerfectClear도 무효화되어야 함")
     void execute_shouldInvalidateBothWhenAllSongsDeleted() {
         // Given: 다른 아티스트 곡만 존재

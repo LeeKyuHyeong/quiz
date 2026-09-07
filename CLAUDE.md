@@ -224,7 +224,7 @@ Controller (MVC + REST) → Service (Business Logic) → Repository (JPA) → Ma
 
 1. **Solo Guess** - User guesses songs with 3 attempts. Supports various modes (RANDOM, FIXED_GENRE, FIXED_ARTIST, FIXED_YEAR, per-round selection). Includes "30-song Challenge" for ranked play.
 2. **Solo Host** - User reads clues for others to guess (100/70/50 points)
-3. **Fan Challenge** - Artist-focused 30-song challenge with difficulty levels (BEGINNER/NORMAL/HARDCORE). Time-based play (7s/5s/3s), perfect game tracking, artist-specific rankings.
+3. **Fan Challenge** - Artist-focused 30-song challenge with two difficulty levels (NORMAL/HARDCORE). Time-based play (NORMAL 7s listen + 6s answer, HARDCORE 5s + 5s; HARDCORE only is ranked), perfect game tracking, artist-specific rankings.
 4. **Retro Game** - Nostalgia mode featuring songs from before 2000s.
 5. **Multiplayer** - Room-based game with real-time chat polling, first correct answer scores 100 points. LP-based tier system (Bronze→Challenger).
 
@@ -307,13 +307,15 @@ All batches are DB-configurable via `BatchConfig` table with cron expressions:
 
 **Fan Challenge 난이도:**
 
-| 설정 | BEGINNER | NORMAL | HARDCORE |
-|------|----------|--------|----------|
-| 노래 재생 | 7초 | 5초 | 3초 |
-| 답변 시간 | 10초 | 8초 | 5초 |
-| 생명 | 5개 | 3개 | 3개 |
-| 초성 힌트 | O | X | X |
-| 랭크 기록 | X | X | O |
+| 설정 | NORMAL | HARDCORE |
+|------|--------|----------|
+| 노래 재생 | 7초 | 5초 |
+| 답변 시간 | 6초 | 5초 |
+| 생명 | 3개 | 3개 |
+| 초성 힌트 | X | X |
+| 랭크 기록 | X | O |
+
+> 값 출처: `FanChallengeDifficulty` enum (NORMAL 7000/6000, HARDCORE 5000/5000, 생명 3, `isShowChosungHint`=false, `isRanked`=HARDCORE만). 난이도는 2단계뿐.
 
 ### Community Board
 

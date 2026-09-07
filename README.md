@@ -22,10 +22,11 @@
 
 | 항목 | 내용 |
 |------|------|
-| **개발 기간** | 2026.01 ~ 운영 중 |
+| **서비스 상태** | 운영 중(첫 게임 기록 2026-01-19) |
+| **누적 회원** | 46명 |
 | **개발 인원** | 1인 (기획 · 설계 · 개발 · 배포 · 운영) |
-| **프로젝트 규모** | Java 4만줄 · JS 1.5만줄 · CSS 3만줄 · HTML 템플릿 77개 |
-| **운영 환경** | Docker 컨테이너 기반 프로덕션 배포, HTTPS 적용 |
+| **개발 기간** | 2026.01 ~ 현재 |
+| **운영 환경** | Cafe24 VPS · Docker Compose · Nginx · HTTPS |
 
 ---
 
@@ -171,7 +172,7 @@ Push to main → GitHub Actions
 ## 프로젝트 구조
 
 ```
-src/main/java/com/kh/game/
+src/main/java/com/kh/quiz/
 ├── controller/           # MVC + REST 컨트롤러
 │   ├── client/           #   사용자 기능 (24개)
 │   └── admin/            #   관리자 기능 (16개)
@@ -201,8 +202,8 @@ tools/                    # MCP 기반 운영 도구 (Python)
 # 요구사항: Java 17+, MariaDB
 
 # 1. 저장소 클론
-git clone https://github.com/LeeKyuHyeong/game.git
-cd game
+git clone https://github.com/LeeKyuHyeong/quiz.git
+cd quiz
 
 # 2. DB 생성
 mysql -u root -p -e "CREATE DATABASE song CHARACTER SET utf8mb4"

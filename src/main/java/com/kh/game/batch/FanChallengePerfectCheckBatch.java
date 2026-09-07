@@ -18,7 +18,16 @@ import java.util.Map;
  * 팬 챌린지 퍼펙트 검사 배치
  * 아티스트에 곡이 추가되면 해당 아티스트의 퍼펙트 클리어를 무효화합니다.
  * 마일스톤 뱃지는 회수하지 않음 (한번 획득하면 영구 보유)
+ *
+ * @deprecated 2026-09 폐지. 팬 챌린지가 고정 단계(20/25/30곡) 모델로 전환되면서 모든 기록이
+ * stageLevel(1/2/3)을 갖게 되어, {@link #execute}의 {@code stageLevel >= 1} 가드(아래 66행)가
+ * 전 레코드를 스킵 → 실질 무동작 배치가 됨(매일 04:00 SUCCESS만 남김).
+ * 곡 수 변경에 따른 퍼펙트 무효화는 현행 {@link WeeklyPerfectRefreshBatch}가 담당한다.
+ * 운영에서는 {@code batch_config.enabled=0}(관리자 배치 페이지 토글: {@code POST /admin/batch/toggle/BATCH_FAN_CHALLENGE_PERFECT_CHECK})로
+ * 스케줄 등록에서 제외한다({@code BatchScheduler}가 enabled=1인 배치만 등록).
+ * 이력 보존·롤백 가능성을 위해 클래스와 디스패치는 남겨둔다.
  */
+@Deprecated
 @Slf4j
 @Component
 @RequiredArgsConstructor

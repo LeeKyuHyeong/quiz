@@ -29,6 +29,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -144,6 +145,28 @@ class RetroGameControllerTest {
             mockMvc.perform(get("/game/retro"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("client/game/retro/setup"));
+        }
+
+        // 30곡 챌린지 바로가기는 로그인 여부에 따라 분기 렌더링됨(sec:authorize).
+        // 모델 속성이 아니라 렌더링 결과로 검증 — 구현 방식이 바뀌어도 살아남도록.
+        // 판별자: 로그인 블록 = onclick="openChallengeModal()", 비로그인 블록 = class="btn-challenge-login"
+
+        @Test
+        @DisplayName("비로그인 접근 - 30곡 챌린지에 로그인 유도가 렌더링됨")
+        void setup_anonymous_showsLoginPrompt() throws Exception {
+            mockMvc.perform(get("/game/retro"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("btn-challenge-login")))
+                .andExpect(content().string(not(containsString("openChallengeModal()"))));
+        }
+
+        @Test
+        @DisplayName("로그인 접근 - 30곡 챌린지 바로 시작이 렌더링됨")
+        void setup_authenticated_showsChallengeStart() throws Exception {
+            mockMvc.perform(get("/game/retro").with(user("tester").roles("USER")))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("openChallengeModal()")))
+                .andExpect(content().string(not(containsString("btn-challenge-login"))));
         }
 
     }

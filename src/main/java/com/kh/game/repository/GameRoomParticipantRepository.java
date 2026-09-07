@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -72,4 +73,20 @@ public interface GameRoomParticipantRepository extends JpaRepository<GameRoomPar
            "WHERE p.member.id IN :memberIds AND p.gameRoom.status = 'FINISHED' " +
            "GROUP BY p.member.id")
     List<Object[]> countFinishedGamesByMemberIds(@Param("memberIds") List<Long> memberIds);
+
+    // ========== 일일 통계 배치용 (멀티플레이) ==========
+
+    // 특정 상태의 방들에 대한 참가자 수(연인원) - 기간별
+    @Query("SELECT COUNT(p) FROM GameRoomParticipant p " +
+           "WHERE p.gameRoom.status = :status AND p.gameRoom.updatedAt BETWEEN :start AND :end")
+    long countByRoomStatusAndUpdatedAtBetween(@Param("status") GameRoom.RoomStatus status,
+                                              @Param("start") LocalDateTime start,
+                                              @Param("end") LocalDateTime end);
+
+    // 특정 상태의 방들에 대한 정답 수 합계 - 기간별
+    @Query("SELECT COALESCE(SUM(p.correctCount), 0) FROM GameRoomParticipant p " +
+           "WHERE p.gameRoom.status = :status AND p.gameRoom.updatedAt BETWEEN :start AND :end")
+    long sumCorrectCountByRoomStatusAndUpdatedAtBetween(@Param("status") GameRoom.RoomStatus status,
+                                                        @Param("start") LocalDateTime start,
+                                                        @Param("end") LocalDateTime end);
 }

@@ -75,6 +75,13 @@ public interface GameRoomRepository extends JpaRepository<GameRoom, Long> {
     // 기간별 종료된 게임 수 (배치용)
     long countByStatusAndUpdatedAtBetween(GameRoom.RoomStatus status, java.time.LocalDateTime start, java.time.LocalDateTime end);
 
+    // 기간별 종료된 방들의 진행 라운드 수 합계 (일일 통계 배치용)
+    @Query("SELECT COALESCE(SUM(r.currentRound), 0) FROM GameRoom r " +
+            "WHERE r.status = :status AND r.updatedAt BETWEEN :start AND :end")
+    long sumCurrentRoundByStatusAndUpdatedAtBetween(@Param("status") GameRoom.RoomStatus status,
+                                                    @Param("start") java.time.LocalDateTime start,
+                                                    @Param("end") java.time.LocalDateTime end);
+
     // 오래된 대기 방 조회 (정리용)
     @Query("SELECT r FROM GameRoom r WHERE r.status = 'WAITING' " +
             "AND r.updatedAt < :threshold")

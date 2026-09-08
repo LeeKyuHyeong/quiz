@@ -15,8 +15,8 @@ public class JunkInputFilter {
     // 키보드 스매싱 패턴 (연속된 키보드 배열)
     private static final Set<String> KEYBOARD_SMASH_PATTERNS = Set.of(
             "qwer", "asdf", "zxcv", "qwerty", "asdfgh", "zxcvbn",
-            "ㅂㅈㄷㄱ", "ㅁㄴㅇㄹ", "ㅋㅌㅊㅍ",
-            "1234", "12345", "123456"
+            "ㅂㅈㄷㄱ", "ㅁㄴㅇㄹ", "ㅋㅌㅊㅍ", "ㄴㅇㄹㅎ",
+            "1234", "12345", "123456", "1234567"
     );
 
     // 단일 문자 반복 패턴

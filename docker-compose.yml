@@ -1,3 +1,40 @@
+# blue/green 공통 설정 — 두 서비스가 동일해야 하므로 반드시 여기서만 수정
+x-app-common: &app-common
+  image: ${DOCKERHUB_USERNAME}/quiz-app:latest
+  restart: unless-stopped
+  environment:
+    SPRING_PROFILES_ACTIVE: prod
+    SPRING_DATASOURCE_URL: jdbc:mariadb://db:3306/song?useUnicode=true&characterEncoding=utf8mb4
+    SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+    SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+    BREVO_API_KEY: ${BREVO_API_KEY}
+    MAIL_FROM: ${MAIL_FROM}
+    TZ: Asia/Seoul
+    # 50%: limit 상향분을 힙이 먹지 않도록. 힙 320MiB 유지가 목적
+    JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=50 -XX:+UseSerialGC"
+  volumes:
+    - uploads:/app/uploads
+    - /etc/localtime:/etc/localtime:ro
+  depends_on:
+    db:
+      condition: service_healthy
+  healthcheck:
+    # 이미지가 alpine이라 curl 없음 — busybox wget 사용. 내부 포트는 8082
+    test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8082/actuator/health || exit 1"]
+    interval: 10s
+    timeout: 3s
+    retries: 5
+    start_period: 60s
+  deploy:
+    resources:
+      limits:
+        memory: 640M      # 512M → 640M. peak 471/512=92% (2026-09-04 측정)
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
 services:
   # MariaDB
   db:
@@ -36,38 +73,20 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # Spring Boot App
-  app:
-    image: ${DOCKERHUB_USERNAME}/quiz-app:latest
-    container_name: quiz-app
-    restart: unless-stopped
+  # Spring Boot App — blue/green 두 벌 (무중단 배포, 2026-09-08)
+  # nginx(/etc/nginx/conf.d/quiz-upstream.conf)가 활성 색 하나만 바라보고,
+  # 배포 시 유휴 색을 새 이미지로 기동 → 헬스 통과 확인 후 upstream 전환 → 구 색 정지.
+  # 평시에는 한 색만 떠 있음. 공통 설정은 x-app-common 앵커 한 곳에서만 수정할 것.
+  app-blue:
+    <<: *app-common
+    container_name: quiz-app-blue
     ports:
-      - "127.0.0.1:8082:8082"  # 앱 포트는 localhost 전용(nginx 프록시만 접근) — dashboard 헬스체크는 공개 도메인이라 무관
-    environment:
-      SPRING_PROFILES_ACTIVE: prod
-      SPRING_DATASOURCE_URL: jdbc:mariadb://db:3306/song?useUnicode=true&characterEncoding=utf8mb4
-      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
-      BREVO_API_KEY: ${BREVO_API_KEY}
-      MAIL_FROM: ${MAIL_FROM}
-      TZ: Asia/Seoul
-      # 50%: limit 상향분을 힙이 먹지 않도록. 힙 320MiB 유지가 목적
-      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=50 -XX:+UseSerialGC"
-    volumes:
-      - uploads:/app/uploads
-      - /etc/localtime:/etc/localtime:ro
-    depends_on:
-      db:
-        condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          memory: 640M      # 512M → 640M. peak 471/512=92% (2026-09-04 측정)
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+      - "127.0.0.1:8092:8082"  # localhost 전용(nginx만 접근) — 외부 노출 금지
+  app-green:
+    <<: *app-common
+    container_name: quiz-app-green
+    ports:
+      - "127.0.0.1:8093:8082"  # localhost 전용(nginx만 접근) — 외부 노출 금지
 
 volumes:
   db-data:

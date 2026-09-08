@@ -66,8 +66,10 @@ jobs:
         port: ${{ secrets.SERVER_PORT }}
         script: |
           set -euo pipefail
-          echo "========== 배포 시작 =========="
+          echo "========== 배포 시작 (blue-green) =========="
           cd /root/quiz
+
+          UPSTREAM=/etc/nginx/conf.d/quiz-upstream.conf
 
           echo "0. compose/설정 동기화 (compose 변경도 푸시만으로 반영)"
           git pull --ff-only
@@ -76,13 +78,50 @@ jobs:
           docker pull ${{ secrets.DOCKERHUB_USERNAME }}/quiz-app:${{ github.sha }}
           docker tag ${{ secrets.DOCKERHUB_USERNAME }}/quiz-app:${{ github.sha }} ${{ secrets.DOCKERHUB_USERNAME }}/quiz-app:latest
 
-          echo "2. 앱 컨테이너 강제 재생성 (DB는 건드리지 않음)"
-          docker compose up -d --no-deps --force-recreate app
+          echo "2. 현재 활성 색 판별 (upstream 파일 기준, 없으면 green 활성으로 간주해 blue에 배포)"
+          if grep -qs "8092" "$UPSTREAM"; then
+            ACTIVE=blue;  IDLE=green; IDLE_PORT=8093
+          else
+            ACTIVE=green; IDLE=blue;  IDLE_PORT=8092
+          fi
+          echo "   active=$ACTIVE -> deploy=$IDLE (:$IDLE_PORT)"
 
-          echo "3. 사용하지 않는 이미지 정리"
+          echo "3. 유휴 색 기동 (활성 색은 계속 트래픽 처리 중)"
+          docker compose up -d --no-deps --force-recreate "app-$IDLE"
+
+          echo "4. 헬스체크 (최대 90초) — 실패 시 전환하지 않음 = 기존 버전 그대로 서비스"
+          HEALTHY=0
+          for i in $(seq 1 30); do
+            if curl -fsS "http://127.0.0.1:$IDLE_PORT/actuator/health" 2>/dev/null | grep -q '"status":"UP"'; then
+              echo "   OK (${i}번째 시도)"
+              HEALTHY=1
+              break
+            fi
+            sleep 3
+          done
+          if [ "$HEALTHY" != "1" ]; then
+            echo "   헬스체크 실패 — 신규 컨테이너 정지 후 종료 (서비스 영향 없음)"
+            docker compose logs --tail=50 "app-$IDLE" || true
+            docker compose stop "app-$IDLE"
+            exit 1
+          fi
+
+          echo "5. 트래픽 전환 (nginx upstream 재작성 + reload)"
+          printf 'upstream quiz_backend {\n    server 127.0.0.1:%s;   # active: %s\n}\n' "$IDLE_PORT" "$IDLE" > "$UPSTREAM"
+          nginx -t
+          nginx -s reload
+
+          echo "6. 외부 응답 확인"
+          curl -fsS -o /dev/null -w "   https 응답: %{http_code}\n" https://game.kyuhyeong.com/
+
+          echo "7. 구 색 드레인 후 정지 (진행 중 요청 정리 대기)"
+          sleep 30
+          docker compose stop "app-$ACTIVE" || true
+
+          echo "8. 사용하지 않는 이미지 정리"
           docker image prune -f
 
-          echo "4. 컨테이너 상태 확인"
+          echo "9. 컨테이너 상태 확인"
           docker compose ps
 
-          echo "========== 배포 완료 =========="
+          echo "========== 배포 완료 ($ACTIVE -> $IDLE) =========="

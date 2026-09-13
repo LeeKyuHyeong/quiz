@@ -172,7 +172,7 @@ LLM 코딩에서 흔히 발생하는 실수를 줄이기 위한 행동 가이드
 export JAVA_HOME="/c/Users/rbgud/.jdks/corretto-17.0.12"  # Windows/Git Bash (집 PC)
 # export JAVA_HOME="$HOME/.sdkman/candidates/java/17.0.12-amzn"  # Linux/macOS with SDKMAN
 
-# Run application (dev profile, port 8082)
+# Run application (dev profile, port 8082) — 프로필 기본값 없음, 생략 불가
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 
 # Build WAR package
@@ -325,7 +325,9 @@ All batches are DB-configurable via `BatchConfig` table with cron expressions:
 
 ## Configuration
 
-- **Dev profile:** Port 8082, MariaDB localhost:3306/song (root/1234), JPA ddl-auto=update
+- **Profile:** 기본값 없음 (`application.properties`에 `spring.profiles.active` 미지정). 로컬은 `-Dspring-boot.run.profiles=dev`, 운영은 compose의 `SPRING_PROFILES_ACTIVE=prod`
+- **Dev profile:** Port 8082, MariaDB localhost:3306/song (root/1234), JPA ddl-auto=validate
+- **Schema:** `src/main/resources/sql/schema.sql`이 단일 출처 (dev·prod 모두 `validate`, Flyway 없음). **엔티티 변경 시 schema.sql을 함께 수정하고 로컬 DB·운영 DB에 직접 반영**해야 앱이 기동한다
 - **Prod profile:** Uses environment variables for DB credentials, Docker volumes for persistence
 - **Admin auth:** DB-based via `Member` table with `role=ADMIN`
 - **File uploads:** `uploads/songs/`, max 50MB

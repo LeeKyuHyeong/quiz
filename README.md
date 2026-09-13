@@ -208,10 +208,11 @@ tools/                    # MCP 기반 운영 도구 (Python)
 git clone https://github.com/LeeKyuHyeong/quiz.git
 cd quiz
 
-# 2. DB 생성
-mysql -u root -p -e "CREATE DATABASE song CHARACTER SET utf8mb4"
+# 2. DB 생성 + 스키마 적용 (dev도 ddl-auto=validate — 스키마는 sql/schema.sql이 단일 출처)
+mysql -u root -p -e "CREATE DATABASE song CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+mysql -u root -p song < src/main/resources/sql/schema.sql
 
-# 3. 애플리케이션 실행 (개발 프로필)
+# 3. 애플리케이션 실행 (프로필 기본값 없음 — 반드시 지정)
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 # → http://localhost:8082
 

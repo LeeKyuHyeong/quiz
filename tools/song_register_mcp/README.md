@@ -55,10 +55,10 @@ pip install -r requirements.txt
       "args": ["C:/프로젝트경로/tools/song_register_mcp/song_register_mcp.py"],
       "env": {
         "DB_TYPE": "mariadb",
-        "MARIADB_HOST": "203.245.28.199",
+        "MARIADB_HOST": "YOUR_DB_HOST",
         "MARIADB_PORT": "3308",
         "MARIADB_USER": "root",
-        "MARIADB_PASSWORD": "Olympus2426!",
+        "MARIADB_PASSWORD": "YOUR_PASSWORD",
         "MARIADB_DATABASE": "song"
       }
     }

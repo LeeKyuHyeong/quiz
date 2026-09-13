@@ -15,10 +15,10 @@
 
 환경변수:
 - DB_TYPE: 'sqlite' (기본값) 또는 'mariadb'
-- MARIADB_HOST: MariaDB 호스트 (기본값: 203.245.28.199)
+- MARIADB_HOST: MariaDB 호스트 (필수)
 - MARIADB_PORT: MariaDB 포트 (기본값: 3308)
 - MARIADB_USER: MariaDB 사용자 (기본값: root)
-- MARIADB_PASSWORD: MariaDB 비밀번호
+- MARIADB_PASSWORD: MariaDB 비밀번호 (필수)
 - MARIADB_DATABASE: MariaDB 데이터베이스명 (기본값: song)
 """
 
@@ -38,10 +38,10 @@ DB_TYPE = os.environ.get('DB_TYPE', 'mariadb')
 
 # MariaDB 설정 (운영 서버)
 MARIADB_CONFIG = {
-    'host': os.environ.get('MARIADB_HOST', '203.245.28.199'),
+    'host': os.environ.get('MARIADB_HOST'),
     'port': int(os.environ.get('MARIADB_PORT', '3308')),
     'user': os.environ.get('MARIADB_USER', 'root'),
-    'password': os.environ.get('MARIADB_PASSWORD', 'Olympus2426!'),
+    'password': os.environ.get('MARIADB_PASSWORD'),
     'database': os.environ.get('MARIADB_DATABASE', 'song'),
     'charset': 'utf8mb4'
 }
@@ -78,6 +78,9 @@ def get_db_connection():
     try:
         if DB_TYPE == 'mariadb':
             import pymysql
+            missing = [k for k in ('MARIADB_HOST', 'MARIADB_PASSWORD') if not os.environ.get(k)]
+            if missing:
+                raise RuntimeError(f"환경변수 미설정: {', '.join(missing)}")
             conn = pymysql.connect(**MARIADB_CONFIG)
             yield conn
         else:

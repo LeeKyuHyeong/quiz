@@ -27,10 +27,10 @@ echo       "command": "python",
 echo       "args": ["%CD:\=/%/song_register_mcp.py"],
 echo       "env": {
 echo         "DB_TYPE": "mariadb",
-echo         "MARIADB_HOST": "203.245.28.199",
+echo         "MARIADB_HOST": "YOUR_DB_HOST",
 echo         "MARIADB_PORT": "3308",
 echo         "MARIADB_USER": "root",
-echo         "MARIADB_PASSWORD": "Olympus2426!",
+echo         "MARIADB_PASSWORD": "YOUR_PASSWORD",
 echo         "MARIADB_DATABASE": "song"
 echo       }
 echo     }

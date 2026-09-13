@@ -33,10 +33,10 @@ pip install -r requirements.txt
       "command": "python",
       "args": ["D:/game/tools/song_integrity_mcp/song_integrity_mcp.py"],
       "env": {
-        "MARIADB_HOST": "203.245.28.199",
+        "MARIADB_HOST": "YOUR_DB_HOST",
         "MARIADB_PORT": "3308",
         "MARIADB_USER": "root",
-        "MARIADB_PASSWORD": "Olympus2426!",
+        "MARIADB_PASSWORD": "YOUR_PASSWORD",
         "MARIADB_DATABASE": "song"
       }
     }

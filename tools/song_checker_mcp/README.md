@@ -40,7 +40,7 @@ pip install -r requirements.txt
       "args": ["D:/game/tools/song_checker_mcp/song_checker_mcp.py"],
       "env": {
         "DB_TYPE": "mariadb",
-        "MARIADB_HOST": "203.245.28.199",
+        "MARIADB_HOST": "YOUR_DB_HOST",
         "MARIADB_PORT": "3308",
         "MARIADB_USER": "root",
         "MARIADB_PASSWORD": "YOUR_PASSWORD",
@@ -120,10 +120,10 @@ Claude:
 | 변수 | 기본값 | 설명 |
 |------|--------|------|
 | `DB_TYPE` | mariadb | DB 유형 (mariadb/sqlite) |
-| `MARIADB_HOST` | 203.245.28.199 | MariaDB 호스트 |
+| `MARIADB_HOST` | - (필수) | MariaDB 호스트 |
 | `MARIADB_PORT` | 3308 | MariaDB 포트 |
 | `MARIADB_USER` | root | MariaDB 사용자 |
-| `MARIADB_PASSWORD` | - | MariaDB 비밀번호 |
+| `MARIADB_PASSWORD` | - (필수) | MariaDB 비밀번호 |
 | `MARIADB_DATABASE` | song | MariaDB 데이터베이스 |
 
 ## 데이터 저장

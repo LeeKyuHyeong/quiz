@@ -65,3 +65,9 @@ certbot/
 application-local.properties
 application-local.yml
 application-secret.properties
+
+### Python ###
+__pycache__/
+*.pyc
+venv/
+tools/*/data/temp/

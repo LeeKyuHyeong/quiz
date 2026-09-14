@@ -1,6 +1,6 @@
 # System.md — 면접 준비용 소스 분석 정리
 
-> 최종 업데이트: 2026-05-11
+> 최종 업데이트: 2026-09-14 (§16 개선 이력 — 구 DAILY_MISSION.md 흡수)
 > 프로젝트: 멀티플레이어 음악 맞추기 게임 (Spring Boot 3.4.1 + Java 17 + MariaDB)
 
 ---
@@ -636,3 +636,30 @@ client.post().uri("/smtp/email")
 | 동기 브로드캐스트 | 메시지 큐(RabbitMQ/Kafka) | 비동기 처리, 이벤트 소싱 |
 | 단일 DB | Read Replica, Sharding | CQRS, 읽기/쓰기 분리 |
 | 자체 배치 | Spring Batch / 전용 워커 | Chunk 처리, 재시작, 실패 복구 |
+
+---
+
+## 16. 개선 이력 (구 `DAILY_MISSION.md`, 2026-03-25 ~ 04-06)
+
+> 2026-03-25 시작한 데일리 미션 일지를 이 절로 합쳤다(2026-09-14). 각 항목의 상세는 위 절과 커밋을 본다.
+
+| 날짜 | 개선 | 영역 | 커밋 | 관련 절 |
+|------|------|------|------|---------|
+| 2026-04-06 | Polling → WebSocket(STOMP/SockJS) 전환 | 실시간 통신 | `f3d36cc` | §3, §11.3 |
+| 2026-04-06 | MultiGameService 동시성 버그 수정 | 동시성 | `60afc77` | §2 |
+| 2026-04-06 | GlobalExceptionHandler 도입으로 예외 처리 일원화 | 예외 처리 | `ed73b21` | §4 |
+| 2026-04-06 | Batch 전체 테이블 스캔(`findAll`) → DB 레벨 조건 쿼리 | 배치 성능 / JPA | `1c010ff` | §8, §10.2 |
+
+### 16.1 Polling → WebSocket(STOMP/SockJS) 전환
+- 멀티플레이어 HTTP polling(2초/1초/500ms)을 STOMP over SockJS로 전환. 서버→클라이언트 push 전용, POST 액션은 REST 유지. 연결 실패 시 polling fallback 지원.
+- 주요 파일: `WebSocketConfig`, `WebSocketAuthInterceptor`, `GameBroadcastService`, `ws-client.js`, `multi-waiting.js`, `multi-play.js`, `multi-result.js`
+
+### 16.2 MultiGameService 동시성 버그 수정
+- `HashMap` → `ConcurrentHashMap`, 메서드 레벨 `synchronized` → 방 단위 락(`roomLocks`), `GameRoom`에 `@Version` 추가(Optimistic Locking), `selectSong()` 원자적 처리.
+
+### 16.3 GlobalExceptionHandler 도입으로 예외 처리 일원화
+- `@RestControllerAdvice` 기반 `GlobalExceptionHandler` 도입. 14개 컨트롤러에서 ~60개 try-catch 제거. `BusinessException` 계층 구조 신설. REST/MVC 자동 분기 응답.
+
+### 16.4 Batch 전체 테이블 스캔 → DB 레벨 쿼리 최적화
+- Batch 작업에서 `findAll()` 후 Java 필터링 → Repository 레벨 조건 쿼리로 변경.
+- 대상(`1c010ff`): `DailyStatsBatch`, `InactiveMemberBatch`, `LoginHistoryCleanupBatch`, `SongAnswerGenerationBatch`, `SystemReportBatch`, `WeeklyPerfectRefreshBatch` + Repository 6개

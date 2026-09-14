@@ -20,7 +20,9 @@
 | 5 | nginx 설정 저장소 반영 | 🔲 | — |
 | 6 | README 정정 + `LICENSE` | ✅ | `e1b2c33` |
 | 6 | CLAUDE.md 드리프트(배치 수, `ENDED`, compose 동기화 경고, 메모리 512MB, 장르 챌린지) | 🔲 | 데드 코드 제거(7) 후 숫자 확정해 정정 |
-| 7 | 데드 코드 제거 | 🔲 | pom 빈 메타데이터 태그만 `980640e`에서 정리 |
+| 7 | 데드 코드 제거: 폐지·미등록 배치 3종, `GenreMigrationService`(+테스트), 미참조 템플릿 7개, pom tomcat 주석, Dockerfile `JAVA_OPTS` 주석 | ✅ 2026-09-14 | `23f6df8`. 삭제 전 재검증: 클래스·`BATCH_ID` 문자열·뷰 이름(컨트롤러 반환·MockMvc·JS) 참조 0건, `/admin/stats/popularity`·`/wrong-answers` 는 `redirect:` 확인. 검증: `./mvnw clean test` **301건** 통과(316 − `GenreMigrationServiceTest` 15), dev 부팅 성공. pom 빈 메타데이터는 `980640e`. 구 SQL 3개는 `dc7a089`에서 이미 삭제. **운영 DB `batch_config` 의 `BATCH_FAN_CHALLENGE_PERFECT_CHECK` 행은 서버에서 직접 삭제 필요**(남아 있으면 enabled=1 일 때 기동 WARN, 관리자 수동 실행 시 "실행할 수 없는 배치입니다" 오류) |
+| 7 | `DAILY_MISSION.md` → `System.md` §16 개선 이력으로 흡수 후 삭제, `tools/test-data-30-challenge.sql` 삭제 | ✅ 2026-09-14 | §16 에 누락돼 있던 배치 쿼리 최적화 커밋 `1c010ff` 보강 |
+| 7 | 보류: 운영·로컬 DB `batch_config` 의 `BATCH_FAN_CHALLENGE_PERFECT_CHECK` 행 삭제, `SongFileCheckBatch`·`uploads` 볼륨 | 🔲 | 서버 작업 / 서버 `uploads/songs` 파일 존재 확인 후 결정 |
 | 8 | 버전 1.0.0 / 태그 | 🔲 | — |
 | 9 | uptime 모니터 + 배지 | 🔲 | — |
 

@@ -13,8 +13,10 @@
 | 서버 작업 디렉토리 | `/root/quiz` (git 클론, `.env`는 git 미추적) |
 | compose 서비스 | `app-blue`(127.0.0.1:8092) · `app-green`(127.0.0.1:8093) · `db`(127.0.0.1:3308, 컨테이너명 `quiz-db`) |
 | 활성 색 | nginx `/etc/nginx/conf.d/quiz-upstream.conf`가 가리키는 포트. 평시에는 한 색만 running, 다른 색은 Exited |
+| nginx 설정 | 서버 `/etc/nginx/conf.d/game.conf` + `quiz-upstream.conf`. 재구축용 사본은 이 저장소 `infra/nginx/` (2026-09-14 실측본) |
 | 이미지 | `<DOCKERHUB_USERNAME>/quiz-app:<커밋 SHA>` + 같은 이미지에 `latest` 태그 |
 | 헬스체크 | `http://127.0.0.1:<포트>/actuator/health` → `"status":"UP"` |
+| 백업 | `/root/backup/song-<YYYYMMDD-HHMM>.sql.gz` (수동, §4-1). 자동 백업은 아직 없음 |
 
 아래 명령은 모두 `/root/quiz`에서 실행한다. 여러 절에서 쓰는 변수:
 
@@ -35,12 +37,15 @@ cat "$UPSTREAM"
 curl -fsS "http://127.0.0.1:$ACTIVE_PORT/actuator/health"
 docker compose logs --tail=100 "app-$ACTIVE"
 docker exec "quiz-app-$ACTIVE" date   # KST 여부 (TZ=Asia/Seoul)
+curl -s -o /dev/null -w "%{http_code}\n" https://game.kyuhyeong.com/actuator/health   # 403 이어야 정상 (nginx 차단)
+curl -s -i --http1.1 --max-time 3 -H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' https://game.kyuhyeong.com/ws/websocket | head -1   # 101 이어야 정상
 ```
 
 - 활성 색 컨테이너가 running이고 upstream 포트와 일치해야 한다.
-- 다른 색이 Exited인 것은 정상이다(직전 버전 = 롤백 대상).
+- 다른 색이 Exited인 것은 정상이다(직전 버전 = 롤백 대상). `Exited (143)`은 SIGTERM 정상 종료, `(137)`은 10초 안에 못 끝나 SIGKILL된 것.
+- WebSocket 확인은 반드시 `--http1.1`로. HTTP/2로 붙으면 정상이어도 400이 나온다.
 
-**검증**: 🔲
+**검증**: 2026-09-14
 
 ---
 
@@ -125,7 +130,18 @@ docker exec song-restore-test mariadb -uroot -prehearsal song -e "SELECT COUNT(*
 docker rm -f song-restore-test
 ```
 
-- 건수가 운영과 같은지 확인하고, 가능하면 이 DB로 앱을 한 번 띄워 `validate` 통과까지 본다.
+- 건수가 운영과 같은지 확인하고, 가능하면 이 DB로 앱을 한 번 띄워 `validate` 통과까지 본다:
+
+```bash
+docker network create restore-net && docker network connect restore-net song-restore-test
+docker run -d --name song-restore-app --network restore-net --memory 640m \
+  -e SPRING_PROFILES_ACTIVE=prod -e 'SPRING_DATASOURCE_URL=jdbc:mariadb://song-restore-test:3306/song?useUnicode=true&characterEncoding=utf8mb4' \
+  -e SPRING_DATASOURCE_USERNAME=root -e SPRING_DATASOURCE_PASSWORD=rehearsal -e BREVO_API_KEY=dummy -e MAIL_FROM=noreply@example.com \
+  -e TZ=Asia/Seoul -e 'JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=50 -XX:+UseSerialGC' <DOCKERHUB_USERNAME>/quiz-app:latest
+for i in $(seq 1 30); do docker exec song-restore-app wget -qO- http://127.0.0.1:8082/actuator/health 2>/dev/null | grep -q '"status":"UP"' && { echo UP; break; }; sleep 3; done
+docker rm -f song-restore-app song-restore-test && docker network rm restore-net
+```
+
 - **백업 파일이 있는 것과 복원이 되는 것은 다른 명제다.** 리허설 날짜를 아래에 적는다.
 
 ### 4-3. 운영 복원 (데이터 손상 시)
@@ -145,7 +161,7 @@ gunzip -c /root/backup/<복원할 파일>.sql.gz | docker exec -i quiz-db sh -c 
 docker compose start "app-$ACTIVE"
 ```
 
-**검증**: 백업 🔲 · 복원 리허설 🔲 · 운영 복원 — (실행 시 날짜·사유 기록)
+**검증**: 백업 2026-09-14 (31 테이블, gzip 330KB) · 복원 리허설 2026-09-14 (임시 컨테이너 적재 1.2초, 6개 표 행수 운영과 일치, 앱 기동 UP 33초·`validate` 통과) · 운영 복원 — (실행 시 날짜·사유 기록)
 
 ---
 
@@ -166,7 +182,7 @@ docker exec "quiz-app-$ACTIVE" date     # KST
 - upstream이 가리키는 색이 Exited라면: `docker compose start "app-$ACTIVE"` 후 헬스체크.
 - db가 unhealthy라면: 컨테이너 env의 `MYSQL_ROOT_PASSWORD`와 실제 root 비밀번호가 다른지 먼저 의심한다(healthcheck가 그 값으로 접속한다).
 
-**검증**: 🔲
+**검증**: 2026-09-14 (명령만 실행. 실제 재부팅 리허설은 미실시)
 
 ---
 
@@ -191,7 +207,7 @@ docker exec "quiz-app-$ACTIVE" date     # KST
 
 | 항목 | 갱신 방식 | 확인 방법 | 다음 만료 |
 |---|---|---|---|
-| TLS 인증서 (Let's Encrypt) | `certbot-renew.timer` 자동 | `certbot certificates` · `certbot renew --dry-run` | 🔲 |
+| TLS 인증서 (Let's Encrypt) | `certbot-renew.timer` 자동 | `certbot certificates` · `certbot renew --dry-run` | 2026-12-01 (타이머 동작 확인 2026-09-14) |
 | 도메인 `kyuhyeong.com` | 등록기관 수동 | 등록기관 콘솔 | 🔲 |
 | Docker Hub 토큰 (`DOCKERHUB_TOKEN`) | 수동 재발급 → GitHub Secret 교체 | Docker Hub 계정 설정 | 🔲 |
 | 배포 SSH 키 (`SERVER_SSH_KEY`) | 수동 | 서버 `authorized_keys` | 만료 없음 (유출 시 교체) |
@@ -209,3 +225,5 @@ docker exec "quiz-app-$ACTIVE" date     # KST
 | 기동 로그에 `배치 작업을 찾을 수 없음: <ID>` | 코드에서 지운 배치의 `batch_config` 행이 DB에 남음 | `SELECT batch_id, enabled FROM batch_config;` 후 해당 행 삭제 |
 | 시간이 9시간 어긋남 | 컨테이너 TZ 폴백 | `docker exec quiz-app-<색> date`, 이미지에 `tzdata` 포함 여부 |
 | 메일 인증 코드가 안 감 (401) | Brevo Authorised IPs 미등록 / 키 만료 | 앱 로그의 Brevo 응답 코드 |
+| 멀티플레이가 폴링으로만 동작, 브라우저 콘솔에 `[WS] Connection error` | nginx `game.conf`에 `location /ws/` Upgrade 헤더 전달이 빠짐 (2026-09-14 이전 상태) | §1의 `--http1.1` curl → 101 이어야 함. 400 `Can "Upgrade" only to "WebSocket"` 이면 `infra/nginx/game.conf`의 `/ws/` 블록을 서버에 복원 |
+| 기동 직후 첫 요청이 10~30초 걸림 | `SecureRandom` 엔트로피 부족 (`SessionIdGeneratorBase` WARN) | `docker compose logs app-<색> \| grep SecureRandom`. `JAVA_TOOL_OPTIONS`에 `-Djava.security.egd=file:/dev/./urandom` |

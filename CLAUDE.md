@@ -912,4 +912,6 @@ color: var(--text-secondary);
 
 - **서버/배포 인프라 SSOT: `D:\dev\career\03-infra\01-vps.md`** (비공개 저장소, 이 리포·운영서버에 없음). 구 `D:\server-infra.md`는 2026-09-08 폐기.
 - 포트·도메인·방화벽·컨테이너 TZ 규칙(`Asia/Seoul` 의무)·배포 반영 매트릭스·트러블슈팅은 그 문서 참조.
+- 서버 nginx 설정(`game.conf`·`quiz-upstream.conf`)의 재구축용 사본은 `infra/nginx/`. 서버 원본이 진실이며 배포 스크립트는 `quiz-upstream.conf`만 다시 쓴다. `location /ws/` Upgrade 블록이 없으면 WebSocket이 성립하지 않는다.
+- 사람이 서버에서 직접 하는 절차(롤백·재배포·백업/복원·재부팅 점검)는 `docs/runbook.md`.
 - **인프라(compose/nginx/포트/배포) 변경 시 그 문서도 함께 최신화할 것.**

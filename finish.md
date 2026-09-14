@@ -6,7 +6,7 @@
 >
 > 본문(§0~§5)은 2026-09-08 점검 원문이다. 이후 조치 결과는 아래 진행 현황에만 누적한다.
 
-## 진행 현황 (최종 갱신 2026-09-14)
+## 진행 현황 (최종 갱신 2026-09-14, 서버 점검 반영)
 
 | §4 # | 작업 | 상태 | 근거 |
 |---|---|---|---|
@@ -15,21 +15,26 @@
 | 2 | 운영 스키마 덤프로 `schema.sql` 교체, 구 migration SQL 삭제 | ✅ | `dc7a089` (29 테이블) |
 | 2 | dev `ddl-auto=validate` + 기본 프로파일(`spring.profiles.active=dev`) 제거 | ✅ | `2bbb989`. 검증: 빈 DB에 `schema.sql` 적용 → dev 부팅 성공(HTTP 200) / 기존 로컬 `song` DB로도 부팅 성공 / 프로파일 없이 실행 시 DataSource 미설정으로 즉시 실패 / `./mvnw clean test` 316건 통과. 로컬 검증 DB는 MySQL 8.0(운영은 MariaDB 11.8) |
 | 2 | Flyway baseline | 🔲 선택 | — |
-| 3 | 백업 cron + 복원 리허설 | 🔲 | — |
-| 4 | runbook 초안 `docs/runbook.md` | 🟡 초안 2026-09-14 | 상태 확인·수동 롤백(`start`로 직전 색 복귀)·SHA 재배포·DB 백업/복원 리허설/운영 복원·재부팅 점검·비밀번호 교체·만료 항목·증상표. **절마다 서버 실행 검증 칸 비어 있음** — 리허설 후 날짜 기입, 만료일은 미확인 |
+| 3 | 백업 cron + 복원 리허설 | 🟡 리허설 ✅ 2026-09-14 / cron 🔲 | 수동 백업(`/root/backup/song-20260914-2104.sql.gz`, 31 테이블) → 임시 컨테이너 복원(적재 1.2초, 6개 표 행수 일치) → 복원 DB로 앱 기동 UP 33초·`validate` 통과. 자동 cron·오프사이트는 미착수 |
+| 4 | runbook 초안 `docs/runbook.md` | 🟡 §1·§4-1·§4-2·§5(명령만)·§6 검증 2026-09-14 | 상태 확인·수동 롤백(`start`로 직전 색 복귀)·SHA 재배포·DB 백업/복원 리허설/운영 복원·재부팅 점검·비밀번호 교체·만료 항목·증상표. **§2 수동 롤백·§3 SHA 재배포는 미실시**(전환이 생기므로 저트래픽 시간에). 만료일은 TLS만 기입(2026-12-01), 나머지 🔲 |
 | 10 | surefire `kill self fork JVM` 30초 대기 제거 | ✅ 2026-09-14 | `48a4be4`. 원인: `ThreadPoolTaskScheduler` 가 종료 시 cron 예약분(아직 시작 전)을 큐에 남겨 `awaitTermination(60s)` 를 다 채움 → `setExecuteExistingDelayedTasksAfterShutdownPolicy(false)`. 실행 중 배치는 계속 완료 대기. 단일 테스트 클래스 47초→25초, 전체 301건 통과·경고 0 |
 | §2-3 | `docker image prune -f` 완화 | ➖ 불필요 판정 | `prune -f` 는 dangling 만 지워 SHA 태그 롤백 이미지는 원래 남는다(서버 실측 기록: 태그된 구 이미지는 0B). 실제 과제는 반대로 **SHA 이미지 누적** — 필요하면 최근 N개 보존 정리를 별도로 |
 | §1-3 | Jest (`jest.config.js` + `src/test/javascript/auto-play-logic.test.js`) 삭제 | ✅ 2026-09-14 | 14건 통과하나 테스트 파일 안에서 `AutoPlayController` 를 재구현해 검증 — 운영 JS(`static/js`)를 import 하지 않고, `package.json` 이 gitignore 라 클린 체크아웃에서 실행 불가·CI 미연동 |
 | — | `deploy.yml` `paths-ignore` `'*.md'` → `'**.md'` | ✅ 2026-09-14 | `*` 는 `/` 를 넘지 않아 `docs/runbook.md` 등 하위 경로 md 만 바꿔도 배포가 돌았음 |
-| 5 | nginx 설정 저장소 반영 | 🔲 | — |
+| 5 | nginx 설정 저장소 반영 | ✅ 2026-09-14 | `infra/nginx/game.conf`·`quiz-upstream.conf` (서버 실측본). 서버의 untracked `nginx/nginx.conf`·`setup-https.sh`(3월 컨테이너 nginx 시절, 현행과 무관)는 삭제. **발견**: 호스트 nginx로 옮기며 WebSocket Upgrade 헤더 전달이 빠져 운영에서 WebSocket이 한 번도 성립한 적이 없었음(`/ws/websocket` 400, SockJS xhr 폴백은 CSRF 403 → REST 폴링으로만 동작). 서버 `game.conf`에 `location /ws/` 추가 후 101 확인 |
 | 6 | README 정정 + `LICENSE` | ✅ | `e1b2c33` |
 | 6 | CLAUDE.md 드리프트 정정 + README 숫자 재정정 | ✅ 2026-09-14 | 코드 재집계 기준: 배치 24(스케줄러 분기 24·seed 24), 서비스 22, 컨트롤러 client 13·admin 25, `@Entity` 29 + enum 3, 템플릿 69, 테스트 클래스 29. 상태 머신 `RoomStatus`(WAITING→PLAYING→FINISHED)·`RoundPhase`(PREPARING→PLAYING→RESULT), 장르 챌린지(50곡·라이프 5·HARDCORE만 랭킹), 팬 챌린지 20곡(HARDCORE 단계 20/25/30), 메모리 640M, compose 는 배포 시 `git pull` 동기화, CI/CD blue/green 흐름, 인프라 SSOT 경로. **추가 발견**: CLAUDE.md·README 가 인증을 `AdminInterceptor`/`SessionValidationInterceptor` 로 설명했으나 두 클래스는 Spring Security 전환(`68c9d74`) 때 제거됨 → `SecurityConfig` 기준으로 정정. `docker compose ... app` 명령도 blue/green 서비스명으로 정정 |
 | 1-2 ② | ~~CLAUDE.md "배치 26개" → 실제 27개~~ | — | 3단계 삭제 후 24개 |
 | 7 | 데드 코드 제거: 폐지·미등록 배치 3종, `GenreMigrationService`(+테스트), 미참조 템플릿 7개, pom tomcat 주석, Dockerfile `JAVA_OPTS` 주석 | ✅ 2026-09-14 | `23f6df8`. 삭제 전 재검증: 클래스·`BATCH_ID` 문자열·뷰 이름(컨트롤러 반환·MockMvc·JS) 참조 0건, `/admin/stats/popularity`·`/wrong-answers` 는 `redirect:` 확인. 검증: `./mvnw clean test` **301건** 통과(316 − `GenreMigrationServiceTest` 15), dev 부팅 성공. pom 빈 메타데이터는 `980640e`. 구 SQL 3개는 `dc7a089`에서 이미 삭제. **운영 DB `batch_config` 의 `BATCH_FAN_CHALLENGE_PERFECT_CHECK` 행은 서버에서 직접 삭제 필요**(남아 있으면 enabled=1 일 때 기동 WARN, 관리자 수동 실행 시 "실행할 수 없는 배치입니다" 오류) |
 | 7 | `DAILY_MISSION.md` → `System.md` §16 개선 이력으로 흡수 후 삭제, `tools/test-data-30-challenge.sql` 삭제 | ✅ 2026-09-14 | §16 에 누락돼 있던 배치 쿼리 최적화 커밋 `1c010ff` 보강 |
-| 7 | 보류: 운영·로컬 DB `batch_config` 의 `BATCH_FAN_CHALLENGE_PERFECT_CHECK` 행 삭제, `SongFileCheckBatch`·`uploads` 볼륨 | 🔲 | 서버 작업 / 서버 `uploads/songs` 파일 존재 확인 후 결정 |
+| 7 | 운영 DB `batch_config` 잔존 행 | ➖ 불필요 판정 2026-09-14 | 서버 실측: 삭제한 3종 행 없음, 총 24행으로 seed와 일치. 기동 WARN 0건 |
+| 7 | `SongFileCheckBatch`·`uploads` 볼륨 | 🔲 데드 코드 확정 2026-09-14 | 서버 실측: `quiz_uploads` 볼륨 파일 0개(8.0K), `BATCH_SONG_FILE_CHECK` enabled=0. 제거 대상: 배치 클래스 + `BatchScheduler`/`BatchService` seed 분기 + `file.upload-dir` + `WebConfig` 리소스 핸들러 + compose `uploads` 볼륨 + Dockerfile `mkdir` + `SecurityConfig` `/uploads/**` + `batch_config` 행. 볼륨 자체는 `down -v` 금지, `docker volume rm quiz_uploads`로 별도 |
+| §3-2 | 운영 DB 잔재 테이블 `song_history`·`song_260113` DROP | ✅ 2026-09-14 | 코드 참조 0건(SongHistory 기능은 2026-01-15 추가·당일 제거 `9e06514`, `song_260113`은 01-13 수동 복사본). `/root/backup/song-legacy-tables-20260914-2104.sql.gz`로 보관 후 DROP → 테이블 29개 = `schema.sql` |
 | 8 | 버전 1.0.0 / 태그 | 🔲 | — |
 | 9 | uptime 모니터 + 배지 | 🔲 | — |
+
+| 후속 | 코드: `/ws/**` CSRF 예외 (SockJS xhr 폴백 POST가 403) · `JAVA_TOOL_OPTIONS`에 `-Djava.security.egd=file:/dev/./urandom` (기동 후 `SecureRandom` 11~28초) · 없는 경로(`/robots.txt`, `/.git/HEAD` 등) 404가 `GlobalExceptionHandler` ERROR로 찍힘 · prod `hibernate.dialect` 지정 경고 | 🔲 | 2026-09-14 서버 로그·nginx 실측에서 발견. 서버 작업 아님 |
+| 후속 | 인프라: `game.conf` HSTS 없음(3월 컨테이너 nginx 설정에는 있었음) · SHA 이미지 14개 누적(디스크 18%, 급하지 않음) · `/root/backup` 구 평문 덤프 600 권한 적용 완료 | 🔲 | SSOT 백로그 |
 
 **정정**: §1-2 ①이 "서버 공인 IP"라고 적은 tools의 기본 호스트 값은 현재 운영 VPS가 아니라 **별도 서버**의 IP다(인프라 기록 기준). 해당 서버에 과거 DB가 남아 있는지는 미확인.
 

@@ -106,6 +106,16 @@
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
+            <!-- 테스트 JVM 시간대를 운영 컨테이너(TZ=Asia/Seoul)와 일치시킨다.
+                 @CreationTimestamp 는 JVM 기본 시간대로 채워지므로, UTC 러너에서 KST 00~09시에 돌면
+                 Asia/Seoul "오늘" 경계 테스트(TodayCountBoundaryTest)가 날짜가 어긋나 실패한다 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>-Duser.timezone=Asia/Seoul</argLine>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>

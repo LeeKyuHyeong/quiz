@@ -151,6 +151,7 @@ Push to main → GitHub Actions
 - **Docker Compose**: Spring Boot 앱(640MB, blue/green 2슬롯) + MariaDB(256MB) 컨테이너 오케스트레이션
 - **Nginx**: 리버스 프록시 + Let's Encrypt SSL 인증서 자동 갱신
 - **모니터링**: `SystemReportBatch`를 통한 일일 시스템 리포트, `DailyStatsBatch`로 일별 통계 수집
+- **운영 절차**: 수동 롤백·특정 커밋 재배포·DB 백업/복원·재부팅 점검 → [`docs/runbook.md`](docs/runbook.md)
 
 ### MCP 데이터 관리 도구
 

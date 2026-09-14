@@ -58,6 +58,10 @@ class SecurityFilterChainTest {
         @PostMapping("/auth/login-process")
         @ResponseBody
         String loginPost() { return "loginPost"; }
+
+        @PostMapping("/ws/123/abcdefgh/xhr_streaming")
+        @ResponseBody
+        String sockJsXhr() { return "sockjs"; }
     }
 
     @Configuration
@@ -133,6 +137,13 @@ class SecurityFilterChainTest {
                         .with(csrf())
                         .param("email", "test@test.com")
                         .param("password", "1234"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("SockJS 폴백 전송(/ws/**) POST는 CSRF 토큰 없이도 허용")
+    void csrf_sockJsFallbackPost_ignored() throws Exception {
+        mockMvc.perform(post("/ws/123/abcdefgh/xhr_streaming"))
                 .andExpect(status().isOk());
     }
 

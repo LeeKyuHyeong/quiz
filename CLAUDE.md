@@ -169,7 +169,7 @@ LLM 코딩에서 흔히 발생하는 실수를 줄이기 위한 행동 가이드
 
 ```bash
 # Set Java 17 (required for all commands) - adjust path to your JDK location
-export JAVA_HOME="/c/Users/rbgud/.jdks/corretto-17.0.12"  # Windows/Git Bash (집 PC)
+export JAVA_HOME="/c/Program Files/Java/jdk-17"  # Windows/Git Bash (집 PC, 2026-09-15 확인. 기본 java 는 21 이라 반드시 지정)
 # export JAVA_HOME="$HOME/.sdkman/candidates/java/17.0.12-amzn"  # Linux/macOS with SDKMAN
 
 # Run application (dev profile, port 8082) — 프로필 기본값 없음, 생략 불가

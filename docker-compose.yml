@@ -11,7 +11,8 @@ x-app-common: &app-common
     MAIL_FROM: ${MAIL_FROM}
     TZ: Asia/Seoul
     # 50%: limit 상향분을 힙이 먹지 않도록. 힙 320MiB 유지가 목적
-    JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=50 -XX:+UseSerialGC"
+    # egd=urandom: VPS 엔트로피 부족으로 기동 후 SecureRandom 생성에 11~28초 걸리던 문제 (2026-09-14 로그)
+    JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=50 -XX:+UseSerialGC -Djava.security.egd=file:/dev/./urandom"
   volumes:
     - uploads:/app/uploads
     - /etc/localtime:/etc/localtime:ro

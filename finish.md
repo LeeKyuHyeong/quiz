@@ -33,7 +33,7 @@
 | 8 | 버전 1.0.0 / 태그 | 🔲 | — |
 | 9 | uptime 모니터 + 배지 | 🔲 | — |
 
-| 후속 | 코드: `/ws/**` CSRF 예외 (SockJS xhr 폴백 POST가 403) · `JAVA_TOOL_OPTIONS`에 `-Djava.security.egd=file:/dev/./urandom` (기동 후 `SecureRandom` 11~28초) · 없는 경로(`/robots.txt`, `/.git/HEAD` 등) 404가 `GlobalExceptionHandler` ERROR로 찍힘 · prod `hibernate.dialect` 지정 경고 | 🔲 | 2026-09-14 서버 로그·nginx 실측에서 발견. 서버 작업 아님 |
+| 후속 | 코드 4건: `/ws/**` CSRF 예외 · `JAVA_TOOL_OPTIONS` `-Djava.security.egd=file:/dev/./urandom` · 없는 경로 404 처리 · `hibernate.dialect` 지정 제거 | ✅ 2026-09-15 | 2026-09-14 서버 로그·nginx 실측에서 발견. **404 건은 로그 위생이 아니라 응답 버그였음** — `NoResourceFoundException`이 `Exception` 핸들러에 잡혀 스캐너 요청에 500 에러 페이지를 돌려주고 있었다. 검증: 신규 테스트 4건(CSRF 예외는 수정 전 403 실패 확인), `./mvnw clean test` 305건 통과, dev 부팅 8초·dialect 경고 0. egd 옵션은 다음 배포에서 새 컨테이너가 읽음 → `SessionIdGeneratorBase` WARN 사라지는지 확인 |
 | 후속 | 인프라: `game.conf` HSTS 없음(3월 컨테이너 nginx 설정에는 있었음) · SHA 이미지 14개 누적(디스크 18%, 급하지 않음) · `/root/backup` 구 평문 덤프 600 권한 적용 완료 | 🔲 | SSOT 백로그 |
 
 **정정**: §1-2 ①이 "서버 공인 IP"라고 적은 tools의 기본 호스트 값은 현재 운영 VPS가 아니라 **별도 서버**의 IP다(인프라 기록 기준). 해당 서버에 과거 DB가 남아 있는지는 미확인.

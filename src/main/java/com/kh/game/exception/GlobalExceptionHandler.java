@@ -10,6 +10,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.Map;
 
@@ -56,6 +58,19 @@ public class GlobalExceptionHandler {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorMap("접근 권한이 없습니다."));
         }
         return new ModelAndView("redirect:/auth/login");
+    }
+
+    // 매핑되지 않은 경로(/robots.txt, /.git/HEAD 같은 스캐너 요청 포함). 500 이 아니라 404 로, 스택트레이스 없이.
+    @ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})
+    public Object handleNotFound(Exception ex, HttpServletRequest request) {
+        log.debug("Not found: uri={}", request.getRequestURI());
+
+        if (isApiRequest(request)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorMap("페이지를 찾을 수 없습니다."));
+        }
+        ModelAndView mav = errorPage("페이지를 찾을 수 없습니다.");
+        mav.setStatus(HttpStatus.NOT_FOUND);
+        return mav;
     }
 
     @ExceptionHandler(Exception.class)

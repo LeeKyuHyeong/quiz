@@ -210,7 +210,7 @@ Controller (MVC + REST) → Service (Business Logic) → Repository (JPA) → Ma
 
 - **controller/client/** - User-facing: `HomeController`, `AuthController`, `GameGuessController`, `GameHostController`, `GameFanChallengeController`, `RetroGameController`, `MultiGameController`, `RankingController`, `SongReportController`, `BoardController`, `StatsController`, `MyPageController`
 - **controller/admin/** - Admin panel: `AdminController` (dashboard), `AdminSongController`, `AdminGenreController`, `AdminBatchController`, `AdminBadWordController`, `AdminRoomController`, `AdminChatController`, `AdminSongReportController`, `AdminMemberController`, `AdminGameHistoryController`, `AdminStatsController`, `AdminAnswerController`, `AdminLoginHistoryController`, `AdminFanChallengeController`, `AdminMenuController`
-- **service/** - Business logic: `GameSessionService`, `MultiGameService`, `SongService`, `MemberService`, `GameRoomService`, `AnswerValidationService`, `YouTubeValidationService`, `BoardService`, `WrongAnswerStatsService`, `BatchService`, `GenreMigrationService`, `GenreService`, `MultiTierService`, `FanChallengeService`, `BadgeService`, `MenuConfigService`, `EmailVerificationService`
+- **service/** - Business logic: `GameSessionService`, `MultiGameService`, `SongService`, `MemberService`, `GameRoomService`, `AnswerValidationService`, `YouTubeValidationService`, `BoardService`, `WrongAnswerStatsService`, `BatchService`, `GenreService`, `MultiTierService`, `FanChallengeService`, `BadgeService`, `MenuConfigService`, `EmailVerificationService`
 - **entity/** - JPA entities: `Member`, `MemberLoginHistory`, `Song`, `SongAnswer`, `Genre`, `GameSession`, `GameRound`, `GameRoundAttempt`, `GameRoom`, `GameRoomParticipant`, `GameRoomChat`, `BadWord`, `SongReport`, `BatchConfig`, `BatchExecutionHistory`, `DailyStats`, `Board`, `BoardComment`, `BoardLike`, `Badge`, `MemberBadge`, `MultiTier`, `FanChallengeDifficulty`, `FanChallengeRecord`, `RankingHistory`, `MenuConfig`, `EmailVerification`
 - **repository/** - Spring Data JPA repositories
 - **batch/** - 26 scheduled batch jobs managed by `BatchScheduler`
@@ -285,7 +285,7 @@ All batches are DB-configurable via `BatchConfig` table with cron expressions:
 - **Stats & Rankings:** `DailyStatsBatch`, `RankingUpdateBatch`, `RankingSnapshotBatch`, `WeeklyRankingResetBatch`, `MonthlyRankingResetBatch`
 - **Member Management:** `InactiveMemberBatch`, `BadgeAwardBatch`, `LpDecayBatch`, `LoginStreakBatch`
 - **Song Integrity:** `SongFileCheckBatch`, `SongAnalyticsBatch`, `YouTubeVideoCheckBatch`, `DuplicateSongCheckBatch`, `SongAnswerGenerationBatch`
-- **Fan Challenge:** `FanChallengePerfectCheckBatch`, `WeeklyPerfectRefreshBatch`
+- **Fan Challenge:** `WeeklyPerfectRefreshBatch`
 - **System:** `SystemReportBatch`
 
 ### Scoring System

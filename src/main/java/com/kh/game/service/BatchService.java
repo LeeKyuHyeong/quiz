@@ -286,7 +286,6 @@ public class BatchService {
                 "BATCH_GAME_SESSION_CLEANUP",
                 "BATCH_SONG_REPORT_CLEANUP",
                 "BATCH_BADGE_AWARD",
-                "BATCH_FAN_CHALLENGE_PERFECT_CHECK",
                 "BATCH_WEEKLY_PERFECT_REFRESH",
                 "BATCH_LP_DECAY",
                 "BATCH_SONG_ANSWER_GENERATION",
@@ -476,23 +475,6 @@ public class BatchService {
             badgeAwardConfig.setEnabled(false);  // 기본 비활성화 (수동 실행 전용)
             batchConfigRepository.save(badgeAwardConfig);
             log.info("BATCH_BADGE_AWARD 배치 설정 추가 완료");
-        }
-
-        // BATCH_FAN_CHALLENGE_PERFECT_CHECK: 팬챌린지 퍼펙트 검사 배치 (폐지 — 고정단계 모델 전환으로 무동작, WeeklyPerfectRefresh로 대체)
-        if (!batchConfigRepository.existsById("BATCH_FAN_CHALLENGE_PERFECT_CHECK")) {
-            BatchConfig fanPerfectCheckConfig = new BatchConfig(
-                    "BATCH_FAN_CHALLENGE_PERFECT_CHECK",
-                    "팬챌린지 퍼펙트 검사(폐지)",
-                    "[폐지] 고정단계 모델 전환으로 stageLevel 가드가 전 레코드를 스킵해 무동작. WeeklyPerfectRefresh가 대체.",
-                    "0 0 4 * * *",
-                    "매일 새벽 4시",
-                    "FanChallengeRecord",
-                    BatchConfig.Priority.MEDIUM,
-                    true  // 구현됨
-            );
-            fanPerfectCheckConfig.setEnabled(false);  // 폐지 — 신규 설치 시 스케줄 등록 제외(기존 운영 DB는 관리자 토글로 비활성화)
-            batchConfigRepository.save(fanPerfectCheckConfig);
-            log.info("BATCH_FAN_CHALLENGE_PERFECT_CHECK 배치 설정 추가 완료(폐지, enabled=false)");
         }
 
         // BATCH_WEEKLY_PERFECT_REFRESH: 주간 퍼펙트 갱신 배치

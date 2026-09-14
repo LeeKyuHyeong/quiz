@@ -15,10 +15,6 @@ RUN mkdir -p /app/uploads/songs
 # GitHub Actions에서 빌드된 WAR 파일을 복사
 COPY target/*.war app.war
 
-# 메모리 제한 설정
-# 미적용 — exec-form ENTRYPOINT는 env 미확장. 다음 재빌드 때 제거
-#ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC"
-
 EXPOSE 8082
 
 ENTRYPOINT ["java", "-jar", "app.war"]

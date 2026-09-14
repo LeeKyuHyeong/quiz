@@ -19,7 +19,8 @@
 | 4 | runbook 초안 `docs/runbook.md` | 🟡 초안 2026-09-14 | 상태 확인·수동 롤백(`start`로 직전 색 복귀)·SHA 재배포·DB 백업/복원 리허설/운영 복원·재부팅 점검·비밀번호 교체·만료 항목·증상표. **절마다 서버 실행 검증 칸 비어 있음** — 리허설 후 날짜 기입, 만료일은 미확인 |
 | 10 | surefire `kill self fork JVM` 30초 대기 제거 | ✅ 2026-09-14 | `48a4be4`. 원인: `ThreadPoolTaskScheduler` 가 종료 시 cron 예약분(아직 시작 전)을 큐에 남겨 `awaitTermination(60s)` 를 다 채움 → `setExecuteExistingDelayedTasksAfterShutdownPolicy(false)`. 실행 중 배치는 계속 완료 대기. 단일 테스트 클래스 47초→25초, 전체 301건 통과·경고 0 |
 | §2-3 | `docker image prune -f` 완화 | ➖ 불필요 판정 | `prune -f` 는 dangling 만 지워 SHA 태그 롤백 이미지는 원래 남는다(서버 실측 기록: 태그된 구 이미지는 0B). 실제 과제는 반대로 **SHA 이미지 누적** — 필요하면 최근 N개 보존 정리를 별도로 |
-| §1-3 | Jest (`jest.config.js` + `src/test/javascript/auto-play-logic.test.js`, `package.json` 은 gitignore) | 🔲 결정 대기 | 14건 통과하나 테스트 파일 안에서 `AutoPlayController` 를 재구현해 검증 — 운영 JS(`static/js`)를 import 하지 않음 |
+| §1-3 | Jest (`jest.config.js` + `src/test/javascript/auto-play-logic.test.js`) 삭제 | ✅ 2026-09-14 | 14건 통과하나 테스트 파일 안에서 `AutoPlayController` 를 재구현해 검증 — 운영 JS(`static/js`)를 import 하지 않고, `package.json` 이 gitignore 라 클린 체크아웃에서 실행 불가·CI 미연동 |
+| — | `deploy.yml` `paths-ignore` `'*.md'` → `'**.md'` | ✅ 2026-09-14 | `*` 는 `/` 를 넘지 않아 `docs/runbook.md` 등 하위 경로 md 만 바꿔도 배포가 돌았음 |
 | 5 | nginx 설정 저장소 반영 | 🔲 | — |
 | 6 | README 정정 + `LICENSE` | ✅ | `e1b2c33` |
 | 6 | CLAUDE.md 드리프트 정정 + README 숫자 재정정 | ✅ 2026-09-14 | 코드 재집계 기준: 배치 24(스케줄러 분기 24·seed 24), 서비스 22, 컨트롤러 client 13·admin 25, `@Entity` 29 + enum 3, 템플릿 69, 테스트 클래스 29. 상태 머신 `RoomStatus`(WAITING→PLAYING→FINISHED)·`RoundPhase`(PREPARING→PLAYING→RESULT), 장르 챌린지(50곡·라이프 5·HARDCORE만 랭킹), 팬 챌린지 20곡(HARDCORE 단계 20/25/30), 메모리 640M, compose 는 배포 시 `git pull` 동기화, CI/CD blue/green 흐름, 인프라 SSOT 경로. **추가 발견**: CLAUDE.md·README 가 인증을 `AdminInterceptor`/`SessionValidationInterceptor` 로 설명했으나 두 클래스는 Spring Security 전환(`68c9d74`) 때 제거됨 → `SecurityConfig` 기준으로 정정. `docker compose ... app` 명령도 blue/green 서비스명으로 정정 |

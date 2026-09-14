@@ -369,7 +369,7 @@ All 24 batches are DB-configurable via `BatchConfig` table with cron expressions
 ## CI/CD
 
 GitHub Actions workflow at `.github/workflows/deploy.yml`:
-- Triggers on push to main or manual dispatch (ignores *.md, .claude/**, .gitignore, LICENSE)
+- Triggers on push to main or manual dispatch (ignores **.md — 하위 경로 md 포함, .claude/**, .gitignore, LICENSE)
 - **build 잡**: JDK 17 → `./mvnw clean test`(실패 시 중단, surefire 리포트 업로드) → WAR 패키징 → Docker 이미지 push (`latest` + 커밋 SHA)
 - **deploy 잡 (SSH, blue/green 무중단)**: `git pull --ff-only` → SHA 태그 pull 후 `latest` 재태깅 → nginx upstream(`/etc/nginx/conf.d/quiz-upstream.conf`)으로 활성 색 판별 → 유휴 색 기동 → `/actuator/health` 최대 90초 폴링(실패 시 신규 컨테이너 정지, 전환 안 함) → upstream 재작성 + `nginx -s reload` → 30초 드레인 후 구 색 정지
 - Requires secrets: `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY`, `SERVER_PORT`, `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`

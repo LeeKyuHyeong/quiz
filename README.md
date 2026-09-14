@@ -57,11 +57,11 @@
                     │       ├── client/ (사용자 13개)               │
                     │       └── admin/ (관리자 25개)                │
                     │           ↓                                  │
-                    │  Service (비즈니스 로직 23개)                  │
+                    │  Service (비즈니스 로직 22개)                  │
                     │       ├── GameSessionService (게임 세션)      │
                     │       ├── AnswerValidationService (정답 검증) │
                     │       ├── MultiTierService (ELO 레이팅)      │
-                    │       └── BatchScheduler (배치 25종)          │
+                    │       └── BatchScheduler (배치 24종)          │
                     │           ↓                                  │
                     │  Repository (Spring Data JPA 29개)           │
                     └──────────────┬───────────────────────────────┘
@@ -99,16 +99,16 @@
 - **2단계 검증 파이프라인**: oEmbed API 응답 확인 → 썸네일 이미지 크기 분석
 - 삭제/비공개 영상 자동 감지, 배치 작업으로 주기적 전수 검사
 
-### 5. 스케줄링 배치 시스템 (배치 클래스 27개 · 스케줄러 등록 25종)
+### 5. 스케줄링 배치 시스템 (배치 24종)
 
 - DB 기반 Cron 표현식으로 **런타임 스케줄 변경** 가능
 - 관리자 페이지에서 개별 배치 활성화/비활성화, 실행 이력 조회
-- 카테고리: 데이터 정리(9개), 통계/랭킹(4개), 회원 관리(4개), 곡 무결성(5개), 팬 챌린지(4개), 시스템(1개)
+- 카테고리: 데이터 정리(9개), 통계/랭킹(4개), 회원 관리(4개), 곡 무결성(5개), 팬 챌린지(1개), 시스템(1개)
 
 ### 6. 관리자 시스템
 
 - 25개 관리 모듈: 곡/장르/회원/게임방/채팅/신고/배치/통계/챌린지/랭킹 등 전 영역 관리
-- `AdminInterceptor`를 통한 관리자 경로 일괄 인증
+- Spring Security `hasRole("ADMIN")`로 관리자 경로(`/admin/**`) 일괄 인가
 - 탭 네비게이션 간 검색 상태 유지 (히스토리 API 활용)
 
 ### 7. 다크 모드 & 반응형 디자인
@@ -166,7 +166,7 @@ Push to main → GitHub Actions
 
 ## 테스트
 
-- **단위 테스트**: JUnit 5 (30개 테스트 클래스, 8,100+ 라인)
+- **단위 테스트**: JUnit 5 (29개 테스트 클래스, 7,700+ 라인)
 - **CI 연동**: GitHub Actions에서 `./mvnw clean test` 실행, Surefire 리포트를 아티팩트로 보관
 - **TDD 적용**: 게임 타입 설정 등 핵심 비즈니스 로직에 TDD 방식 적용
 
@@ -179,17 +179,18 @@ src/main/java/com/kh/game/
 ├── controller/           # MVC + REST 컨트롤러
 │   ├── client/           #   사용자 기능 (13개)
 │   └── admin/            #   관리자 기능 (25개)
-├── service/              # 비즈니스 로직 (23개)
+├── service/              # 비즈니스 로직 (22개)
 ├── repository/           # Spring Data JPA (29개)
 ├── entity/               # JPA 엔티티 (29개)
 ├── dto/                  # 데이터 전송 객체
-├── batch/                # 스케줄링 배치 (27개, 스케줄러 등록 25종)
+├── batch/                # 스케줄링 배치 (24개)
 ├── config/               # 설정 (Security, Web, WebSocket, Scheduler)
-├── interceptor/          # 인증 인터셉터
+├── security/             # Spring Security 사용자 조회·로그인 핸들러·레이트리밋
+├── exception/            # GlobalExceptionHandler, 비즈니스 예외
 └── util/                 # 유틸리티 (영→한 발음 변환 등)
 
 src/main/resources/
-├── templates/            # Thymeleaf 템플릿 (76개)
+├── templates/            # Thymeleaf 템플릿 (69개)
 ├── static/               # CSS(39) · JS(43) · 이미지
 └── application*.properties  # 환경별 설정 (dev/prod)
 
@@ -226,7 +227,7 @@ docker-compose up -d
 
 - SQL Injection 방지: 전체 쿼리 파라미터 바인딩 적용
 - XSS 방지: Thymeleaf `th:text` 자동 이스케이프, JavaScript `textContent` 사용 원칙
-- 인증/인가: `AdminInterceptor` + `SessionValidationInterceptor` 2중 검증
+- 인증/인가: Spring Security 폼 로그인 + CSRF + 세션 동시 로그인 1개 제한, 관리자 경로 ROLE_ADMIN, 로그인 IP별 레이트리밋
 - IDOR 방지: 리소스 접근 시 소유권 검증 로직 적용
 - HTTPS: Nginx + Let's Encrypt SSL 적용
 

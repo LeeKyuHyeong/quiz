@@ -23,11 +23,11 @@ LLM 코딩에서 흔히 발생하는 실수를 줄이기 위한 행동 가이드
 
 **이 프로젝트에서의 적용 예시:**
 
-- **멀티플레이어 상태 머신 작업 시:** `GameRoom`은 `WAITING → PREPARING → PLAYING → ENDED` 단계로 흐른다. 한 phase 처리만 고치라는 요청이라도 `GameRoomService` + 폴링 로직(`/round-ready` 등) + 클라이언트 JS가 동시에 영향. 어디까지 영향이 가는지 먼저 확인한다.
+- **멀티플레이어 상태 머신 작업 시:** `GameRoom`은 방 상태 `RoomStatus`(`WAITING → PLAYING → FINISHED`)와 라운드 단계 `RoundPhase`(`PREPARING → PLAYING → RESULT`) 2단으로 흐른다. 한 phase 처리만 고치라는 요청이라도 `GameRoomService`·`MultiGameService` + WebSocket push(`GameBroadcastService`) + REST 액션(`/round-ready` 등) + 클라이언트 JS(`ws-client.js`, 연결 실패 시 polling fallback)가 동시에 영향. 어디까지 영향이 가는지 먼저 확인한다.
 - **AnswerValidation 작업 시:** `AnswerValidationService`(정규화) + `AnswerGeneratorUtil`(영→한 음역 변환) + `SongAnswer` 테이블(수동 정답)이 3중으로 얽혀 있음. "답이 인정 안 돼요"라는 요청은 어느 layer 문제인지 확인하고 패치한다. 추측으로 정규화 로직을 손대지 않는다.
-- **배치 작업 추가/수정 시:** `BatchScheduler`에 등록된 26개 잡 중 어떤 잡과 의존성이 있는지(예: `RankingUpdateBatch` → `RankingSnapshotBatch`, `BadgeAwardBatch` ← `DailyStatsBatch`) 확인 후 진행.
+- **배치 작업 추가/수정 시:** `BatchScheduler`에 등록된 24개 잡 중 데이터 선후·실행 시각이 얽힌 잡이 있는지(`BatchService` seed의 cron 기본값·대상 엔티티) 확인 후 진행. 신규 배치는 클래스 + `BatchScheduler`의 `createTask`/`executeManually` 분기 + `BatchService` seed 세 곳을 함께 맞춘다.
 - **Multi-tier(LP) 로직:** 승급/강등 경계 처리는 `MultiTierService` + `LpDecayBatch` + 매치 종료 시 LP 변동 로직이 동시에 영향. 한 군데만 고치지 않는다.
-- **"화면이 깨졌어요" 요청:** 어떤 모드(Solo Guess / Host / Fan Challenge / Retro / Multi)인지, 어떤 테마(라이트/다크/`.game-page`)인지, 어떤 브레이크포인트(PC/768px/480px)인지 먼저 확인한다.
+- **"화면이 깨졌어요" 요청:** 어떤 모드(Solo Guess / Host / Fan Challenge / Genre Challenge / Retro / Multi)인지, 어떤 테마(라이트/다크/`.game-page`)인지, 어떤 브레이크포인트(PC/768px/480px)인지 먼저 확인한다.
 
 ### 2. Simplicity First (단순함이 먼저)
 
@@ -70,9 +70,9 @@ LLM 코딩에서 흔히 발생하는 실수를 줄이기 위한 행동 가이드
 **이 프로젝트에서의 특별 주의:**
 
 - **`common.css`의 CSS 변수 시스템(`:root`, `[data-theme="dark"]`, `.game-page`)은 의도된 디자인이다.** 무관한 작업 중에 변수 정의를 "정리"하지 않는다.
-- **`SecurityConfig` / `WebConfig`의 interceptor 등록 순서**는 의존성이 있다(`AdminInterceptor`, `SessionValidationInterceptor`). 새 인터셉터 추가하면서 기존 등록 순서를 재배열하지 않는다.
+- **`SecurityConfig`의 `authorizeHttpRequests` 매처 순서**는 의존성이 있다(정적 자원·`/ws/**`·`/auth/**`·`/admin/login` `permitAll` → `/admin/**` `hasRole("ADMIN")` → `/mypage/**` `authenticated` → 나머지 `permitAll`). 새 경로 규칙을 추가하면서 기존 매처 순서를 재배열하지 않는다. (구 `AdminInterceptor`/`SessionValidationInterceptor`는 Spring Security 전환 때 제거됨, `68c9d74`)
 - **Thymeleaf fragment(`fragments/header.html`, `fragments/footer.html` 등)는 모든 화면이 의존한다.** "더 깔끔하게" 변경하지 않는다.
-- **`docker-compose.yml`은 서버와 자동 동기화되지 않는다**(아래 경고 섹션 참고). 무관한 작업 중에 compose 파일을 건드리지 않는다.
+- **`docker-compose.yml`은 푸시하면 배포 스크립트의 `git pull --ff-only`로 서버에 그대로 반영된다**(아래 CI/CD 참고). blue/green 두 벌이 `x-app-common` 앵커를 공유하므로 무관한 작업 중에 compose 파일을 건드리지 않는다.
 - **CI/CD 워크플로(`.github/workflows/deploy.yml`)는 한 번 맞춰놨다.** 다른 작업 중에 build step 순서나 path filter를 "최적화"하지 않는다.
 - **`BatchConfig` 테이블의 cron 식**은 운영 중 DB에서 조정한다. 코드에서 cron 기본값을 무관한 작업 중에 변경하지 않는다.
 
@@ -102,7 +102,7 @@ LLM 코딩에서 흔히 발생하는 실수를 줄이기 위한 행동 가이드
 - **JPA 쿼리 최적화("느려요"):** `EXPLAIN` 결과를 **먼저** 확인하고, 인덱스/쿼리 변경 후 다시 `EXPLAIN`으로 검증.
 - **Thymeleaf 화면 변경:** `./mvnw spring-boot:run -Dspring-boot.run.profiles=dev` (포트 8082) → 라이트/다크 + PC/태블릿(768px)/모바일(480px) 모두 시각 확인.
 - **CSS 변경:** 라이트 + 다크 + `.game-page` 3개 테마 + PC/768px/480px 3개 브레이크포인트 = **9개 조합**을 의식해서 작성, 가능한 한 모두 확인.
-- **Docker 배포 작업:** 서버에서 `docker compose up -d --no-deps --force-recreate app` 실행 후 `docker compose logs -f app`으로 부팅 로그 확인 → 영향 받는 엔드포인트에 curl로 응답 검증.
+- **Docker 배포 작업:** 푸시 → Actions 로그에서 헬스체크 통과·upstream 전환 확인 → 서버에서 `docker compose logs -f app-blue`(또는 `app-green`, 활성 색은 `/etc/nginx/conf.d/quiz-upstream.conf`)로 부팅 로그 확인 → 영향 받는 엔드포인트에 curl로 응답 검증. 수동 재기동이 필요하면 `app`이 아니라 활성 색 서비스명을 지정한다.
 
 ---
 
@@ -208,25 +208,26 @@ Controller (MVC + REST) → Service (Business Logic) → Repository (JPA) → Ma
 
 ### Package Structure (`com.kh.game`)
 
-- **controller/client/** - User-facing: `HomeController`, `AuthController`, `GameGuessController`, `GameHostController`, `GameFanChallengeController`, `RetroGameController`, `MultiGameController`, `RankingController`, `SongReportController`, `BoardController`, `StatsController`, `MyPageController`
-- **controller/admin/** - Admin panel: `AdminController` (dashboard), `AdminSongController`, `AdminGenreController`, `AdminBatchController`, `AdminBadWordController`, `AdminRoomController`, `AdminChatController`, `AdminSongReportController`, `AdminMemberController`, `AdminGameHistoryController`, `AdminStatsController`, `AdminAnswerController`, `AdminLoginHistoryController`, `AdminFanChallengeController`, `AdminMenuController`
-- **service/** - Business logic: `GameSessionService`, `MultiGameService`, `SongService`, `MemberService`, `GameRoomService`, `AnswerValidationService`, `YouTubeValidationService`, `BoardService`, `WrongAnswerStatsService`, `BatchService`, `GenreService`, `MultiTierService`, `FanChallengeService`, `BadgeService`, `MenuConfigService`, `EmailVerificationService`
-- **entity/** - JPA entities: `Member`, `MemberLoginHistory`, `Song`, `SongAnswer`, `Genre`, `GameSession`, `GameRound`, `GameRoundAttempt`, `GameRoom`, `GameRoomParticipant`, `GameRoomChat`, `BadWord`, `SongReport`, `BatchConfig`, `BatchExecutionHistory`, `DailyStats`, `Board`, `BoardComment`, `BoardLike`, `Badge`, `MemberBadge`, `MultiTier`, `FanChallengeDifficulty`, `FanChallengeRecord`, `RankingHistory`, `MenuConfig`, `EmailVerification`
+- **controller/client/** (13) - User-facing: `HomeController`, `AuthController`, `GameGuessController`, `GameHostController`, `GameFanChallengeController`, `GameGenreChallengeController`, `RetroGameController`, `MultiGameController`, `RankingController`, `SongReportController`, `BoardController`, `StatsController`, `MyPageController`
+- **controller/admin/** (25) - Admin panel: `AdminController` (dashboard), `AdminSongController`, `AdminSongPopularityController`, `AdminAnswerController`, `AdminArtistController`, `AdminGenreController`, `AdminBadWordController`, `AdminContentController`, `AdminMenuController`, `AdminMemberController`, `AdminLoginHistoryController`, `AdminRankingController`, `AdminGameHistoryController`, `AdminGameManagementController`, `AdminChallengeController`, `AdminFanChallengeController`, `AdminGenreChallengeController`, `AdminMultiController`, `AdminRoomController`, `AdminChatController`, `AdminSongReportController`, `AdminStatsController`, `AdminBatchController`, `AdminBatchAffectedController`, `AdminSystemController`
+- **service/** (22) - Business logic: `GameSessionService`, `MultiGameService`, `GameRoomService`, `GameBroadcastService`, `SongService`, `SongPopularityVoteService`, `SongReportService`, `MemberService`, `AnswerValidationService`, `YouTubeValidationService`, `BadWordService`, `BoardService`, `WrongAnswerStatsService`, `BatchService`, `GenreService`, `MultiTierService`, `FanChallengeService`, `FanChallengeStageService`, `GenreChallengeService`, `BadgeService`, `MenuConfigService`, `EmailVerificationService`
+- **entity/** - JPA `@Entity` 29개: `Member`, `MemberLoginHistory`, `MemberBadge`, `Badge`, `EmailVerification`, `Song`, `SongAnswer`, `SongReport`, `SongPopularityVote`, `Genre`, `GameSession`, `GameRound`, `GameRoundAttempt`, `GameRoom`, `GameRoomParticipant`, `GameRoomChat`, `BadWord`, `BatchConfig`, `BatchExecutionHistory`, `BatchAffectedSong`, `DailyStats`, `Board`, `BoardComment`, `BoardLike`, `FanChallengeRecord`, `FanChallengeStageConfig`, `GenreChallengeRecord`, `RankingHistory`, `MenuConfig` / enum 3개: `MultiTier`, `FanChallengeDifficulty`, `GenreChallengeDifficulty`
 - **repository/** - Spring Data JPA repositories
-- **batch/** - 26 scheduled batch jobs managed by `BatchScheduler`
-- **config/** - `SecurityConfig` (BCrypt), `WebConfig` (interceptors, file upload), `SchedulerConfig`, `DataInitializer`
-- **security/** - `LoginRateLimiter` (bucket4j 토큰 버킷, IP별 분당 20회 제한, 화이트리스트 지원)
-- **util/** - `AnswerGeneratorUtil` (English→Korean phonetic conversion for song titles), `SecurityInputValidator` (이메일 정규식 + SQL Injection 패턴 차단)
-- **dto/** - `GameSettings` (multiplayer room configuration)
-- **interceptor/** - `AdminInterceptor`, `SessionValidationInterceptor`
+- **batch/** - 24 scheduled batch jobs managed by `BatchScheduler`
+- **config/** - `SecurityConfig` (Spring Security 폼 로그인·CSRF·`/admin/**` ROLE_ADMIN·세션 1개 제한), `PasswordEncoderConfig` (BCrypt), `WebConfig` (업로드 리소스 핸들러), `WebSocketConfig` + `WebSocketAuthInterceptor` (STOMP 인증 전파), `SchedulerConfig`, `DataInitializer`
+- **security/** - `CustomUserDetailsService`/`CustomUserDetails`, 로그인 성공·실패 핸들러, `LoginRateLimiter` (bucket4j 토큰 버킷, IP별 분당 20회 제한, 화이트리스트 지원)
+- **exception/** - `GlobalExceptionHandler` (`@RestControllerAdvice`, REST/MVC 분기 응답), `BusinessException`, `ResourceNotFoundException`
+- **util/** - `AnswerGeneratorUtil` (English→Korean phonetic conversion for song titles), `SecurityInputValidator` (이메일 정규식 + SQL Injection 패턴 차단), `JunkInputFilter`
+- **dto/** - `GameSettings` (multiplayer room configuration), `WebSocketMessage`
 
 ### Game Modes
 
 1. **Solo Guess** - User guesses songs with 3 attempts. Supports various modes (RANDOM, FIXED_GENRE, FIXED_ARTIST, FIXED_YEAR, per-round selection). Includes "30-song Challenge" for ranked play.
 2. **Solo Host** - User reads clues for others to guess (100/70/50 points)
-3. **Fan Challenge** - Artist-focused 30-song challenge with two difficulty levels (NORMAL/HARDCORE). Time-based play (NORMAL 7s listen + 6s answer, HARDCORE 5s + 5s; HARDCORE only is ranked), perfect game tracking, artist-specific rankings.
-4. **Retro Game** - Nostalgia mode featuring songs from before 2000s.
-5. **Multiplayer** - Room-based game with real-time chat polling, first correct answer scores 100 points. LP-based tier system (Bronze→Challenger).
+3. **Fan Challenge** - Artist-focused challenge (`FanChallengeService.CHALLENGE_SONG_COUNT` = 20곡). Two difficulty levels (NORMAL 7s listen + 6s answer / HARDCORE 5s + 5s, lives 3). NORMAL은 1단계(20곡) 고정, HARDCORE만 단계제(20/25/30곡, `FanChallengeStageConfig`)와 랭킹 반영. Perfect clear tracking, artist-specific rankings.
+4. **Genre Challenge** - Genre-focused challenge (`GenreChallengeService` MIN/MAX_SONG_COUNT = 50곡). NORMAL 7s + 6s / HARDCORE 5s + 5s, lives 5, HARDCORE만 랭킹 반영.
+5. **Retro Game** - Nostalgia mode: `releaseYear < 2000` 또는 장르 `RETRO` 곡 (`SongRepository`).
+6. **Multiplayer** - Room-based game. 서버→클라이언트는 STOMP/SockJS WebSocket push, 액션은 REST POST, 연결 실패 시 polling fallback. First correct answer scores 100 points. LP-based tier system (Bronze→Challenger).
 
 ### Key Data Flow
 
@@ -235,17 +236,20 @@ Controller (MVC + REST) → Service (Business Logic) → Repository (JPA) → Ma
 - `Song` → has multiple `SongAnswer` for fuzzy matching validation
 - `Board` → has `BoardComment` and `BoardLike` (community board)
 - `Member` → has `MemberBadge` → links to `Badge` (achievement system)
-- `FanChallengeRecord` → tracks artist challenge attempts with difficulty and score
+- `FanChallengeRecord` → tracks artist challenge attempts with difficulty, stage and score
+- `GenreChallengeRecord` → tracks genre challenge attempts with difficulty and score
 - `RankingHistory` → stores daily ranking snapshots for historical tracking
 - `MenuConfig` → configurable navigation menu items for client UI
 
 ### Multiplayer Flow
 
 1. Create room → join room → toggle ready
-2. Host starts game → `PREPARING` phase (all participants load song)
+2. Host starts game → room `PLAYING`, round `PREPARING` phase (all participants load song)
 3. Each participant calls `/round-ready` when ready
 4. Host starts round → `PLAYING` phase (song plays, chat for answers)
-5. First correct answer wins → show answer → next round or game end
+5. First correct answer wins → `RESULT` phase → next round or game end (room `FINISHED`)
+
+상태 변화는 `GameBroadcastService`가 STOMP topic으로 push한다. 클라이언트는 `ws-client.js`(지수 백오프 재연결 후 polling fallback).
 
 ### Key Services
 
@@ -254,10 +258,11 @@ Controller (MVC + REST) → Service (Business Logic) → Repository (JPA) → Ma
 - **YouTubeValidationService** - Two-phase validation: oEmbed API check → thumbnail size check (detects deleted videos)
 - **BadWordService** - Profanity filtering with ConcurrentHashMap cache, auto-reloads on changes
 - **SongReportService** - Handles user reports for problematic songs
-- **DataInitializer** - Seeds initial bad words (~50 profanities) on startup via CommandLineRunner
+- **DataInitializer** - CommandLineRunner. `count()==0`일 때 메뉴·금칙어·뱃지·팬 챌린지 단계 설정을 seed. 기본 admin·테스트 데이터는 prod에서 생성하지 않음
 - **BoardService** - Community board CRUD with category filtering, comments, and likes
 - **MultiTierService** - LP and tier management for multiplayer with ELO-based rating calculations
-- **FanChallengeService** - Artist challenge game logic with difficulty-based scoring
+- **FanChallengeService** / **FanChallengeStageService** - Artist challenge game logic, HARDCORE 단계(20/25/30곡) 설정
+- **GenreChallengeService** - Genre challenge game logic (50곡, lives 5)
 - **BadgeService** - Achievement badge management with automatic and manual award conditions
 - **EmailVerificationService** - 회원가입 시 6자리 이메일 인증 코드 발급/검증. **Brevo Transactional Email API**(HTTPS) 사용 — cafe24가 SMTP 포트(25/465/587) outbound를 차단해 Gmail SMTP 대신 도입. `RestClient`로 호출하며 4xx/5xx/네트워크 에러를 분리 처리
 - **LoginRateLimiter** - IP별 토큰 버킷(bucket4j) 기반 분당 20회 제한. `X-Forwarded-For`/`X-Real-IP` 헤더 인식, 화이트리스트 IP 지원(`security.rate-limit.whitelist`). 로그인/회원가입/이메일 인증 엔드포인트에 적용
@@ -280,9 +285,9 @@ Achievement badges with categories and rarities:
 
 ### Batch Jobs (managed by BatchScheduler)
 
-All batches are DB-configurable via `BatchConfig` table with cron expressions:
+All 24 batches are DB-configurable via `BatchConfig` table with cron expressions (`BatchService` seeds defaults):
 - **Cleanup:** `SessionCleanupBatch`, `GameSessionCleanupBatch`, `RoomCleanupBatch`, `ChatCleanupBatch`, `BoardCleanupBatch`, `LoginHistoryCleanupBatch`, `BatchExecutionHistoryCleanupBatch`, `GameRoundAttemptCleanupBatch`, `SongReportCleanupBatch`
-- **Stats & Rankings:** `DailyStatsBatch`, `RankingUpdateBatch`, `RankingSnapshotBatch`, `WeeklyRankingResetBatch`, `MonthlyRankingResetBatch`
+- **Stats & Rankings:** `DailyStatsBatch`, `RankingSnapshotBatch`, `WeeklyRankingResetBatch`, `MonthlyRankingResetBatch`
 - **Member Management:** `InactiveMemberBatch`, `BadgeAwardBatch`, `LpDecayBatch`, `LoginStreakBatch`
 - **Song Integrity:** `SongFileCheckBatch`, `SongAnalyticsBatch`, `YouTubeVideoCheckBatch`, `DuplicateSongCheckBatch`, `SongAnswerGenerationBatch`
 - **Fan Challenge:** `WeeklyPerfectRefreshBatch`
@@ -315,7 +320,18 @@ All batches are DB-configurable via `BatchConfig` table with cron expressions:
 | 초성 힌트 | X | X |
 | 랭크 기록 | X | O |
 
-> 값 출처: `FanChallengeDifficulty` enum (NORMAL 7000/6000, HARDCORE 5000/5000, 생명 3, `isShowChosungHint`=false, `isRanked`=HARDCORE만). 난이도는 2단계뿐.
+> 값 출처: `FanChallengeDifficulty` enum (NORMAL 7000/6000, HARDCORE 5000/5000, 생명 3, `isShowChosungHint`=false, `isRanked`=HARDCORE만). 난이도는 2단계뿐. 곡 수는 20곡(`CHALLENGE_SONG_COUNT`), HARDCORE 단계는 20/25/30곡.
+
+**Genre Challenge 난이도:**
+
+| 설정 | NORMAL | HARDCORE |
+|------|--------|----------|
+| 노래 재생 | 7초 | 5초 |
+| 답변 시간 | 6초 | 5초 |
+| 생명 | 5개 | 5개 |
+| 랭크 기록 | X | O |
+
+> 값 출처: `GenreChallengeDifficulty` enum (NORMAL 7000/6000/5/false, HARDCORE 5000/5000/5/true). 곡 수 50곡(`GenreChallengeService` MIN/MAX_SONG_COUNT).
 
 ### Community Board
 
@@ -332,8 +348,8 @@ All batches are DB-configurable via `BatchConfig` table with cron expressions:
 - **Admin auth:** DB-based via `Member` table with `role=ADMIN`
 - **File uploads:** `uploads/songs/`, max 50MB
 - **Session timeout:** 30 minutes
-- **Admin routes:** Protected by `AdminInterceptor` (/admin/**)
-- **Docker memory:** App 512MB, DB 256MB
+- **Admin routes:** Protected by Spring Security (`/admin/**` → `hasRole("ADMIN")`, `SecurityConfig`)
+- **Docker memory:** App 640M ×2 (blue/green, 평시 한 벌만 기동, JVM `MaxRAMPercentage=50`), DB 256M
 
 ### 환경변수 (Production `.env` 필수 항목)
 
@@ -346,16 +362,18 @@ All batches are DB-configurable via `BatchConfig` table with cron expressions:
 
 > ⚠️ **Brevo 보안 설정**: Brevo 대시보드의 `Security → Authorised IPs`에 운영 서버 IP를 등록해야 함. 미등록 시 모든 API 호출이 `401 unauthorized`로 거부됨. 서버 IP가 바뀌면 재등록 필요.
 
-### `docker-compose.yml` 동기화 주의
+### `docker-compose.yml` 동기화
 
-서버 `/root/game/docker-compose.yml`은 git 저장소의 파일과 **자동 동기화되지 않음**. compose 파일이 변경되면(예: 환경변수 추가/이름 변경) 서버에 직접 반영 후 `docker compose up -d --no-deps --force-recreate app` 실행 필요. 이미지만 갱신해도 새 환경변수는 적용 안 됨.
+서버 `/root/quiz`는 git 클론이며 배포 스크립트가 매번 `git pull --ff-only`를 실행한다 → **compose 변경은 푸시만으로 서버에 반영된다.** 단 서버 `.env`(git 미추적)는 자동 반영되지 않으므로, 환경변수를 추가·변경하면 서버 `.env`를 먼저 고친 뒤 푸시한다(새 컨테이너가 기동 시 읽음).
 
 ## CI/CD
 
 GitHub Actions workflow at `.github/workflows/deploy.yml`:
 - Triggers on push to main or manual dispatch (ignores *.md, .claude/**, .gitignore, LICENSE)
-- Builds Docker image → pushes to Docker Hub → deploys to server via SSH
+- **build 잡**: JDK 17 → `./mvnw clean test`(실패 시 중단, surefire 리포트 업로드) → WAR 패키징 → Docker 이미지 push (`latest` + 커밋 SHA)
+- **deploy 잡 (SSH, blue/green 무중단)**: `git pull --ff-only` → SHA 태그 pull 후 `latest` 재태깅 → nginx upstream(`/etc/nginx/conf.d/quiz-upstream.conf`)으로 활성 색 판별 → 유휴 색 기동 → `/actuator/health` 최대 90초 폴링(실패 시 신규 컨테이너 정지, 전환 안 함) → upstream 재작성 + `nginx -s reload` → 30초 드레인 후 구 색 정지
 - Requires secrets: `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY`, `SERVER_PORT`, `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`
+- 테스트 JVM 시간대는 `pom.xml` surefire `argLine`으로 `Asia/Seoul` 고정 (UTC 러너에서 날짜 경계 테스트 실패 방지)
 
 ## Security Review Guide
 
@@ -517,8 +535,8 @@ public String deleteSong(@PathVariable Long id, HttpSession session) {
     return "redirect:/admin/songs";
 }
 
-// ✅ 더 안전한 코드 - Interceptor에서 일괄 처리 (현재 AdminInterceptor 활용)
-// SecurityConfig 또는 WebConfig에서 /admin/** 경로 보호 설정 확인
+// ✅ 더 안전한 코드 - Spring Security에서 일괄 처리 (현재 SecurityConfig의 /admin/** → hasRole("ADMIN"))
+// 새 관리자 경로가 /admin/** 아래에 있는지 확인
 ```
 
 **리소스 소유권 검증 (IDOR 방지):**
@@ -589,7 +607,7 @@ public ResponseEntity<?> kickMember(@PathVariable Long roomId,
 
 | 항목 | 확인 |
 |------|------|
-| `/admin/**` 경로에 AdminInterceptor 적용 확인 | ☐ |
+| `/admin/**` 경로가 `SecurityConfig`의 `hasRole("ADMIN")` 매처에 걸리는지 확인 | ☐ |
 | 모든 POST/PUT/DELETE에 인증 검증 존재 | ☐ |
 | 리소스 접근 시 소유권(IDOR) 검증 존재 | ☐ |
 | API 엔드포인트에도 세션 검증 적용 | ☐ |
@@ -892,6 +910,6 @@ color: var(--text-secondary);
 
 ## 서버 인프라 (SSOT 참조)
 
-- **서버/배포 인프라 SSOT: `D:\server-infra.md`** (로컬 전용, git 미추적 — 리포·운영서버에 없음)
-- 포트·도메인·방화벽·컨테이너 TZ 규칙(`Asia/Seoul` 의무)·배포 반영 매트릭스(푸시 시 서버 자동/수동 반영 범위)·트러블슈팅은 전부 그 문서 참조.
-- 리포별 `server-infra-*.md`는 폐지됨(2026-06-06). **인프라(compose/nginx/포트/배포) 변경 시 `D:\server-infra.md`를 함께 최신화할 것.**
+- **서버/배포 인프라 SSOT: `D:\dev\career\03-infra\01-vps.md`** (비공개 저장소, 이 리포·운영서버에 없음). 구 `D:\server-infra.md`는 2026-09-08 폐기.
+- 포트·도메인·방화벽·컨테이너 TZ 규칙(`Asia/Seoul` 의무)·배포 반영 매트릭스·트러블슈팅은 그 문서 참조.
+- **인프라(compose/nginx/포트/배포) 변경 시 그 문서도 함께 최신화할 것.**

@@ -19,7 +19,8 @@
 | 4 | runbook | 🔲 | — |
 | 5 | nginx 설정 저장소 반영 | 🔲 | — |
 | 6 | README 정정 + `LICENSE` | ✅ | `e1b2c33` |
-| 6 | CLAUDE.md 드리프트(배치 수, `ENDED`, compose 동기화 경고, 메모리 512MB, 장르 챌린지) | 🔲 | 데드 코드 제거(7) 후 숫자 확정해 정정 |
+| 6 | CLAUDE.md 드리프트 정정 + README 숫자 재정정 | ✅ 2026-09-14 | 코드 재집계 기준: 배치 24(스케줄러 분기 24·seed 24), 서비스 22, 컨트롤러 client 13·admin 25, `@Entity` 29 + enum 3, 템플릿 69, 테스트 클래스 29. 상태 머신 `RoomStatus`(WAITING→PLAYING→FINISHED)·`RoundPhase`(PREPARING→PLAYING→RESULT), 장르 챌린지(50곡·라이프 5·HARDCORE만 랭킹), 팬 챌린지 20곡(HARDCORE 단계 20/25/30), 메모리 640M, compose 는 배포 시 `git pull` 동기화, CI/CD blue/green 흐름, 인프라 SSOT 경로. **추가 발견**: CLAUDE.md·README 가 인증을 `AdminInterceptor`/`SessionValidationInterceptor` 로 설명했으나 두 클래스는 Spring Security 전환(`68c9d74`) 때 제거됨 → `SecurityConfig` 기준으로 정정. `docker compose ... app` 명령도 blue/green 서비스명으로 정정 |
+| 1-2 ② | ~~CLAUDE.md "배치 26개" → 실제 27개~~ | — | 3단계 삭제 후 24개 |
 | 7 | 데드 코드 제거: 폐지·미등록 배치 3종, `GenreMigrationService`(+테스트), 미참조 템플릿 7개, pom tomcat 주석, Dockerfile `JAVA_OPTS` 주석 | ✅ 2026-09-14 | `23f6df8`. 삭제 전 재검증: 클래스·`BATCH_ID` 문자열·뷰 이름(컨트롤러 반환·MockMvc·JS) 참조 0건, `/admin/stats/popularity`·`/wrong-answers` 는 `redirect:` 확인. 검증: `./mvnw clean test` **301건** 통과(316 − `GenreMigrationServiceTest` 15), dev 부팅 성공. pom 빈 메타데이터는 `980640e`. 구 SQL 3개는 `dc7a089`에서 이미 삭제. **운영 DB `batch_config` 의 `BATCH_FAN_CHALLENGE_PERFECT_CHECK` 행은 서버에서 직접 삭제 필요**(남아 있으면 enabled=1 일 때 기동 WARN, 관리자 수동 실행 시 "실행할 수 없는 배치입니다" 오류) |
 | 7 | `DAILY_MISSION.md` → `System.md` §16 개선 이력으로 흡수 후 삭제, `tools/test-data-30-challenge.sql` 삭제 | ✅ 2026-09-14 | §16 에 누락돼 있던 배치 쿼리 최적화 커밋 `1c010ff` 보강 |
 | 7 | 보류: 운영·로컬 DB `batch_config` 의 `BATCH_FAN_CHALLENGE_PERFECT_CHECK` 행 삭제, `SongFileCheckBatch`·`uploads` 볼륨 | 🔲 | 서버 작업 / 서버 `uploads/songs` 파일 존재 확인 후 결정 |

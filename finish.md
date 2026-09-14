@@ -17,7 +17,7 @@
 | 2 | Flyway baseline | 🔲 선택 | — |
 | 3 | 백업 cron + 복원 리허설 | 🟡 리허설 ✅ 2026-09-14 / cron 🔲 | 수동 백업(`/root/backup/song-20260914-2104.sql.gz`, 31 테이블) → 임시 컨테이너 복원(적재 1.2초, 6개 표 행수 일치) → 복원 DB로 앱 기동 UP 33초·`validate` 통과. 자동 cron·오프사이트는 미착수 |
 | 4 | runbook 초안 `docs/runbook.md` | 🟡 §1·§4-1·§4-2·§5(명령만)·§6 검증 2026-09-14 | 상태 확인·수동 롤백(`start`로 직전 색 복귀)·SHA 재배포·DB 백업/복원 리허설/운영 복원·재부팅 점검·비밀번호 교체·만료 항목·증상표. **§2 수동 롤백·§3 SHA 재배포는 미실시**(전환이 생기므로 저트래픽 시간에). 만료일은 TLS만 기입(2026-12-01), 나머지 🔲 |
-| 10 | surefire `kill self fork JVM` 30초 대기 제거 | ✅ 2026-09-14 | `48a4be4`. 원인: `ThreadPoolTaskScheduler` 가 종료 시 cron 예약분(아직 시작 전)을 큐에 남겨 `awaitTermination(60s)` 를 다 채움 → `setExecuteExistingDelayedTasksAfterShutdownPolicy(false)`. 실행 중 배치는 계속 완료 대기. 단일 테스트 클래스 47초→25초, 전체 301건 통과·경고 0 |
+| 10 | surefire `kill self fork JVM` 30초 대기 제거 | ✅ 2026-09-14 | `48a4be4`. 원인: `ThreadPoolTaskScheduler` 가 종료 시 cron 예약분(아직 시작 전)을 큐에 남겨 `awaitTermination(60s)` 를 다 채움 → `setExecuteExistingDelayedTasksAfterShutdownPolicy(false)`. 실행 중 배치는 계속 완료 대기. 단일 테스트 클래스 47초→25초, 전체 301건 통과·경고 0. 운영 검증 2026-09-15: `9c12679` 배포 시 구 색(green) 정상 종료 확인(사용자) |
 | §2-3 | `docker image prune -f` 완화 | ➖ 불필요 판정 | `prune -f` 는 dangling 만 지워 SHA 태그 롤백 이미지는 원래 남는다(서버 실측 기록: 태그된 구 이미지는 0B). 실제 과제는 반대로 **SHA 이미지 누적** — 필요하면 최근 N개 보존 정리를 별도로 |
 | §1-3 | Jest (`jest.config.js` + `src/test/javascript/auto-play-logic.test.js`) 삭제 | ✅ 2026-09-14 | 14건 통과하나 테스트 파일 안에서 `AutoPlayController` 를 재구현해 검증 — 운영 JS(`static/js`)를 import 하지 않고, `package.json` 이 gitignore 라 클린 체크아웃에서 실행 불가·CI 미연동 |
 | — | `deploy.yml` `paths-ignore` `'*.md'` → `'**.md'` | ✅ 2026-09-14 | `*` 는 `/` 를 넘지 않아 `docs/runbook.md` 등 하위 경로 md 만 바꿔도 배포가 돌았음 |
@@ -33,7 +33,7 @@
 | 8 | 버전 1.0.0 / 태그 | 🔲 | — |
 | 9 | uptime 모니터 + 배지 | 🔲 | — |
 
-| 후속 | 코드 4건: `/ws/**` CSRF 예외 · `JAVA_TOOL_OPTIONS` `-Djava.security.egd=file:/dev/./urandom` · 없는 경로 404 처리 · `hibernate.dialect` 지정 제거 | ✅ 2026-09-15 | 2026-09-14 서버 로그·nginx 실측에서 발견. **404 건은 로그 위생이 아니라 응답 버그였음** — `NoResourceFoundException`이 `Exception` 핸들러에 잡혀 스캐너 요청에 500 에러 페이지를 돌려주고 있었다. 검증: 신규 테스트 4건(CSRF 예외는 수정 전 403 실패 확인), `./mvnw clean test` 305건 통과, dev 부팅 8초·dialect 경고 0. `9c12679` 배포 완료(2026-09-15 07:52, green→blue, 헬스 12회째). 외부 확인: `/robots.txt` 404(이전 200 에러페이지), `/.git/HEAD` JSON 404, `/ws/websocket` 101, `/actuator/health` 403. **서버 확인 대기**: green 종료 코드 143 여부(스케줄러 수정), blue 로그 `SecureRandom` WARN 0건 여부 |
+| 후속 | 코드 4건: `/ws/**` CSRF 예외 · `JAVA_TOOL_OPTIONS` `-Djava.security.egd=file:/dev/./urandom` · 없는 경로 404 처리 · `hibernate.dialect` 지정 제거 | ✅ 2026-09-15 | 2026-09-14 서버 로그·nginx 실측에서 발견. **404 건은 로그 위생이 아니라 응답 버그였음** — `NoResourceFoundException`이 `Exception` 핸들러에 잡혀 스캐너 요청에 500 에러 페이지를 돌려주고 있었다. 검증: 신규 테스트 4건(CSRF 예외는 수정 전 403 실패 확인), `./mvnw clean test` 305건 통과, dev 부팅 8초·dialect 경고 0. `9c12679` 배포 완료(2026-09-15 07:52, green→blue, 헬스 12회째). 외부 확인: `/robots.txt` 404(이전 200 에러페이지), `/.git/HEAD` JSON 404, `/ws/websocket` 101, `/actuator/health` 403. 서버 확인 2026-09-15(사용자): green 정상 종료·blue `SecureRandom` WARN 없음 — 이상 없음 |
 | 후속 | 인프라: `game.conf` HSTS 없음(3월 컨테이너 nginx 설정에는 있었음) · SHA 이미지 14개 누적(디스크 18%, 급하지 않음) · `/root/backup` 구 평문 덤프 600 권한 적용 완료 | 🔲 | SSOT 백로그 |
 
 **정정**: §1-2 ①이 "서버 공인 IP"라고 적은 tools의 기본 호스트 값은 현재 운영 VPS가 아니라 **별도 서버**의 IP다(인프라 기록 기준). 해당 서버에 과거 DB가 남아 있는지는 미확인.

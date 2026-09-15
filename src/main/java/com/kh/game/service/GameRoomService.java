@@ -212,6 +212,37 @@ public class GameRoomService {
     }
 
     /**
+     * 방 상태 정보를 Map으로 빌드 (폴링 GET /status · ROOM_UPDATE 브로드캐스트 · 언로드 지연 나가기 공용)
+     */
+    public java.util.Map<String, Object> buildRoomStatus(GameRoom room) {
+        java.util.Map<String, Object> status = new java.util.HashMap<>();
+        status.put("status", room.getStatus().name());
+        status.put("roomName", room.getRoomName());
+        status.put("hostId", room.getHost().getId());
+        status.put("hostNickname", room.getHost().getNickname());
+        status.put("maxPlayers", room.getMaxPlayers());
+        status.put("totalRounds", room.getTotalRounds());
+        status.put("isPrivate", room.getIsPrivate());
+
+        List<java.util.Map<String, Object>> participants = room.getParticipants().stream()
+                .filter(p -> p.getStatus() != GameRoomParticipant.ParticipantStatus.LEFT)
+                .map(p -> {
+                    java.util.Map<String, Object> pInfo = new java.util.HashMap<>();
+                    pInfo.put("memberId", p.getMember().getId());
+                    pInfo.put("nickname", p.getMember().getNickname());
+                    pInfo.put("isReady", p.getIsReady());
+                    pInfo.put("isHost", room.isHost(p.getMember()));
+                    return pInfo;
+                })
+                .toList();
+
+        status.put("participants", participants);
+        status.put("allReady", isAllReady(room));
+
+        return status;
+    }
+
+    /**
      * 방 코드로 조회
      */
     public Optional<GameRoom> findByRoomCode(String roomCode) {

@@ -56,7 +56,10 @@ public class SecurityConfig {
                         // SockJS 폴백 전송(xhr_streaming, xhr_send 등)은 POST 이지만 CSRF 토큰을 실을 수 없다.
                         // 인증은 핸드셰이크가 세션의 Principal 을 WebSocket 세션에 전파하고,
                         // 방 참가자 검사는 WebSocketAuthInterceptor 가 STOMP SUBSCRIBE 시점에 수행한다.
-                        .ignoringRequestMatchers(new AntPathRequestMatcher("/ws/**"))
+                        // 대기실·플레이 화면의 언로드(sendBeacon) 나가기도 헤더를 실을 수 없다.
+                        // 즉시 나가지 않고 유예 뒤 적용되며 페이지 재진입 시 취소된다 (RoomUnloadService).
+                        .ignoringRequestMatchers(new AntPathRequestMatcher("/ws/**"),
+                                new AntPathRequestMatcher("/game/multi/room/*/unload", "POST"))
                 )
                 .formLogin(form -> form
                         .loginPage("/auth/login")

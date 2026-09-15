@@ -11,6 +11,7 @@ import com.kh.game.service.GameRoomService;
 import com.kh.game.service.GenreService;
 import com.kh.game.service.MemberService;
 import com.kh.game.service.MultiGameService;
+import com.kh.game.service.RoomUnloadService;
 import com.kh.game.service.SongService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpSession;
@@ -41,6 +42,7 @@ public class MultiGameController {
     private final SongService songService;
     private final ObjectMapper objectMapper;
     private final GameBroadcastService gameBroadcastService;
+    private final RoomUnloadService roomUnloadService;
 
     /**
      * 권한/비즈니스 규칙 위반(방장 검증 실패, 라운드 상태 불일치 등)을
@@ -198,6 +200,7 @@ public class MultiGameController {
         }
 
         gameRoomService.joinRoom(roomCode, member);
+        roomUnloadService.cancelLeave(roomCode, memberId);  // 언로드 직후 재참가
         result.put("success", true);
         result.put("roomCode", roomCode);
 
@@ -249,6 +252,9 @@ public class MultiGameController {
         if (room == null) {
             return "redirect:/game/multi?error=notfound";
         }
+
+        // 페이지 재진입(새로고침·플레이→대기실 복귀)은 언로드로 예약된 나가기를 취소한다
+        roomUnloadService.cancelLeave(roomCode, memberId);
 
         // 게임중이면 플레이 페이지로
         if (room.getStatus() == GameRoom.RoomStatus.PLAYING) {
@@ -347,6 +353,9 @@ public class MultiGameController {
             return "redirect:/game/multi?error=notfound";
         }
 
+        // 대기실→플레이 이동·새로고침은 언로드로 예약된 나가기를 취소한다
+        roomUnloadService.cancelLeave(roomCode, memberId);
+
         // 게임중이 아니면 대기실로
         if (room.getStatus() != GameRoom.RoomStatus.PLAYING) {
             return "redirect:/game/multi/room/" + roomCode;
@@ -386,6 +395,9 @@ public class MultiGameController {
         if (room == null) {
             return "redirect:/game/multi";
         }
+
+        // 플레이→결과 이동은 언로드로 예약된 나가기를 취소한다
+        roomUnloadService.cancelLeave(roomCode, memberId);
 
         List<Map<String, Object>> finalResult = multiGameService.getFinalResult(room);
 
@@ -553,6 +565,25 @@ public class MultiGameController {
         }
 
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * 페이지 언로드 나가기 API (beforeunload/pagehide 의 navigator.sendBeacon 전용)
+     * sendBeacon 은 CSRF 헤더를 실을 수 없어 이 경로만 CSRF 예외(SecurityConfig). 그래서 즉시 나가지 않고
+     * RoomUnloadService 가 유예 뒤 적용하며, 그 사이 페이지 GET(대기실·플레이·결과)이 오면 취소된다.
+     */
+    @PostMapping("/room/{roomCode}/unload")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> unloadRoom(
+            @PathVariable String roomCode,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        Long memberId = userDetails != null ? userDetails.getMember().getId() : null;
+        if (memberId != null && gameRoomService.findByRoomCode(roomCode).isPresent()) {
+            roomUnloadService.scheduleLeave(roomCode, memberId);
+        }
+        // 비로그인·없는 방이어도 beacon 응답은 보는 이가 없다
+        return ResponseEntity.ok(Map.of("success", true));
     }
 
     /**
@@ -1177,34 +1208,9 @@ public class MultiGameController {
 
     /**
      * 방 상태 정보를 Map으로 빌드 (getRoomStatus와 브로드캐스트 공용)
+     * 본체는 GameRoomService.buildRoomStatus — 언로드 지연 나가기(RoomUnloadService)도 같은 것을 쓴다.
      */
     private Map<String, Object> buildRoomStatus(GameRoom room) {
-        Map<String, Object> status = new HashMap<>();
-        status.put("status", room.getStatus().name());
-        status.put("roomName", room.getRoomName());
-        status.put("hostId", room.getHost().getId());
-        status.put("hostNickname", room.getHost().getNickname());
-        status.put("maxPlayers", room.getMaxPlayers());
-        status.put("totalRounds", room.getTotalRounds());
-        status.put("isPrivate", room.getIsPrivate());
-
-        List<Map<String, Object>> participants = room.getParticipants().stream()
-                .filter(p -> p.getStatus() != GameRoomParticipant.ParticipantStatus.LEFT)
-                .map(p -> {
-                    Map<String, Object> pInfo = new HashMap<>();
-                    pInfo.put("memberId", p.getMember().getId());
-                    pInfo.put("nickname", p.getMember().getNickname());
-                    pInfo.put("isReady", p.getIsReady());
-                    pInfo.put("isHost", room.isHost(p.getMember()));
-                    return pInfo;
-                })
-                .collect(Collectors.toList());
-
-        status.put("participants", participants);
-
-        boolean allReady = gameRoomService.isAllReady(room);
-        status.put("allReady", allReady);
-
-        return status;
+        return gameRoomService.buildRoomStatus(room);
     }
 }

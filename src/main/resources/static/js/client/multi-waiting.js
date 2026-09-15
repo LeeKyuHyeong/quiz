@@ -39,7 +39,7 @@ window.addEventListener('beforeunload', function() {
     cleanup();
     // 새로고침 중이면 leave 요청 안 보냄 (방장 위임 후 새로고침 시)
     if (!isReloading) {
-        navigator.sendBeacon(`/game/multi/room/${roomCode}/leave`);
+        navigator.sendBeacon(`/game/multi/room/${roomCode}/unload`);
     }
 });
 
@@ -47,7 +47,7 @@ window.addEventListener('beforeunload', function() {
 window.addEventListener('pagehide', function() {
     cleanup();
     if (!isReloading) {
-        navigator.sendBeacon(`/game/multi/room/${roomCode}/leave`);
+        navigator.sendBeacon(`/game/multi/room/${roomCode}/unload`);
     }
 });
 

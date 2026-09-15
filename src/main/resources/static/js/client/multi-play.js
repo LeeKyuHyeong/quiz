@@ -99,14 +99,14 @@ window.addEventListener('beforeunload', function() {
     disconnectWebSocket();
     stopPolling();
     // sendBeacon으로 방 나가기 요청 (페이지 언로드되어도 전송 보장)
-    navigator.sendBeacon('/game/multi/room/' + roomCode + '/leave');
+    navigator.sendBeacon('/game/multi/room/' + roomCode + '/unload');
 });
 
 // 뒤로가기/앞으로가기 시에도 나가기 처리
 window.addEventListener('pagehide', function() {
     disconnectWebSocket();
     stopPolling();
-    navigator.sendBeacon('/game/multi/room/' + roomCode + '/leave');
+    navigator.sendBeacon('/game/multi/room/' + roomCode + '/unload');
 });
 
 // ========== WebSocket ==========

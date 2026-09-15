@@ -82,9 +82,9 @@ function showRoomInfo(data) {
     }
 
     // 비공개 방
+    // 비공개 = 로비 목록에서 숨김. 코드를 알면 입장 가능 (비밀번호 없음)
     isPrivate = data.isPrivate;
     document.getElementById('privateBadge').style.display = isPrivate ? 'inline' : 'none';
-    document.getElementById('passwordGroup').style.display = isPrivate ? 'block' : 'none';
 
     // 참가자 목록
     const participantList = document.getElementById('participantList');
@@ -132,19 +132,10 @@ function joinRoom() {
         return;
     }
 
-    const password = document.getElementById('password').value;
-
-    if (isPrivate && !password) {
-        showToast('비밀번호를 입력해주세요.');
-        return;
-    }
-
-    const data = { password: password };
-
     fetch(`/game/multi/join/${currentRoomCode}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        body: JSON.stringify({})
     })
         .then(response => response.json())
         .then(data => {

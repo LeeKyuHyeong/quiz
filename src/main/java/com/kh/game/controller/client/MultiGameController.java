@@ -157,13 +157,13 @@ public class MultiGameController {
     }
 
     /**
-     * 방 참가 API
+     * 방 참가 API (로비 목록 "입장" · 참가 페이지 코드 입력 공용)
+     * 비공개 방은 로비 목록에서만 숨겨지고, 코드를 알면 비밀번호 없이 입장한다.
      */
     @PostMapping("/join/{roomCode}")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> joinRoomApi(
             @PathVariable String roomCode,
-            @RequestBody(required = false) Map<String, String> request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
         Map<String, Object> result = new HashMap<>();
@@ -191,16 +191,6 @@ public class MultiGameController {
             result.put("success", false);
             result.put("message", "방을 찾을 수 없습니다.");
             return ResponseEntity.ok(result);
-        }
-
-        // 비공개 방 비밀번호 확인
-        if (room.getIsPrivate()) {
-            String password = request != null ? request.get("password") : null;
-            if (password == null || !password.equals(room.getPassword())) {
-                result.put("success", false);
-                result.put("message", "비밀번호가 일치하지 않습니다.");
-                return ResponseEntity.ok(result);
-            }
         }
 
         gameRoomService.joinRoom(roomCode, member);
@@ -509,50 +499,6 @@ public class MultiGameController {
 
         result.put("success", true);
         result.put("roomCode", room.getRoomCode());
-
-        return ResponseEntity.ok(result);
-    }
-
-    /**
-     * 방 참가 API
-     */
-    @PostMapping("/room/{roomCode}/join")
-    @ResponseBody
-    public ResponseEntity<Map<String, Object>> joinRoom(
-            @PathVariable String roomCode,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-
-        Map<String, Object> result = new HashMap<>();
-
-        // roomCode 대문자 변환
-        roomCode = roomCode.toUpperCase().trim();
-
-        Long memberId = userDetails != null ? userDetails.getMember().getId() : null;
-
-        if (memberId == null) {
-            result.put("success", false);
-            result.put("message", "로그인이 필요합니다.");
-            return ResponseEntity.ok(result);
-        }
-
-        Member member = memberService.findById(memberId).orElse(null);
-        if (member == null) {
-            result.put("success", false);
-            result.put("message", "회원 정보를 찾을 수 없습니다.");
-            return ResponseEntity.ok(result);
-        }
-
-        GameRoom room = gameRoomService.findByRoomCode(roomCode).orElse(null);
-        if (room == null) {
-            result.put("success", false);
-            result.put("message", "방을 찾을 수 없습니다.");
-            return ResponseEntity.ok(result);
-        }
-
-        gameRoomService.joinRoom(roomCode, member);
-        result.put("success", true);
-
-        gameBroadcastService.broadcastRoomUpdate(roomCode, buildRoomStatus(room));
 
         return ResponseEntity.ok(result);
     }

@@ -322,12 +322,14 @@ async function createRoom() {
         const response = await fetch('/game/multi/create', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            // 서버는 본문 전체를 GameSettings 로 바인딩한다. 키 이름은 GameSettings 필드와 같아야 하고
+            // (privateRoom), 게임 모드 설정도 중첩 객체가 아니라 최상위에 펼쳐서 보낸다.
             body: JSON.stringify({
                 roomName: roomName,
                 maxPlayers: maxPlayers,
                 totalRounds: totalRounds,
-                isPrivate: isPrivate,
-                settings: settings
+                privateRoom: isPrivate,
+                ...settings
             })
         });
 

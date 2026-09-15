@@ -213,11 +213,11 @@ docker exec "quiz-app-$ACTIVE" date     # KST
 |---|---|---|---|
 | TLS 인증서 (Let's Encrypt) | `certbot-renew.timer` 자동 | `certbot certificates` · `certbot renew --dry-run` | 2026-12-01 (타이머 동작 확인 2026-09-14) |
 | 도메인 `kyuhyeong.com` | 등록기관(Gabia) 수동 갱신 | 가비아 콘솔 · 공개 RDAP(`rdap.verisign.com/com/v1/domain/kyuhyeong.com`) | 2028-03-23 (등록 2026-03-23, 2년. RDAP 확인 2026-09-15) |
-| Docker Hub 토큰 (`DOCKERHUB_TOKEN`) | 수동 재발급 → GitHub Secret 교체 | Docker Hub 계정 설정 | 🔲 |
+| Docker Hub 토큰 (`DOCKERHUB_TOKEN`) | 수동 재발급 → GitHub Secret 교체 | Docker Hub → Account settings → Personal access tokens | 만료 없음(Never). 권한 Read/Write/Delete — 배포는 Read/Write 면 충분하므로 재발급 때 Delete 는 뺀다 (확인 2026-09-15) |
 | 배포 SSH 키 (`SERVER_SSH_KEY`) | 수동 | 서버 `authorized_keys` | 만료 없음 (유출 시 교체) |
 | Brevo API 키 (`BREVO_API_KEY`) | 수동 → 서버 `.env` → 앱 재생성(무중단은 `gh workflow run deploy.yml`) | Brevo 대시보드 → SMTP & API → API Keys. **키는 대시보드에서 활성화(activate)해야 401이 풀린다** (2026-09-15 겪음) | 🔲 |
 | Brevo Authorised IPs | 서버 IP 변경 시 재등록 | 미등록이면 메일 API가 401 | 서버 IP 변경 시 |
-| VPS 계약 | 호스팅사 | 호스팅 콘솔 | 🔲 |
+| VPS 계약 (Cafe24) | 6개월 자동 연장 설정됨 | Cafe24 호스팅 콘솔 → 서비스 관리 | 2027-03-22 (자동 연장. 결제수단 만료 시 연장 실패하므로 카드 만료월도 함께 본다. 확인 2026-09-15) |
 
 ---
 

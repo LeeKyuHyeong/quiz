@@ -63,8 +63,8 @@ docker compose start "app-$OTHER"
 # 2) 헬스체크 통과 대기 (최대 90초)
 for i in $(seq 1 30); do curl -fsS "http://127.0.0.1:$OTHER_PORT/actuator/health" | grep -q '"status":"UP"' && { echo OK; break; }; sleep 3; done
 
-# 3) 트래픽 전환
-cp -p "$UPSTREAM" "$UPSTREAM.bak"
+# 3) 트래픽 전환 (\cp = root 셸의 cp -i 별칭 우회. .bak 이 이미 있으면 cp 가 overwrite? 를 물어 체인이 멈춘다)
+\cp -p "$UPSTREAM" "$UPSTREAM.bak"
 printf 'upstream quiz_backend {\n    server 127.0.0.1:%s;   # active: %s\n}\n' "$OTHER_PORT" "$OTHER" > "$UPSTREAM"
 nginx -t && nginx -s reload
 
@@ -78,8 +78,9 @@ docker compose stop "app-$ACTIVE"
 - 되살린 컨테이너의 이미지 확인: `docker inspect -f '{{.Config.Image}} {{.Image}}' "quiz-app-$OTHER"`
 - 롤백 후 **다음 푸시가 다시 배포**한다. 원인을 고친 커밋을 올리거나, 급하면 문제 커밋을 `git revert` 해서 푸시한다.
 - 스키마를 바꾼 배포였다면 이전 버전이 `ddl-auto=validate`에서 뜨지 않을 수 있다 → §4 복원과 함께 판단.
+- 리허설로 할 때는 4)를 생략하고 `\cp -p "$UPSTREAM.bak" "$UPSTREAM" && nginx -t && nginx -s reload`로 원복한 뒤 `sleep 10; docker compose stop "app-$OTHER"`.
 
-**검증**: 🔲
+**검증**: 2026-09-15 (리허설: 활성 green `5405aa5` → blue `cf1701a` `start` 39초 UP → upstream 8092 → 외부 200 → 원복 → blue stop 0.6초 `Exited (143)`. 전환 2회 모두 외부 200)
 
 ---
 
@@ -102,8 +103,10 @@ for i in $(seq 1 30); do curl -fsS "http://127.0.0.1:$OTHER_PORT/actuator/health
 
 - 서버의 `latest`만 바뀌었을 뿐 `main`은 그대로다. 다음 푸시가 최신 커밋을 다시 배포한다.
 - 보관 중인 이미지 목록: `docker images "$IMG"` (배포 스크립트의 `docker image prune -f`는 태그 없는 이미지만 지우므로 SHA 태그는 남는다)
+- `up` 때 `WARN volume "quiz_uploads"/"quiz_db-data" already exists but was not created by Docker Compose`가 나온다. 볼륨이 compose 라벨 없이 만들어진 흔적일 뿐이고 그대로 마운트되니 무시한다. **`down -v`나 `external: true` 전환은 하지 않는다.**
+- 리허설(전환 없이 헬스만 볼 때)은 `latest`를 먼저 `rehearsal-latest`로 보관해 두고, 유휴 색 `stop` 후 `docker tag "$IMG:rehearsal-latest" "$IMG:latest" && docker rmi "$IMG:rehearsal-latest"`로 되돌린다. 유휴 색 컨테이너는 과거 SHA 버전으로 남으므로 그 뒤 진짜 롤백은 §2가 아니라 이 절로 해야 한다.
 
-**검증**: 🔲
+**검증**: 2026-09-15 (리허설: 유휴 blue에 `9c12679` → `force-recreate` → 45초 UP, inspect 이미지 ID = SHA 태그 ID 확인 → stop → `latest` 원복(green 실행 이미지와 일치). 활성 green 무영향)
 
 ---
 

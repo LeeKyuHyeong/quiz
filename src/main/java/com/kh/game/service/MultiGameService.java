@@ -164,7 +164,7 @@ public class MultiGameService {
             return result;
         }
 
-        GameRoomParticipant participant = participantRepository.findByGameRoomAndMember(room, member)
+        GameRoomParticipant participant = findActiveParticipant(room, member)
                 .orElse(null);
         if (participant == null) {
             result.put("success", false);
@@ -292,7 +292,7 @@ public class MultiGameService {
             return result;
         }
 
-        GameRoomParticipant participant = participantRepository.findByGameRoomAndMember(room, member)
+        GameRoomParticipant participant = findActiveParticipant(room, member)
                 .orElse(null);
         if (participant == null) {
             result.put("success", false);
@@ -460,7 +460,7 @@ public class MultiGameService {
         }
 
         // 참가자 확인
-        GameRoomParticipant participant = participantRepository.findByGameRoomAndMember(room, member)
+        GameRoomParticipant participant = findActiveParticipant(room, member)
                 .orElse(null);
         if (participant == null) {
             result.put("success", false);
@@ -741,6 +741,16 @@ public class MultiGameService {
     }
 
     // ========== 내부 헬퍼 ==========
+
+    /**
+     * 게임 액션(채팅·포기 투표·라운드 준비)용 참가자 조회 — 활성(JOINED/PLAYING)만.
+     * 나갔거나 강퇴된(LEFT) 사람의 행은 남아 있으므로 상태를 보지 않으면 정답을 맞혀 점수를 얻을 수 있다.
+     * 구독·폴링 GET 인가(GameRoomService.isActiveParticipant)와 같은 기준.
+     */
+    private Optional<GameRoomParticipant> findActiveParticipant(GameRoom room, Member member) {
+        return participantRepository.findByGameRoomAndMember(room, member)
+                .filter(p -> p.getStatus() != GameRoomParticipant.ParticipantStatus.LEFT);
+    }
 
     /**
      * 노래 선택 + 사용 기록을 원자적으로 수행 (중복 선택 방지)

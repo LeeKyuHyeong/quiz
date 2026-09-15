@@ -63,8 +63,9 @@ function cleanup() {
 // === WebSocket 메시지 핸들러 ===
 
 // ROOM_UPDATE 핸들러 — 서버가 보내는 payload는 fetchRoomStatus 응답과 같은 구조
+// 단, push payload(buildRoomStatus)에는 success 키가 없다. 명시적 false 만 "방 종료"로 본다.
 function handleRoomUpdate(payload) {
-    if (!payload.success) {
+    if (payload.success === false) {
         showToast('방이 종료되었습니다.');
         window.location.href = '/game/multi';
         return;

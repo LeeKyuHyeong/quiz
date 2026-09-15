@@ -222,6 +222,13 @@ public class MultiGameService {
             return result;
         }
 
+        // 종료된 방에서는 곡 교체·재종료 금지 (nextRound 와 같은 이유)
+        if (room.getStatus() != GameRoom.RoomStatus.PLAYING) {
+            result.put("success", false);
+            result.put("message", "게임이 진행중이 아닙니다.");
+            return result;
+        }
+
         if (room.getRoundPhase() != GameRoom.RoundPhase.PLAYING) {
             result.put("success", false);
             result.put("message", "현재 스킵할 수 없는 상태입니다.");
@@ -384,6 +391,13 @@ public class MultiGameService {
         if (!room.isHost(host)) {
             result.put("success", false);
             result.put("message", "방장만 다음 라운드를 진행할 수 있습니다.");
+            return result;
+        }
+
+        // 종료된 방에 다시 들어오면(탭 두 개·재시도) finishGame 이 재실행되어 전적·LP 가 이중 반영된다
+        if (room.getStatus() != GameRoom.RoomStatus.PLAYING) {
+            result.put("success", false);
+            result.put("message", "게임이 진행중이 아닙니다.");
             return result;
         }
 

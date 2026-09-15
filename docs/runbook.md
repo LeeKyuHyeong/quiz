@@ -16,7 +16,7 @@
 | nginx 설정 | 서버 `/etc/nginx/conf.d/game.conf` + `quiz-upstream.conf`. 재구축용 사본은 이 저장소 `infra/nginx/` (2026-09-14 실측본) |
 | 이미지 | `<DOCKERHUB_USERNAME>/quiz-app:<커밋 SHA>` + 같은 이미지에 `latest` 태그 |
 | 헬스체크 | `http://127.0.0.1:<포트>/actuator/health` → `"status":"UP"` |
-| 백업 | `/root/backup/song-<YYYYMMDD-HHMM>.sql.gz` (수동, §4-1). 자동 백업은 아직 없음 |
+| 백업 | `/root/backup/song-<YYYYMMDD-HHMM>.sql.gz` — 매일 04:30 cron (`backup-quiz.sh`, 14일 보존) + 수동 §4-1. 오프사이트 없음 |
 
 아래 명령은 모두 `/root/quiz`에서 실행한다. 여러 절에서 쓰는 변수:
 
@@ -109,7 +109,8 @@ for i in $(seq 1 30); do curl -fsS "http://127.0.0.1:$OTHER_PORT/actuator/health
 
 ## 4. DB 백업 · 복원
 
-> 🔲 **자동 백업(cron)·외부 보관은 아직 구축 전이다.** 구축하면 이 절에 스크립트 위치와 보관 경로를 적는다.
+> 자동 백업: `/root/backup/backup-quiz.sh` 를 root crontab 이 매일 04:30 KST 에 실행 (2026-09-15 구축). §4-1 과 같은 덤프 + gzip 무결성·완료 마커 검사, `song-<날짜>.sql.gz` 14일 보존, 로그 `/root/backup/backup.log`. 실패하면 부분 파일을 지우고 `FAIL` 을 남긴다.
+> 🔲 **외부(오프사이트) 보관은 아직 없다.** VPS 가 죽으면 백업도 같이 사라진다.
 
 ### 4-1. 수동 백업
 

@@ -15,7 +15,7 @@
 | 2 | 운영 스키마 덤프로 `schema.sql` 교체, 구 migration SQL 삭제 | ✅ | `dc7a089` (29 테이블) |
 | 2 | dev `ddl-auto=validate` + 기본 프로파일(`spring.profiles.active=dev`) 제거 | ✅ | `2bbb989`. 검증: 빈 DB에 `schema.sql` 적용 → dev 부팅 성공(HTTP 200) / 기존 로컬 `song` DB로도 부팅 성공 / 프로파일 없이 실행 시 DataSource 미설정으로 즉시 실패 / `./mvnw clean test` 316건 통과. 로컬 검증 DB는 MySQL 8.0(운영은 MariaDB 11.8) |
 | 2 | Flyway baseline | 🔲 선택 | — |
-| 3 | 백업 cron + 복원 리허설 | 🟡 리허설 ✅ 2026-09-14 / cron 🔲 | 수동 백업(`/root/backup/song-20260914-2104.sql.gz`, 31 테이블) → 임시 컨테이너 복원(적재 1.2초, 6개 표 행수 일치) → 복원 DB로 앱 기동 UP 33초·`validate` 통과. 자동 cron·오프사이트는 미착수 |
+| 3 | 백업 cron + 복원 리허설 | 🟡 리허설 ✅ 2026-09-14 / cron ✅ 2026-09-15 / 오프사이트 🔲 | 수동 백업(`/root/backup/song-20260914-2104.sql.gz`, 31 테이블) → 임시 컨테이너 복원(적재 1.2초, 6개 표 행수 일치) → 복원 DB로 앱 기동 UP 33초·`validate` 통과. 자동 cron·오프사이트는 미착수 |
 | 4 | runbook 초안 `docs/runbook.md` | 🟡 §1·§4-1·§4-2·§5(명령만)·§6 검증 2026-09-14 | 상태 확인·수동 롤백(`start`로 직전 색 복귀)·SHA 재배포·DB 백업/복원 리허설/운영 복원·재부팅 점검·비밀번호 교체·만료 항목·증상표. **§2 수동 롤백·§3 SHA 재배포는 미실시**(전환이 생기므로 저트래픽 시간에). 만료일은 TLS만 기입(2026-12-01), 나머지 🔲 |
 | 10 | surefire `kill self fork JVM` 30초 대기 제거 | ✅ 2026-09-14 | `48a4be4`. 원인: `ThreadPoolTaskScheduler` 가 종료 시 cron 예약분(아직 시작 전)을 큐에 남겨 `awaitTermination(60s)` 를 다 채움 → `setExecuteExistingDelayedTasksAfterShutdownPolicy(false)`. 실행 중 배치는 계속 완료 대기. 단일 테스트 클래스 47초→25초, 전체 301건 통과·경고 0. 운영 검증 2026-09-15: `9c12679` 배포 시 구 색(green) 정상 종료 확인(사용자) |
 | §2-3 | `docker image prune -f` 완화 | ➖ 불필요 판정 | `prune -f` 는 dangling 만 지워 SHA 태그 롤백 이미지는 원래 남는다(서버 실측 기록: 태그된 구 이미지는 0B). 실제 과제는 반대로 **SHA 이미지 누적** — 필요하면 최근 N개 보존 정리를 별도로 |
@@ -28,13 +28,13 @@
 | 7 | 데드 코드 제거: 폐지·미등록 배치 3종, `GenreMigrationService`(+테스트), 미참조 템플릿 7개, pom tomcat 주석, Dockerfile `JAVA_OPTS` 주석 | ✅ 2026-09-14 | `23f6df8`. 삭제 전 재검증: 클래스·`BATCH_ID` 문자열·뷰 이름(컨트롤러 반환·MockMvc·JS) 참조 0건, `/admin/stats/popularity`·`/wrong-answers` 는 `redirect:` 확인. 검증: `./mvnw clean test` **301건** 통과(316 − `GenreMigrationServiceTest` 15), dev 부팅 성공. pom 빈 메타데이터는 `980640e`. 구 SQL 3개는 `dc7a089`에서 이미 삭제. **운영 DB `batch_config` 의 `BATCH_FAN_CHALLENGE_PERFECT_CHECK` 행은 서버에서 직접 삭제 필요**(남아 있으면 enabled=1 일 때 기동 WARN, 관리자 수동 실행 시 "실행할 수 없는 배치입니다" 오류) |
 | 7 | `DAILY_MISSION.md` → `System.md` §16 개선 이력으로 흡수 후 삭제, `tools/test-data-30-challenge.sql` 삭제 | ✅ 2026-09-14 | §16 에 누락돼 있던 배치 쿼리 최적화 커밋 `1c010ff` 보강 |
 | 7 | 운영 DB `batch_config` 잔존 행 | ➖ 불필요 판정 2026-09-14 | 서버 실측: 삭제한 3종 행 없음, 총 24행으로 seed와 일치. 기동 WARN 0건 |
-| 7 | `SongFileCheckBatch`·`uploads` 볼륨 | 🔲 데드 코드 확정 2026-09-14 | 서버 실측: `quiz_uploads` 볼륨 파일 0개(8.0K), `BATCH_SONG_FILE_CHECK` enabled=0. 제거 대상: 배치 클래스 + `BatchScheduler`/`BatchService` seed 분기 + `file.upload-dir` + `WebConfig` 리소스 핸들러 + compose `uploads` 볼륨 + Dockerfile `mkdir` + `SecurityConfig` `/uploads/**` + `batch_config` 행. 볼륨 자체는 `down -v` 금지, `docker volume rm quiz_uploads`로 별도 |
+| 7 | `SongFileCheckBatch`·`uploads` 볼륨 | 🔲 보류 2026-09-15 — 범위가 큼 | 서버 실측: `quiz_uploads` 볼륨 파일 0개(8.0K), `BATCH_SONG_FILE_CHECK` enabled=0. 제거 대상: 배치 클래스 + `BatchScheduler`/`BatchService` seed 분기 + `file.upload-dir` + `WebConfig` 리소스 핸들러 + compose `uploads` 볼륨 + Dockerfile `mkdir` + `SecurityConfig` `/uploads/**` + `batch_config` 행. 볼륨 자체는 `down -v` 금지, `docker volume rm quiz_uploads`로 별도. **재조사(2026-09-15)**: `Song.filePath`(`file_path` 컬럼)·`SongService` 업로드/삭제 코드·게임 JS 5개의 `/uploads/songs/` 오디오 폴백이 아직 남아 있어 배치만 지우는 것으로 끝나지 않는다. 컬럼 제거는 스키마 변경(운영 ALTER)까지 따라오므로 별도 작업으로 분리 |
 | §3-2 | 운영 DB 잔재 테이블 `song_history`·`song_260113` DROP | ✅ 2026-09-14 | 코드 참조 0건(SongHistory 기능은 2026-01-15 추가·당일 제거 `9e06514`, `song_260113`은 01-13 수동 복사본). `/root/backup/song-legacy-tables-20260914-2104.sql.gz`로 보관 후 DROP → 테이블 29개 = `schema.sql` |
-| 8 | 버전 1.0.0 / 태그 | 🔲 | — |
+| 8 | 버전 1.0.0 / 태그 | ✅ 2026-09-15 | `pom.xml` 1.0.0, git tag `v1.0.0`, README 배지. 이미지 `:v1.0.0` 태그는 서버에 Docker Hub 로그인이 없어 생략 — 운영 버전은 `git describe` 와 배포 SHA 로 답한다 |
 | 9 | uptime 모니터 + 배지 | 🔲 | — |
 
 | 후속 | 코드 4건: `/ws/**` CSRF 예외 · `JAVA_TOOL_OPTIONS` `-Djava.security.egd=file:/dev/./urandom` · 없는 경로 404 처리 · `hibernate.dialect` 지정 제거 | ✅ 2026-09-15 | 2026-09-14 서버 로그·nginx 실측에서 발견. **404 건은 로그 위생이 아니라 응답 버그였음** — `NoResourceFoundException`이 `Exception` 핸들러에 잡혀 스캐너 요청에 500 에러 페이지를 돌려주고 있었다. 검증: 신규 테스트 4건(CSRF 예외는 수정 전 403 실패 확인), `./mvnw clean test` 305건 통과, dev 부팅 8초·dialect 경고 0. `9c12679` 배포 완료(2026-09-15 07:52, green→blue, 헬스 12회째). 외부 확인: `/robots.txt` 404(이전 200 에러페이지), `/.git/HEAD` JSON 404, `/ws/websocket` 101, `/actuator/health` 403. 서버 확인 2026-09-15(사용자): green 정상 종료·blue `SecureRandom` WARN 없음 — 이상 없음 |
-| 후속 | 인프라: `game.conf` HSTS 없음(3월 컨테이너 nginx 설정에는 있었음) · SHA 이미지 14개 누적(디스크 18%, 급하지 않음) · `/root/backup` 구 평문 덤프 600 권한 적용 완료 | 🔲 | SSOT 백로그 |
+| 후속 | 인프라: ~~`game.conf` HSTS 없음~~ → Spring Security 가 이미 응답에 붙이고 있어 nginx 추가 불필요(2026-09-15 확인) · SHA 이미지 14개 누적(디스크 18%, 급하지 않음) · `/root/backup` 구 평문 덤프 600 권한 적용 완료 | 🔲 | SSOT 백로그 |
 
 | 기능 | 비밀번호 초기화(관리자→임시 비밀번호 메일)·본인 재설정(`/auth/password-reset`, 이메일 코드) | ✅ 2026-09-15 | `82c1ebf`. 배경: 구 초기화는 `temp`+밀리초%10000 을 아무에게도 알리지 않아 계정 잠금과 같았고, "비밀번호 찾기" 문구가 가리키는 기능은 없었음. 운영 확인(사용자): Brevo 키 활성화 후 인증 메일·재설정 성공 |
 

@@ -242,6 +242,22 @@
     background: var(--primary-hover);
 }
 
+/* 비공개 방 카드 — 입장 대신 코드 입력 안내만 하는 버튼 (색상은 변수라 다크/.game-page 자동 적용) */
+.btn-enter-private {
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+}
+
+.btn-enter-private:hover {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+}
+
+.room-private-icon {
+    margin-right: 0.25rem;
+}
+
 /* Empty Rooms */
 .empty-rooms {
     text-align: center;

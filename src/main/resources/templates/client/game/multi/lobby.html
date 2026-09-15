@@ -53,9 +53,13 @@
                     <p class="empty-sub">새로운 방을 만들어보세요!</p>
                 </div>
 
-                <div th:each="room : ${rooms}" class="room-card" th:data-room-code="${room.roomCode}">
+                <!-- 비공개 방은 코드를 DOM 에 싣지 않는다 (코드를 아는 사람만 입장) -->
+                <div th:each="room : ${rooms}" class="room-card" th:data-room-code="${room.isPrivate} ? null : ${room.roomCode}">
                     <div class="room-info">
-                        <div class="room-name" th:text="${room.roomName}">방 이름</div>
+                        <div class="room-name">
+                            <span th:if="${room.isPrivate}" class="room-private-icon" title="비공개 방">🔒</span>
+                            <span th:text="${room.roomName}">방 이름</span>
+                        </div>
                         <div class="room-host">
                             <span class="host-icon">👑</span>
                             <span th:text="${room.host.nickname}">방장</span>
@@ -71,7 +75,8 @@
                             <span th:text="${room.totalRounds} + '라운드'">10라운드</span>
                         </div>
                     </div>
-                    <button type="button" class="btn btn-enter" th:data-code="${room.roomCode}" onclick="joinRoom(this.dataset.code)">입장</button>
+                    <button th:unless="${room.isPrivate}" type="button" class="btn btn-enter" th:data-code="${room.roomCode}" onclick="joinRoom(this.dataset.code)">입장</button>
+                    <button th:if="${room.isPrivate}" type="button" class="btn btn-enter btn-enter-private" onclick="notifyPrivateRoom()">🔒 비공개</button>
                 </div>
             </div>
 

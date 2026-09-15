@@ -183,16 +183,32 @@ class MultiGameControllerRoomLifecycleTest {
     class RoomList {
 
         @Test
-        @DisplayName("비공개 방은 목록에서 빠지고 공개 방만 보인다")
-        void privateRoom_isHiddenFromList() throws Exception {
+        @DisplayName("비공개 방도 목록에 보이지만 코드는 내려가지 않고, 공개 방은 코드가 내려간다")
+        void privateRoom_isListedWithoutCode() throws Exception {
             String privateCode = createRoom(host, CREATE_PRIVATE_FIXED_ARTIST);
             String publicCode = createRoom(guest, CREATE_PUBLIC_RANDOM);
 
             String list = mockMvc.perform(get("/game/multi/rooms"))
                     .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[?(@.roomName == 'private test room')].isPrivate").value(true))
+                    .andExpect(jsonPath("$[?(@.roomName == 'private test room')].roomCode").doesNotExist())
+                    .andExpect(jsonPath("$[?(@.roomName == 'public test room')].isPrivate").value(false))
+                    .andExpect(jsonPath("$[?(@.roomName == 'public test room')].roomCode").value(publicCode))
                     .andReturn().getResponse().getContentAsString();
 
-            assertThat(list).contains(publicCode).doesNotContain(privateCode);
+            assertThat(list).contains("private test room").doesNotContain(privateCode);
+        }
+
+        @Test
+        @DisplayName("이름 검색 결과에도 비공개 방이 코드 없이 포함된다")
+        void search_includesPrivateRoomWithoutCode() throws Exception {
+            String privateCode = createRoom(host, CREATE_PRIVATE_FIXED_ARTIST);
+
+            mockMvc.perform(get("/game/multi/rooms").param("keyword", "private"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].roomName").value("private test room"))
+                    .andExpect(jsonPath("$[0].isPrivate").value(true))
+                    .andExpect(jsonPath("$[0].roomCode").doesNotExist());
         }
     }
 

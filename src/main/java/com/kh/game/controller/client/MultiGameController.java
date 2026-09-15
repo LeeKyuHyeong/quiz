@@ -121,7 +121,11 @@ public class MultiGameController {
 
         List<Map<String, Object>> result = rooms.stream().map(room -> {
             Map<String, Object> roomInfo = new HashMap<>();
-            roomInfo.put("roomCode", room.getRoomCode());
+            // 비공개 방은 목록에 보이되 코드는 내려보내지 않는다 (코드를 아는 사람만 입장)
+            roomInfo.put("isPrivate", room.getIsPrivate());
+            if (!room.getIsPrivate()) {
+                roomInfo.put("roomCode", room.getRoomCode());
+            }
             roomInfo.put("roomName", room.getRoomName());
             roomInfo.put("hostNickname", room.getHost().getNickname());
             roomInfo.put("currentPlayers", room.getCurrentPlayerCount());

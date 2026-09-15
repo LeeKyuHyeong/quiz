@@ -94,10 +94,11 @@ function renderRoomList(rooms) {
         return;
     }
 
+    // 비공개 방은 서버가 roomCode 를 내려주지 않는다. 카드는 보이되 입장 버튼은 안내만 한다.
     container.innerHTML = rooms.map(room => `
-        <div class="room-card" data-room-code="${room.roomCode}">
+        <div class="room-card"${room.isPrivate ? '' : ` data-room-code="${room.roomCode}"`}>
             <div class="room-info">
-                <div class="room-name">${escapeHtml(room.roomName)}</div>
+                <div class="room-name">${room.isPrivate ? '<span class="room-private-icon" title="비공개 방">🔒</span> ' : ''}${escapeHtml(room.roomName)}</div>
                 <div class="room-host">
                     <span class="host-icon">👑</span>
                     <span>${escapeHtml(room.hostNickname)}</span>
@@ -113,9 +114,18 @@ function renderRoomList(rooms) {
                     <span>${room.totalRounds}라운드</span>
                 </div>
             </div>
-            <button type="button" class="btn btn-enter" onclick="joinRoom('${room.roomCode}')">입장</button>
+            ${room.isPrivate
+                ? `<button type="button" class="btn btn-enter btn-enter-private" onclick="notifyPrivateRoom()">🔒 비공개</button>`
+                : `<button type="button" class="btn btn-enter" onclick="joinRoom('${room.roomCode}')">입장</button>`}
         </div>
     `).join('');
+}
+
+// 비공개 방 카드 클릭 — 참가하지 않고 코드 입력으로 안내
+function notifyPrivateRoom() {
+    showToast('비공개 방입니다. 방장에게 받은 참가 코드를 입력해주세요.');
+    const codeInput = document.getElementById('joinCode');
+    if (codeInput) codeInput.focus();
 }
 
 // HTML 이스케이프

@@ -113,14 +113,14 @@ public class GameRoomService {
 
     /**
      * 방 나가기
-     * 게임 진행 중(PLAYING) 또는 종료(FINISHED)에는 나가기 무시 (페이지 전환 시 sendBeacon 버그 방지)
-     * 또한 재시작 직후 5초 내에는 나가기 무시 (restart 후 sendBeacon race condition 방지)
+     * 종료(FINISHED)된 방에서는 무시 (결과 화면 재시작 지원, 명시적 복귀는 leaveFinishedRoom).
+     * 게임 진행 중(PLAYING)에도 실제로 나간다 — 방장이면 남은 참가자에게 위임, 마지막 사람이면 방 종료.
+     * 재시작 직후 5초 내에는 나가기 무시 (restart 후 sendBeacon race condition 방지)
      */
     @Transactional
     public void leaveRoom(GameRoom room, Member member) {
-        // 게임 진행 중 또는 종료 상태에서는 나가기 무시 (재시작 기능 지원)
-        if (room.getStatus() == GameRoom.RoomStatus.PLAYING ||
-            room.getStatus() == GameRoom.RoomStatus.FINISHED) {
+        // 종료 상태에서는 나가기 무시 (재시작 기능 지원)
+        if (room.getStatus() == GameRoom.RoomStatus.FINISHED) {
             return;
         }
 
@@ -162,7 +162,8 @@ public class GameRoomService {
 
         if (room.isHost(member)) {
             // 방장이 나가면 방 삭제 또는 다음 사람에게 방장 위임
-            List<GameRoomParticipant> activeParticipants = participantRepository.findActiveParticipants(room);
+            // (대기실은 JOINED, 게임 중은 PLAYING 이므로 둘 다 포함하는 조회를 쓴다)
+            List<GameRoomParticipant> activeParticipants = participantRepository.findGameParticipants(room);
 
             if (activeParticipants.size() <= 1) {
                 // 방장 혼자면 방 삭제

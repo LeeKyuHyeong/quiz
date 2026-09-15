@@ -546,6 +546,10 @@ public class MultiGameController {
         GameRoom updatedRoom = gameRoomService.findByRoomCode(roomCode).orElse(null);
         if (updatedRoom != null) {
             gameBroadcastService.broadcastRoomUpdate(roomCode, buildRoomStatus(updatedRoom));
+            // 게임 중 나가기: 플레이 화면은 ROUND_UPDATE 로 점수판·방장을 갱신한다
+            if (updatedRoom.getStatus() == GameRoom.RoomStatus.PLAYING) {
+                gameBroadcastService.broadcastRoundUpdate(roomCode, multiGameService.getCurrentRoundInfo(updatedRoom));
+            }
         }
 
         return ResponseEntity.ok(result);

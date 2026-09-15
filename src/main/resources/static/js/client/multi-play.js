@@ -227,6 +227,13 @@ function processRoundData(result) {
         var myParticipant = result.participants.find(function(p) {
             return p.memberId === myMemberId;
         });
+        // 방장이 게임 중 나가서 내가 새 방장이 됨 → 방장 컨트롤은 서버 렌더링이라 새로고침으로 반영
+        if (myParticipant && myParticipant.isHost && !isHost) {
+            disconnectWebSocket();
+            stopPolling();
+            window.location.reload();
+            return;
+        }
         if (myParticipant && myParticipant.skipVote) {
             mySkipVoted = true;
             updateSkipVoteButton();

@@ -46,6 +46,19 @@ public class RoomCleanupBatch {
             }
             totalAffected += staleWaitingRooms.size();
 
+            // 1-2. 2시간 이상 변화 없는 게임중 방 종료 (방장이 사라져 라운드가 진행되지 않는 방)
+            LocalDateTime playingThreshold = LocalDateTime.now().minusHours(2);
+            List<GameRoom> stalePlayingRooms = gameRoomRepository.findByStatusAndUpdatedAtBefore(
+                    GameRoom.RoomStatus.PLAYING, playingThreshold);
+            for (GameRoom room : stalePlayingRooms) {
+                room.setStatus(GameRoom.RoomStatus.FINISHED);
+                log.debug("방치된 게임중 방 종료: {} ({})", room.getRoomCode(), room.getRoomName());
+            }
+            if (!stalePlayingRooms.isEmpty()) {
+                resultMessage.append(String.format("2시간 방치 게임 방 %d개 종료. ", stalePlayingRooms.size()));
+            }
+            totalAffected += stalePlayingRooms.size();
+
             // 2. 종료된 방 중 3일 지난 방 삭제 (채팅 포함)
             LocalDateTime deleteThreshold = LocalDateTime.now().minusDays(3);
             List<GameRoom> oldFinishedRooms = gameRoomRepository.findByStatus(GameRoom.RoomStatus.FINISHED);

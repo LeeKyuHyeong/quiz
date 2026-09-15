@@ -37,9 +37,9 @@ public interface GameRoomRepository extends JpaRepository<GameRoom, Long> {
     // 특정 회원이 방장인 방 조회
     List<GameRoom> findByHostAndStatus(Member host, GameRoom.RoomStatus status);
 
-    // 특정 회원이 참가중인 방 조회
+    // 특정 회원이 참가중인 방 조회 (로비 배너용). 게임 중(PLAYING) 참가자도 포함 — findActiveParticipation 과 같은 기준
     @Query("SELECT r FROM GameRoom r JOIN r.participants p " +
-            "WHERE p.member = :member AND p.status = 'JOINED' AND r.status IN ('WAITING', 'PLAYING')")
+            "WHERE p.member = :member AND p.status IN ('JOINED', 'PLAYING') AND r.status IN ('WAITING', 'PLAYING')")
     Optional<GameRoom> findActiveRoomByMember(@Param("member") Member member);
 
     // 방 이름으로 검색 (비공개 방 포함)
@@ -88,6 +88,9 @@ public interface GameRoomRepository extends JpaRepository<GameRoom, Long> {
     @Query("SELECT r FROM GameRoom r WHERE r.status = 'WAITING' " +
             "AND r.updatedAt < :threshold")
     List<GameRoom> findStaleWaitingRooms(@Param("threshold") java.time.LocalDateTime threshold);
+
+    // 오래 변화 없는 특정 상태의 방 (정리용 — 방장이 사라진 PLAYING 방 등)
+    List<GameRoom> findByStatusAndUpdatedAtBefore(GameRoom.RoomStatus status, java.time.LocalDateTime threshold);
 
     // currentSong 참조를 null로 설정 (Song 삭제 전 호출)
     @Modifying

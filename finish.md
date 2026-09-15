@@ -37,6 +37,8 @@
 | 후속 | 인프라: ~~`game.conf` HSTS 없음~~ → Spring Security 가 이미 응답에 붙이고 있어 nginx 추가 불필요(2026-09-15 확인) · SHA 이미지 14개 누적(디스크 18%, 급하지 않음) · `/root/backup` 구 평문 덤프 600 권한 적용 완료 | 🔲 | SSOT 백로그 |
 
 | 기능 | 비밀번호 초기화(관리자→임시 비밀번호 메일)·본인 재설정(`/auth/password-reset`, 이메일 코드) | ✅ 2026-09-15 | `82c1ebf`. 배경: 구 초기화는 `temp`+밀리초%10000 을 아무에게도 알리지 않아 계정 잠금과 같았고, "비밀번호 찾기" 문구가 가리키는 기능은 없었음. 운영 확인(사용자): Brevo 키 활성화 후 인증 메일·재설정 성공 |
+| 보안 | STOMP 구독 인가 + 폴링 GET(`/round`·`/chats`) 참가자 검사, 도달 불가 `WebSocketAuthInterceptor` CONNECT 블록 제거 | ✅ 2026-09-15 (운영 반영 🔲) | `06a6e4a`. 배경: 방 코드만으로 비참가자·비로그인이 토픽 구독·`/round`·`/chats` 수신 가능. 인터셉터는 `HTTP_SESSION` 키를 읽으나 채우는 곳 없음(핸드셰이크가 이미 Principal 전파 — dev 프로브로 실측). `/status` 는 참가 전 미리보기(`multi-join.js`)가 써서 제외. 검증: 신규 테스트 17건, `./mvnw clean test` 335건 통과, dev 실방 STOMP 프로브로 비로그인 SUBSCRIBE ERROR·`/round` 401, 2브라우저+시크릿+C계정 수동 시나리오 9건 통과(사용자). 상세 `docs/ws-subscription-authorization.md` |
+| 버그 | 대기실 `ROOM_UPDATE` push 수신 시 로비로 튕김 | ✅ 2026-09-15 (운영 반영 🔲) | `a155717`. 위 작업 수동 검증 중 발견: `multi-waiting.js handleRoomUpdate` 가 `!payload.success` 로 "방 종료" 판단하는데 push payload(`buildRoomStatus`)에는 `success` 키가 없어 B 참가·준비 토글마다 구독 중인 전원이 로비로 이동. `f3d36cc`(04-06) 부터 잠복 — 운영은 09-14 까지 WebSocket 미성립이라 폴링만 돌아 드러나지 않음. `=== false` 로 1줄 수정, A/B 재확인 통과 |
 
 **정정**: §1-2 ①이 "서버 공인 IP"라고 적은 tools의 기본 호스트 값은 현재 운영 VPS가 아니라 **별도 서버**의 IP다(인프라 기록 기준). 해당 서버에 과거 DB가 남아 있는지는 미확인.
 

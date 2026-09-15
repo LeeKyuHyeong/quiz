@@ -1,6 +1,6 @@
 # WebSocket 구독 인가 + 폴링 API 참가자 검사
 
-> 작성일: 2026-09-15 · 기준 커밋: `6ab32a1` (main) · 상태: **🟡 개발·자동 검증·dev 수동 시나리오 9건 완료 (2026-09-15, 미커밋) — 운영 반영(§6-3) 남음**
+> 작성일: 2026-09-15 · 기준 커밋: `6ab32a1` (main) · 상태: **🟡 개발·자동 검증·dev 수동 시나리오 9건 완료, 커밋 `06a6e4a`(인가) + `a155717`(대기실 튕김 버그) — 운영 반영(§6-3) 남음**
 >
 > 출발점: 면접 답변 점검 중 발견. "방 코드만 알면 비로그인 상태로도 그 방의 라운드 정보와 채팅을 전부 받을 수 있다"(구독 인가 부재) + "`WebSocketAuthInterceptor`가 실제로는 한 번도 인증을 세팅하지 않는다"(데드 코드).
 >
@@ -144,7 +144,7 @@ grep -rn "인증 전파\|HTTP_SESSION" CLAUDE.md src/main
 
 ## 5. 결과 (개발 직후 기입)
 
-> 개발 완료일: 2026-09-15 · 커밋: `____` (미커밋) · 테스트: `./mvnw clean test` **335 건 통과, 실패 0** (신규 17 건 포함, 5분 06초). 변경 파일: main 6개(`WebSocketAuthInterceptor`, `GameRoomParticipantRepository`, `GameRoomService`, `MultiGameController`, `SecurityConfig` 주석, CLAUDE.md 1줄) + 테스트 3개 신규
+> 개발 완료일: 2026-09-15 · 커밋: `06a6e4a` (인가), `a155717` (대기실 `ROOM_UPDATE` 버그, 별도 커밋) · 테스트: `./mvnw clean test` **335 건 통과, 실패 0** (신규 17 건 포함, 5분 06초). 변경 파일: main 6개(`WebSocketAuthInterceptor`, `GameRoomParticipantRepository`, `GameRoomService`, `MultiGameController`, `SecurityConfig` 주석, CLAUDE.md 1줄) + 테스트 3개 신규
 
 | 단계 | 상태 | 근거 (커밋 · 테스트명 · 로그) |
 |---|---|---|
@@ -259,5 +259,5 @@ console.log('== 판정 ==', log.join(' | ') || '(응답 없음)');
 ### 7-4. `finish.md` 진행 현황에 추가할 행 (형식 맞춤)
 
 ```
-| 보안 | STOMP 구독 인가 + 폴링 GET(`/round`·`/chats`) 참가자 검사, 도달 불가 `WebSocketAuthInterceptor` CONNECT 블록 제거 | ✅ 2026-09-15 | `____`. 배경: 방 코드만으로 비참가자·비로그인이 토픽 구독·`/round`·`/chats` 수신 가능. 인터셉터는 `HTTP_SESSION` 키를 읽으나 채우는 곳 없음(핸드셰이크가 이미 Principal 전파 — dev 프로브로 실측). `/status` 는 참가 전 미리보기(`multi-join.js`)가 써서 제외. 검증: 신규 테스트 17건, `./mvnw clean test` 335건 통과, dev STOMP 프로브로 비로그인 SUBSCRIBE ERROR·`/round` 401 확인. 2브라우저 수동 시나리오·운영 반영 미실시. 상세 `docs/ws-subscription-authorization.md` |
+| 보안 | STOMP 구독 인가 + 폴링 GET(`/round`·`/chats`) 참가자 검사, 도달 불가 `WebSocketAuthInterceptor` CONNECT 블록 제거 | ✅ 2026-09-15 | `06a6e4a`. 배경: 방 코드만으로 비참가자·비로그인이 토픽 구독·`/round`·`/chats` 수신 가능. 인터셉터는 `HTTP_SESSION` 키를 읽으나 채우는 곳 없음(핸드셰이크가 이미 Principal 전파 — dev 프로브로 실측). `/status` 는 참가 전 미리보기(`multi-join.js`)가 써서 제외. 검증: 신규 테스트 17건, `./mvnw clean test` 335건 통과, dev STOMP 프로브로 비로그인 SUBSCRIBE ERROR·`/round` 401 확인. 2브라우저 수동 시나리오·운영 반영 미실시. 상세 `docs/ws-subscription-authorization.md` |
 ```

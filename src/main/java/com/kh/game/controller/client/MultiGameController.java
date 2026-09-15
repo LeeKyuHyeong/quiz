@@ -399,6 +399,10 @@ public class MultiGameController {
         roomUnloadService.cancelLeave(roomCode, memberId);
 
         List<Map<String, Object>> finalResult = multiGameService.getFinalResult(room);
+        // 표시할 참가자가 없으면(전원 0점으로 나간 방의 결과 URL 재방문 등) 템플릿이 results[0] 에서 죽는다
+        if (finalResult.isEmpty()) {
+            return "redirect:/game/multi";
+        }
 
         model.addAttribute("room", room);
         model.addAttribute("member", member);

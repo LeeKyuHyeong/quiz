@@ -16,7 +16,7 @@
 | nginx 설정 | 서버 `/etc/nginx/conf.d/game.conf` + `quiz-upstream.conf`. 재구축용 사본은 이 저장소 `infra/nginx/` (2026-09-14 실측본) |
 | 이미지 | `<DOCKERHUB_USERNAME>/quiz-app:<커밋 SHA>` + 같은 이미지에 `latest` 태그 |
 | 헬스체크 | `http://127.0.0.1:<포트>/actuator/health` → `"status":"UP"` |
-| 백업 | `/root/backup/song-<YYYYMMDD-HHMM>.sql.gz` — 매일 04:30 cron (`backup-quiz.sh`, 14일 보존) + 수동 §4-1. 오프사이트 없음 |
+| 백업 | `/root/backup/song-<YYYYMMDD-HHMM>.sql.gz` — 매일 04:30 cron (`backup-quiz.sh`, 14일 보존) + 수동 §4-1. 오프사이트 없음(구축하지 않기로 결정, 2026-09-15) |
 
 아래 명령은 모두 `/root/quiz`에서 실행한다. 여러 절에서 쓰는 변수:
 
@@ -113,7 +113,7 @@ for i in $(seq 1 30); do curl -fsS "http://127.0.0.1:$OTHER_PORT/actuator/health
 ## 4. DB 백업 · 복원
 
 > 자동 백업: `/root/backup/backup-quiz.sh` 를 root crontab 이 매일 04:30 KST 에 실행 (2026-09-15 구축). §4-1 과 같은 덤프 + gzip 무결성·완료 마커 검사, `song-<날짜>.sql.gz` 14일 보존, 로그 `/root/backup/backup.log`. 실패하면 부분 파일을 지우고 `FAIL` 을 남긴다.
-> 🔲 **외부(오프사이트) 보관은 아직 없다.** VPS 가 죽으면 백업도 같이 사라진다.
+> **외부(오프사이트) 보관은 없다.** VPS 가 죽으면 백업도 같이 사라진다. 2026-09-15 구축하지 않기로 결정 — 개인 프로젝트 규모에서 감수하는 위험으로 기록한다. 마음이 바뀌면 `backup-quiz.sh` 끝에 다른 머신으로의 `rsync`/`scp` 한 줄을 붙이는 것이 최소 구성이다.
 
 ### 4-1. 수동 백업
 
@@ -212,7 +212,7 @@ docker exec "quiz-app-$ACTIVE" date     # KST
 | 항목 | 갱신 방식 | 확인 방법 | 다음 만료 |
 |---|---|---|---|
 | TLS 인증서 (Let's Encrypt) | `certbot-renew.timer` 자동 | `certbot certificates` · `certbot renew --dry-run` | 2026-12-01 (타이머 동작 확인 2026-09-14) |
-| 도메인 `kyuhyeong.com` | 등록기관 수동 | 등록기관 콘솔 | 🔲 |
+| 도메인 `kyuhyeong.com` | 등록기관(Gabia) 수동 갱신 | 가비아 콘솔 · 공개 RDAP(`rdap.verisign.com/com/v1/domain/kyuhyeong.com`) | 2028-03-23 (등록 2026-03-23, 2년. RDAP 확인 2026-09-15) |
 | Docker Hub 토큰 (`DOCKERHUB_TOKEN`) | 수동 재발급 → GitHub Secret 교체 | Docker Hub 계정 설정 | 🔲 |
 | 배포 SSH 키 (`SERVER_SSH_KEY`) | 수동 | 서버 `authorized_keys` | 만료 없음 (유출 시 교체) |
 | Brevo API 키 (`BREVO_API_KEY`) | 수동 → 서버 `.env` → 앱 재생성(무중단은 `gh workflow run deploy.yml`) | Brevo 대시보드 → SMTP & API → API Keys. **키는 대시보드에서 활성화(activate)해야 401이 풀린다** (2026-09-15 겪음) | 🔲 |

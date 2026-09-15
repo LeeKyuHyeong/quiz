@@ -1,6 +1,6 @@
 # System.md — 면접 준비용 소스 분석 정리
 
-> 최종 업데이트: 2026-09-14 (§16 개선 이력 — 구 DAILY_MISSION.md 흡수)
+> 최종 업데이트: 2026-09-15 (§16 에 2026-09 운영 점검·변경 추가)
 > 프로젝트: 멀티플레이어 음악 맞추기 게임 (Spring Boot 3.4.1 + Java 17 + MariaDB)
 
 ---
@@ -639,7 +639,7 @@ client.post().uri("/smtp/email")
 
 ---
 
-## 16. 개선 이력 (구 `DAILY_MISSION.md`, 2026-03-25 ~ 04-06)
+## 16. 개선 이력 (구 `DAILY_MISSION.md` 2026-03-25 ~ 04-06, 이후 2026-09 추가)
 
 > 2026-03-25 시작한 데일리 미션 일지를 이 절로 합쳤다(2026-09-14). 각 항목의 상세는 위 절과 커밋을 본다.
 
@@ -649,10 +649,17 @@ client.post().uri("/smtp/email")
 | 2026-04-06 | MultiGameService 동시성 버그 수정 | 동시성 | `60afc77` | §2 |
 | 2026-04-06 | GlobalExceptionHandler 도입으로 예외 처리 일원화 | 예외 처리 | `ed73b21` | §4 |
 | 2026-04-06 | Batch 전체 테이블 스캔(`findAll`) → DB 레벨 조건 쿼리 | 배치 성능 / JPA | `1c010ff` | §8, §10.2 |
+| 2026-09-08 | blue-green 무중단 배포 (헬스체크 통과 후 nginx upstream 전환) | 배포 | `267a266` | `docs/runbook.md` |
+| 2026-09-14 | 운영 nginx에 WebSocket Upgrade 전달이 없어 4월 이후 운영은 폴백으로만 동작하던 것을 발견·수정, 복원 리허설, 잔재 테이블 정리 | 인프라 검증 | `68b11a5`(사본 `infra/nginx/`) | §16.5 |
+| 2026-09-14 | 없는 경로가 500 에러 페이지(200)로 나가던 것을 404로, `/ws/**` CSRF 예외, SecureRandom egd | 예외 처리 / 보안 | `9c12679` | §4 |
+| 2026-09-15 | 비밀번호 초기화(임시 비밀번호 메일)·이메일 인증 재설정, Brevo 호출부 분리 | 회원·보안 | `82c1ebf` | §16.6 |
+| 2026-09-15 | STOMP 구독·폴링 GET 참가자 인가, 대기실 push 튕김 수정, 방 생성 바인딩 버그(1월부터 전 방 공개·RANDOM) 수정, 비공개 방 목록 | 멀티 보안 / 버그 | `06a6e4a` `a155717` `81c01ed` `cb1f951` | §16.7, `docs/ws-subscription-authorization.md` |
+| 2026-09-15 | 일일 백업 cron, `v1.0.0` | 운영 | `cf1701a` | `docs/runbook.md` §4 |
 
 ### 16.1 Polling → WebSocket(STOMP/SockJS) 전환
 - 멀티플레이어 HTTP polling(2초/1초/500ms)을 STOMP over SockJS로 전환. 서버→클라이언트 push 전용, POST 액션은 REST 유지. 연결 실패 시 polling fallback 지원.
-- 주요 파일: `WebSocketConfig`, `WebSocketAuthInterceptor`, `GameBroadcastService`, `ws-client.js`, `multi-waiting.js`, `multi-play.js`, `multi-result.js`
+- 주요 파일: `WebSocketConfig`, `WebSocketAuthInterceptor`(2026-09-15부터 SUBSCRIBE 참가자 인가 전담 — 구 CONNECT 인증 브리지는 도달 불가 코드였음), `GameBroadcastService`, `ws-client.js`, `multi-waiting.js`, `multi-play.js`, `multi-result.js`
+- **운영 주의**: 호스트 nginx에 `location /ws/` Upgrade 전달 블록이 없으면 WebSocket이 성립하지 않고 SockJS가 xhr 폴백을 시도하는데, 그마저 CSRF에 막혀 결국 REST 폴링으로만 돈다. 2026-09-14까지 운영이 그 상태였다 (`infra/nginx/game.conf`).
 
 ### 16.2 MultiGameService 동시성 버그 수정
 - `HashMap` → `ConcurrentHashMap`, 메서드 레벨 `synchronized` → 방 단위 락(`roomLocks`), `GameRoom`에 `@Version` 추가(Optimistic Locking), `selectSong()` 원자적 처리.
@@ -663,3 +670,15 @@ client.post().uri("/smtp/email")
 ### 16.4 Batch 전체 테이블 스캔 → DB 레벨 쿼리 최적화
 - Batch 작업에서 `findAll()` 후 Java 필터링 → Repository 레벨 조건 쿼리로 변경.
 - 대상(`1c010ff`): `DailyStatsBatch`, `InactiveMemberBatch`, `LoginHistoryCleanupBatch`, `SongAnswerGenerationBatch`, `SystemReportBatch`, `WeeklyPerfectRefreshBatch` + Repository 6개
+
+### 16.5 운영 검증이 드러낸 결함 (2026-09-14)
+- 서버 점검 중 `curl --http1.1`로 업그레이드 요청을 넣어 보니 nginx 경유 400, 백엔드 직결 101 → 호스트 nginx로 옮길 때 `Upgrade`/`Connection` 전달이 빠져 있었다. `location /ws/` 블록 추가 후 101.
+- WebSocket이 실제로 붙자 대기실이 `ROOM_UPDATE` push마다 로비로 튕기는 버그(`a155717`)와 구독 인가 부재가 드러났다. "코드 전환"과 "운영 검증"은 별개.
+
+### 16.6 비밀번호 초기화·재설정 (2026-09-15)
+- 구 관리자 초기화는 `temp`+밀리초%10000을 아무에게도 알리지 않아 계정 잠금과 같았고 1만 가지 공간이라 대입 가능했다. 지금은 12자 `SecureRandom` 임시 비밀번호를 Brevo로 발송한 뒤에만 저장, 세션 만료, 본인 계정 불가.
+- 본인 재설정 `/auth/password-reset`: 이메일 코드(회원가입과 같은 `email_verification` 테이블, 가입 여부로 용도 구분) → 새 비밀번호 → 세션 만료.
+
+### 16.7 멀티플레이 인가·생성 버그 (2026-09-15)
+- 구독 인가: SUBSCRIBE 시 `/topic/room/{code}` 활성 참가자만, 폴링 GET `/round`·`/chats` 동일 기준. 한계: 구독 시점 1회 검사.
+- 방 생성 본문을 `GameSettings`로 통째로 바인딩하는데 JS 키가 달라 Jackson이 버려 2026-01-09부터 모든 방이 공개·RANDOM으로 저장되던 버그. JS↔DTO 키 계약 테스트로 재발 방지.

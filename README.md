@@ -80,6 +80,8 @@
 ### 1. 실시간 멀티플레이어 게임 시스템
 
 - **WebSocket 기반 실시간 통신**: STOMP over SockJS로 채팅과 게임 상태를 서버 → 클라이언트 push. 연결 실패 시 지수 백오프 재연결(최대 5회) 후 HTTP Polling으로 fallback
+- **구독 인가**: `/topic/room/{code}` 구독과 폴링 조회(`/round`·`/chats`)는 로그인한 해당 방의 활성 참가자만 허용. 비참가자는 ERROR 프레임/403
+- **비공개 방**: 로비 목록에 🔒로 표시되되 방 코드는 응답에 싣지 않음. 방장에게 받은 코드로만 입장
 - **게임 라이프사이클 관리**: 방 상태(`WAITING → PLAYING → FINISHED`)와 라운드 단계(`PREPARING → PLAYING → RESULT`) 2단 상태 머신으로 게임 흐름 제어
 - **동시성 제어**: 최대 8인 동시 접속 시 정답 판정의 원자성 보장
 
@@ -109,6 +111,7 @@
 ### 6. 관리자 시스템
 
 - 25개 관리 모듈: 곡/장르/회원/게임방/채팅/신고/배치/통계/챌린지/랭킹 등 전 영역 관리
+- 회원 비밀번호 초기화: 임시 비밀번호를 회원 이메일로 발송하고 **발송 성공 후에만** 저장, 기존 세션 만료. 관리자 본인 계정은 불가
 - Spring Security `hasRole("ADMIN")`로 관리자 경로(`/admin/**`) 일괄 인가
 - 탭 네비게이션 간 검색 상태 유지 (히스토리 API 활용)
 
@@ -152,7 +155,8 @@ Push to main → GitHub Actions
 - **Docker Compose**: Spring Boot 앱(640MB, blue/green 2슬롯) + MariaDB(256MB) 컨테이너 오케스트레이션
 - **Nginx**: 리버스 프록시 + Let's Encrypt SSL 인증서 자동 갱신
 - **모니터링**: `SystemReportBatch`를 통한 일일 시스템 리포트, `DailyStatsBatch`로 일별 통계 수집
-- **운영 절차**: 수동 롤백·특정 커밋 재배포·DB 백업/복원·재부팅 점검 → [`docs/runbook.md`](docs/runbook.md)
+- **운영 절차**: 수동 롤백·특정 커밋 재배포·DB 백업/복원·재부팅 점검 → [`docs/runbook.md`](docs/runbook.md). 백업→복원→앱 기동 리허설 2026-09-14 완료, 일일 백업 cron 운영 중
+- **nginx 설정 사본**: [`infra/nginx/`](infra/nginx/) — WebSocket 업그레이드 블록(`location /ws/`) 포함. 이 블록이 없으면 SockJS가 폴링 폴백으로만 동작한다
 
 ### MCP 데이터 관리 도구
 
@@ -168,7 +172,7 @@ Push to main → GitHub Actions
 
 ## 테스트
 
-- **단위 테스트**: JUnit 5 (29개 테스트 클래스, 7,700+ 라인)
+- **단위 테스트**: JUnit 5 (38개 테스트 클래스, 345건, 8,800+ 라인)
 - **CI 연동**: GitHub Actions에서 `./mvnw clean test` 실행, Surefire 리포트를 아티팩트로 보관
 - **TDD 적용**: 게임 타입 설정 등 핵심 비즈니스 로직에 TDD 방식 적용
 
@@ -230,6 +234,8 @@ docker-compose up -d
 - SQL Injection 방지: 전체 쿼리 파라미터 바인딩 적용
 - XSS 방지: Thymeleaf `th:text` 자동 이스케이프, JavaScript `textContent` 사용 원칙
 - 인증/인가: Spring Security 폼 로그인 + CSRF + 세션 동시 로그인 1개 제한, 관리자 경로 ROLE_ADMIN, 로그인 IP별 레이트리밋
+- 비밀번호: BCrypt 단방향. 잊었을 때는 이메일 인증 코드로 재설정(`/auth/password-reset`, 로그인 불필요), 완료 시 기존 세션 만료
+- 응답 헤더: HSTS는 Spring Security 기본값으로 전송(nginx 중복 없음)
 - IDOR 방지: 리소스 접근 시 소유권 검증 로직 적용
 - HTTPS: Nginx + Let's Encrypt SSL 적용
 

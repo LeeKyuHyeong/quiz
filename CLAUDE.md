@@ -243,13 +243,13 @@ Controller (MVC + REST) → Service (Business Logic) → Repository (JPA) → Ma
 
 ### Multiplayer Flow
 
-1. Create room → join room → toggle ready
+1. Create room → join room → toggle ready. 생성 요청 본문은 **통째로 `GameSettings`로 바인딩**된다 — JS 키는 DTO 필드명(`privateRoom`, 모드 필드 최상위)과 같아야 하며 모르는 키는 Jackson이 조용히 버린다(`MultiGameControllerRoomLifecycleTest`의 계약 테스트가 지킴). 비공개 방 = 로비에 🔒로 보이되 코드 미노출, 코드로만 입장, 비밀번호 없음(`GameRoom.password` 컬럼은 미사용)
 2. Host starts game → room `PLAYING`, round `PREPARING` phase (all participants load song)
 3. Each participant calls `/round-ready` when ready
 4. Host starts round → `PLAYING` phase (song plays, chat for answers)
 5. First correct answer wins → `RESULT` phase → next round or game end (room `FINISHED`)
 
-상태 변화는 `GameBroadcastService`가 STOMP topic으로 push한다. 클라이언트는 `ws-client.js`(지수 백오프 재연결 후 polling fallback).
+상태 변화는 `GameBroadcastService`가 STOMP topic으로 push한다. 클라이언트는 `ws-client.js`(지수 백오프 재연결 후 polling fallback). push payload(`buildRoomStatus`)에는 `success` 키가 없다 — 클라이언트는 `success === false`만 "방 종료"로 본다. 구독·폴링 GET(`/round`·`/chats`)은 `GameRoomService.isActiveParticipant`로 참가자만 허용(`/status`는 참가 전 미리보기용이라 열려 있음).
 
 ### Key Services
 
@@ -349,7 +349,7 @@ All 24 batches are DB-configurable via `BatchConfig` table with cron expressions
 - **Schema:** `src/main/resources/sql/schema.sql`이 단일 출처 (dev·prod 모두 `validate`, Flyway 없음). **엔티티 변경 시 schema.sql을 함께 수정하고 로컬 DB·운영 DB에 직접 반영**해야 앱이 기동한다
 - **Prod profile:** Uses environment variables for DB credentials, Docker volumes for persistence
 - **Admin auth:** DB-based via `Member` table with `role=ADMIN`
-- **File uploads:** `uploads/songs/`, max 50MB
+- **File uploads:** `uploads/songs/`, max 50MB — MP3 지원 제거 후 데드 코드(운영 볼륨 파일 0개, `BATCH_SONG_FILE_CHECK` 비활성). `Song.file_path`·`GameRoom.password` 와 함께 스키마 변경을 동반하는 정리 대상으로 보류(`finish.md` 7)
 - **Session timeout:** 30 minutes
 - **Admin routes:** Protected by Spring Security (`/admin/**` → `hasRole("ADMIN")`, `SecurityConfig`)
 - **Docker memory:** App 640M ×2 (blue/green, 평시 한 벌만 기동, JVM `MaxRAMPercentage=50`), DB 256M

@@ -6,11 +6,10 @@ import com.kh.game.exception.BusinessException;
 import com.kh.game.repository.MemberBadgeRepository;
 import com.kh.game.security.CustomUserDetails;
 import com.kh.game.service.MemberService;
+import com.kh.game.service.MemberSessionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.session.SessionInformation;
-import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -34,7 +33,7 @@ public class AdminMemberController {
 
     private final MemberService memberService;
     private final MemberBadgeRepository memberBadgeRepository;
-    private final SessionRegistry sessionRegistry;
+    private final MemberSessionService memberSessionService;
 
     /**
      * 통합 회원 관리 페이지
@@ -242,11 +241,12 @@ public class AdminMemberController {
                                                              @AuthenticationPrincipal CustomUserDetails actor) {
         Map<String, Object> result = new HashMap<>();
         try {
-            memberService.resetPasswordToDefault(id);
+            memberService.issueTemporaryPassword(actor.getMember().getId(), id);
+            memberSessionService.expireSessions(id);
             log.info("Admin password reset: actorId={}, targetId={}",
                     actor.getMember().getId(), id);
             result.put("success", true);
-            result.put("message", "비밀번호가 초기화되었습니다. 해당 회원에게 비밀번호 찾기로 재설정하도록 안내해주세요.");
+            result.put("message", "임시 비밀번호를 회원 이메일로 발송했습니다. 기존 로그인 세션은 종료됩니다.");
         } catch (BusinessException e) {
             result.put("success", false);
             result.put("message", e.getMessage());
@@ -264,18 +264,7 @@ public class AdminMemberController {
                                                            @AuthenticationPrincipal CustomUserDetails actor) {
         Map<String, Object> result = new HashMap<>();
         try {
-            // SessionRegistry에서 해당 사용자의 모든 세션 만료 처리
-            for (Object principal : sessionRegistry.getAllPrincipals()) {
-                if (principal instanceof org.springframework.security.core.userdetails.UserDetails userDetails) {
-                    // CustomUserDetails에서 Member ID 매칭
-                    if (principal instanceof com.kh.game.security.CustomUserDetails customDetails
-                            && customDetails.getMember().getId().equals(id)) {
-                        for (SessionInformation session : sessionRegistry.getAllSessions(principal, false)) {
-                            session.expireNow();
-                        }
-                    }
-                }
-            }
+            memberSessionService.expireSessions(id);
             log.info("Admin session kick: actorId={}, targetId={}",
                     actor.getMember().getId(), id);
             result.put("success", true);

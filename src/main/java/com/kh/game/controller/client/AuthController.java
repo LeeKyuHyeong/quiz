@@ -5,6 +5,7 @@ import com.kh.game.exception.BusinessException;
 import com.kh.game.security.CustomUserDetails;
 import com.kh.game.security.LoginRateLimiter;
 import com.kh.game.service.EmailVerificationService;
+import com.kh.game.service.MemberSessionService;
 import com.kh.game.service.MemberService;
 import com.kh.game.util.SecurityInputValidator;
 import jakarta.servlet.http.HttpServletRequest;
@@ -28,6 +29,7 @@ public class AuthController {
     private final MemberService memberService;
     private final LoginRateLimiter loginRateLimiter;
     private final EmailVerificationService emailVerificationService;
+    private final MemberSessionService memberSessionService;
 
     private ResponseEntity<Map<String, Object>> tooManyRequests() {
         Map<String, Object> body = new HashMap<>();
@@ -144,6 +146,58 @@ public class AuthController {
         Map<String, Object> result = new HashMap<>();
         result.put("success", true);
         result.put("message", "이메일 인증이 완료되었습니다.");
+        return ResponseEntity.ok(result);
+    }
+
+    // ========== 비밀번호 재설정 (로그인 불필요, 이메일 인증) ==========
+
+    @GetMapping("/password-reset")
+    public String passwordResetPage(@AuthenticationPrincipal CustomUserDetails userDetails, Model model) {
+        // 로그인 상태면 본인 이메일로 고정. 비밀번호는 단방향 해시라 "찾기"는 불가능하고 재설정만 가능하다.
+        model.addAttribute("email", userDetails != null ? userDetails.getMember().getEmail() : null);
+        return "client/auth/password-reset";
+    }
+
+    @PostMapping("/password-reset/send-code")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> sendPasswordResetCode(@RequestBody Map<String, String> request,
+                                                                     HttpServletRequest httpRequest) {
+        if (!loginRateLimiter.tryAcquire(LoginRateLimiter.resolveClientIp(httpRequest))) {
+            return tooManyRequests();
+        }
+        emailVerificationService.sendPasswordResetCode(request.get("email"));
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", true);
+        result.put("message", "인증 코드를 발송했습니다. 메일을 확인해주세요.");
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/password-reset")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> resetPassword(@RequestBody Map<String, String> request,
+                                                             HttpServletRequest httpRequest) {
+        if (!loginRateLimiter.tryAcquire(LoginRateLimiter.resolveClientIp(httpRequest))) {
+            return tooManyRequests();
+        }
+        String email = request.get("email");
+        String newPassword = request.get("newPassword");
+
+        SecurityInputValidator.validateEmailOrThrow(email);
+        if (newPassword == null || newPassword.length() < 4) {
+            throw new IllegalArgumentException("비밀번호는 4자 이상이어야 합니다.");
+        }
+        if (!emailVerificationService.isRecentlyVerified(email)) {
+            throw new BusinessException("이메일 인증이 필요합니다. 인증 코드를 받아 입력해주세요.");
+        }
+
+        Member member = memberService.resetPassword(email, newPassword);
+        emailVerificationService.consumeVerification(email);
+        memberSessionService.expireSessions(member.getId());
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", true);
+        result.put("message", "비밀번호가 변경되었습니다. 새 비밀번호로 로그인해주세요.");
         return ResponseEntity.ok(result);
     }
 

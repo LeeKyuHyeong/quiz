@@ -2,6 +2,7 @@ package com.kh.game.service;
 
 import com.kh.game.entity.GameRoom;
 import com.kh.game.exception.BusinessException;
+import com.kh.game.util.TemporaryPasswordGenerator;
 import com.kh.game.entity.GameRoomParticipant;
 import com.kh.game.entity.Member;
 import com.kh.game.entity.MemberLoginHistory;
@@ -34,6 +35,7 @@ public class MemberService {
     private final GameRoomParticipantRepository participantRepository;
     private final GameSessionRepository gameSessionRepository;
     private final PasswordEncoder passwordEncoder;
+    private final BrevoMailClient mailClient;
 
     // ========== 회원 관리 ==========
 
@@ -185,12 +187,44 @@ public class MemberService {
         member.resetWeeklyStats();
     }
 
+    /**
+     * 관리자 비밀번호 초기화: 임시 비밀번호를 회원 이메일로 보낸 뒤에만 저장한다.
+     * 발송이 실패하면 예외로 끝나고 비밀번호는 바뀌지 않는다 (아무도 모르는 비밀번호로 잠기는 상태 방지).
+     */
     @Transactional
-    public void resetPasswordToDefault(Long memberId) {
-        Member member = memberRepository.findById(memberId)
+    public void issueTemporaryPassword(Long actorId, Long targetId) {
+        if (actorId != null && actorId.equals(targetId)) {
+            throw new BusinessException("본인 계정은 초기화할 수 없습니다. 비밀번호 재설정을 이용하세요.");
+        }
+        Member member = memberRepository.findById(targetId)
                 .orElseThrow(() -> new BusinessException("대상 회원을 찾을 수 없습니다."));
-        String tempPassword = "temp" + System.currentTimeMillis() % 10000;
+
+        String tempPassword = TemporaryPasswordGenerator.generate();
+        mailClient.send(member.getEmail(), "[Song Quiz] 임시 비밀번호 안내", buildTemporaryPasswordMail(tempPassword));
         member.setPassword(passwordEncoder.encode(tempPassword));
+    }
+
+    /** 이메일 인증을 마친 본인이 새 비밀번호를 설정한다. 인증 여부 확인은 호출자(컨트롤러)가 한다. */
+    @Transactional
+    public Member resetPassword(String email, String newPassword) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new BusinessException("가입되지 않은 이메일입니다."));
+        member.setPassword(passwordEncoder.encode(newPassword));
+        return member;
+    }
+
+    private String buildTemporaryPasswordMail(String tempPassword) {
+        return """
+                <div style="font-family: 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; background: #f9fafb; border-radius: 12px;">
+                    <h2 style="color: #1e293b;">🎵 Song Quiz 임시 비밀번호</h2>
+                    <p style="color: #475569; font-size: 14px;">관리자가 회원님의 비밀번호를 초기화했습니다. 아래 임시 비밀번호로 로그인해주세요.</p>
+                    <div style="margin: 24px 0; padding: 16px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 28px; font-weight: 700; letter-spacing: 4px; color: #2563eb; font-family: monospace;">%s</div>
+                    </div>
+                    <p style="color: #475569; font-size: 14px;">로그인 후 마이페이지의 <b>비밀번호 변경</b>에서 새 비밀번호로 바꿔주세요.</p>
+                    <p style="color: #94a3b8; font-size: 12px;">본인이 요청하지 않았다면 관리자에게 문의해주세요.</p>
+                </div>
+                """.formatted(tempPassword);
     }
 
     // ========== 로그인 ==========

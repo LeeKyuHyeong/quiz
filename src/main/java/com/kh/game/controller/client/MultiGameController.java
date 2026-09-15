@@ -904,43 +904,6 @@ public class MultiGameController {
     }
 
     /**
-     * 라운드 준비 완료 API (참가자) - PREPARING 단계에서 호출
-     */
-    @PostMapping("/room/{roomCode}/round-ready")
-    @ResponseBody
-    public ResponseEntity<Map<String, Object>> setRoundReady(
-            @PathVariable String roomCode,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-
-        Map<String, Object> result = new HashMap<>();
-        Long memberId = userDetails != null ? userDetails.getMember().getId() : null;
-
-        if (memberId == null) {
-            result.put("success", false);
-            result.put("message", "로그인이 필요합니다.");
-            return ResponseEntity.ok(result);
-        }
-
-        Member member = memberService.findById(memberId).orElse(null);
-        GameRoom room = gameRoomService.findByRoomCode(roomCode).orElse(null);
-
-        if (member == null || room == null) {
-            result.put("success", false);
-            result.put("message", "정보를 찾을 수 없습니다.");
-            return ResponseEntity.ok(result);
-        }
-
-        Map<String, Object> readyResult = multiGameService.setRoundReady(room, member);
-        result.putAll(readyResult);
-
-        if (Boolean.TRUE.equals(readyResult.get("success"))) {
-            gameBroadcastService.broadcastRoundUpdate(roomCode, multiGameService.getCurrentRoundInfo(room));
-        }
-
-        return ResponseEntity.ok(result);
-    }
-
-    /**
      * 곡 스킵 API (방장만) - 재생 오류 시 다른 곡으로 변경
      */
     @PostMapping("/room/{roomCode}/skip-song")

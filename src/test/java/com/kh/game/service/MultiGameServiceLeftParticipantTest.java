@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * 나갔거나 강퇴된(LEFT) 참가자의 게임 액션은 거부되어야 한다.
  *
- * 배경: 어제(06a6e4a) 구독과 폴링 GET 은 활성 참가자만 허용하도록 막았지만, POST /chat·/skip-vote·/round-ready 는
+ * 배경: 어제(06a6e4a) 구독과 폴링 GET 은 활성 참가자만 허용하도록 막았지만, POST /chat·/skip-vote 는
  * 상태를 보지 않는 findByGameRoomAndMember 로 참가자를 찾았다. 강퇴된 사람이 정답을 보내면 점수가 올라갔다
  * (2026-09-16 발견).
  */
@@ -123,16 +123,5 @@ class MultiGameServiceLeftParticipantTest {
 
         assertThat(result.get("success")).isEqualTo(false);
         assertThat(participantOf(guest).getSkipVote()).isFalse();
-    }
-
-    @Test
-    @DisplayName("LEFT 참가자의 라운드 준비는 거부된다")
-    void setRoundReady_fromLeftParticipant_isRejected() {
-        room.setRoundPhase(GameRoom.RoundPhase.PREPARING);
-
-        Map<String, Object> result = multiGameService.setRoundReady(room, guest);
-
-        assertThat(result.get("success")).isEqualTo(false);
-        assertThat(participantOf(guest).getRoundReady()).isFalse();
     }
 }

@@ -274,5 +274,16 @@ class MultiGameControllerRoomLifecycleTest {
             GameRoom room = gameRoomRepository.findByRoomCode(roomCode).orElseThrow();
             assertThat(participantRepository.findByGameRoomAndMember(room, guest)).isEmpty();
         }
+
+        @Test
+        @DisplayName("PREPARING 단계가 없어 항상 실패하던 /room/{code}/round-ready 는 제거되어 404")
+        void deadRoundReadyEndpoint_isGone() throws Exception {
+            String roomCode = createRoom(host, CREATE_PUBLIC_RANDOM);
+
+            mockMvc.perform(post("/game/multi/room/{code}/round-ready", roomCode)
+                            .with(user(new CustomUserDetails(host)))
+                            .with(csrf()))
+                    .andExpect(status().isNotFound());
+        }
     }
 }

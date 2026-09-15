@@ -152,64 +152,8 @@ public class MultiGameService {
     }
 
     /**
-     * 참가자 라운드 준비 완료
-     */
-    @Transactional
-    public Map<String, Object> setRoundReady(GameRoom room, Member member) {
-        Map<String, Object> result = new HashMap<>();
-
-        if (room.getRoundPhase() != GameRoom.RoundPhase.PREPARING) {
-            result.put("success", false);
-            result.put("message", "준비 단계가 아닙니다.");
-            return result;
-        }
-
-        GameRoomParticipant participant = findActiveParticipant(room, member)
-                .orElse(null);
-        if (participant == null) {
-            result.put("success", false);
-            result.put("message", "참가자가 아닙니다.");
-            return result;
-        }
-
-        participant.setRoundReady(true);
-        result.put("success", true);
-
-        // 모든 참가자가 준비됐는지 체크
-        boolean allReady = checkAllRoundReady(room);
-        result.put("allReady", allReady);
-
-        if (allReady) {
-            // 자동으로 PLAYING 단계로 전환
-            startPlaying(room);
-        }
-
-        return result;
-    }
-
-    /**
-     * 모든 참가자가 라운드 준비 완료했는지 체크
-     */
-    private boolean checkAllRoundReady(GameRoom room) {
-        List<GameRoomParticipant> participants = participantRepository.findGameParticipants(room);
-        return participants.stream().allMatch(GameRoomParticipant::getRoundReady);
-    }
-
-    /**
-     * PREPARING에서 PLAYING으로 전환 (모든 참가자 준비 완료 시)
-     */
-    private void startPlaying(GameRoom room) {
-        room.setRoundPhase(GameRoom.RoundPhase.PLAYING);
-        room.setRoundStartTime(LocalDateTime.now());  // 실제 재생 시작 시간으로 리셋
-        room.setAudioPlaying(true);
-        room.setAudioPlayedAt(System.currentTimeMillis());
-
-        addSystemMessage(room, room.getHost(), "🎵 모든 참가자 준비 완료! 노래를 맞춰보세요!");
-    }
-
-    /**
      * 현재 곡 스킵 (재생 오류 시 방장만)
-     * PREPARING 또는 PLAYING 상태에서 호출 가능
+     * 라운드 PLAYING 단계에서만 호출 가능
      */
     @Transactional
     public Map<String, Object> skipCurrentSong(GameRoom room, Member host, Long songId) {

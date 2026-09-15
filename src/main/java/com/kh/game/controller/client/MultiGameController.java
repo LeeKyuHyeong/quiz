@@ -23,7 +23,6 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -1077,12 +1076,9 @@ public class MultiGameController {
         result.putAll(chatResult);
 
         if (Boolean.TRUE.equals(chatResult.get("success"))) {
-            // 채팅 브로드캐스트
-            Map<String, Object> chatData = new HashMap<>();
-            chatData.put("nickname", member.getNickname());
-            chatData.put("message", message);
-            chatData.put("messageType", Boolean.TRUE.equals(chatResult.get("isCorrect")) ? "CORRECT" : "CHAT");
-            chatData.put("createdAt", LocalDateTime.now().toString());
+            // 채팅 브로드캐스트 — 저장된 채팅을 폴링 GET /chats 항목과 같은 형태로 push (id·memberId·isHost·messageType)
+            @SuppressWarnings("unchecked")
+            Map<String, Object> chatData = (Map<String, Object>) chatResult.get("chat");
             gameBroadcastService.broadcastChat(roomCode, chatData);
 
             // 정답인 경우 라운드 업데이트도 브로드캐스트

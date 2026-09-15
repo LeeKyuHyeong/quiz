@@ -476,37 +476,38 @@ public class MultiGameService {
             }
         }
 
+        GameRoomChat saved = null;
         if (isCorrectAnswer) {
-            // 정답 처리 (이미 정답자가 있으면 false 반환)
-            boolean wasWinner = handleCorrectAnswer(room, member, participant, trimmedMessage);
-            if (wasWinner) {
+            // 정답 처리 (이미 정답자가 있으면 null 반환)
+            saved = handleCorrectAnswer(room, member, participant, trimmedMessage);
+            if (saved != null) {
                 result.put("isCorrect", true);
             } else {
                 // 이미 다른 사람이 먼저 맞춤 - 일반 채팅으로 저장
-                GameRoomChat chat = GameRoomChat.chat(room, member, trimmedMessage);
-                chatRepository.save(chat);
+                saved = chatRepository.save(GameRoomChat.chat(room, member, trimmedMessage));
                 result.put("isCorrect", false);
             }
         } else {
             // 일반 채팅 저장
-            GameRoomChat chat = GameRoomChat.chat(room, member, trimmedMessage);
-            chatRepository.save(chat);
+            saved = chatRepository.save(GameRoomChat.chat(room, member, trimmedMessage));
             result.put("isCorrect", false);
         }
 
         result.put("success", true);
+        // CHAT push 페이로드 — 폴링 GET /chats 의 항목과 같은 형태 (id·memberId·isHost·messageType 포함)
+        result.put("chat", toChatInfo(room, saved));
         return result;
     }
 
     /**
      * 정답 처리 (방 단위 락으로 동시 제출 방지)
-     * @return 정답 처리 성공 여부 (이미 정답자가 있으면 false)
+     * @return 저장된 정답 채팅 (이미 정답자가 있으면 null)
      */
-    private boolean handleCorrectAnswer(GameRoom room, Member member, GameRoomParticipant participant, String answer) {
+    private GameRoomChat handleCorrectAnswer(GameRoom room, Member member, GameRoomParticipant participant, String answer) {
         synchronized (roomLocks.computeIfAbsent(room.getId(), k -> new Object())) {
             // 이미 정답자가 있으면 무시 (동시 제출 방지)
             if (room.getWinner() != null) {
-                return false;
+                return null;
             }
 
             // 정답자 설정
@@ -524,8 +525,8 @@ public class MultiGameService {
             participant.incrementCorrect();
 
             // 정답 채팅 저장
-            GameRoomChat correctChat = GameRoomChat.correctAnswer(room, member, answer, room.getCurrentRound());
-            chatRepository.save(correctChat);
+            GameRoomChat correctChat = chatRepository.save(
+                    GameRoomChat.correctAnswer(room, member, answer, room.getCurrentRound()));
 
             // 정답 정보 시스템 메시지 (song null 체크)
             Song song = room.getCurrentSong();
@@ -534,7 +535,7 @@ public class MultiGameService {
                 addSystemMessage(room, member, answerMessage);
             }
 
-            return true;
+            return correctChat;
         }
     }
 
@@ -559,19 +560,27 @@ public class MultiGameService {
 
         List<Map<String, Object>> result = new ArrayList<>();
         for (GameRoomChat chat : chats) {
-            Map<String, Object> chatInfo = new HashMap<>();
-            chatInfo.put("id", chat.getId());
-            chatInfo.put("memberId", chat.getMember().getId());
-            chatInfo.put("nickname", chat.getMember().getNickname());
-            chatInfo.put("message", chat.getMessage());
-            chatInfo.put("messageType", chat.getMessageType().name());
-            chatInfo.put("roundNumber", chat.getRoundNumber());
-            chatInfo.put("createdAt", chat.getCreatedAt().toString());
-            chatInfo.put("isHost", room.isHost(chat.getMember()));
-            result.add(chatInfo);
+            result.add(toChatInfo(room, chat));
         }
 
         return result;
+    }
+
+    /**
+     * 채팅 한 건을 클라이언트 형태로 변환 (폴링 GET /chats 항목 · CHAT push 페이로드 공용)
+     */
+    private Map<String, Object> toChatInfo(GameRoom room, GameRoomChat chat) {
+        Map<String, Object> chatInfo = new HashMap<>();
+        chatInfo.put("id", chat.getId());
+        chatInfo.put("memberId", chat.getMember().getId());
+        chatInfo.put("nickname", chat.getMember().getNickname());
+        chatInfo.put("message", chat.getMessage());
+        chatInfo.put("messageType", chat.getMessageType().name());
+        chatInfo.put("roundNumber", chat.getRoundNumber());
+        // 저장 직후 push 시점에는 @CreationTimestamp 가 아직 없을 수 있다
+        chatInfo.put("createdAt", chat.getCreatedAt() != null ? chat.getCreatedAt().toString() : LocalDateTime.now().toString());
+        chatInfo.put("isHost", room.isHost(chat.getMember()));
+        return chatInfo;
     }
 
     // ========== 게임 상태 조회 ==========

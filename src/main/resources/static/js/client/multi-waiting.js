@@ -102,10 +102,15 @@ function handleRoomUpdate(payload) {
     }
 }
 
-// CHAT 핸들러 — 단일 채팅 메시지 수신
+// CHAT 핸들러 — 단일 채팅 메시지 수신 (payload 는 fetchChats 의 항목과 같은 형태)
 function handleChatMessage(payload) {
     const container = document.getElementById('chatMessages');
     if (!container) return;
+
+    // 폴링으로 폴백해도 이미 받은 메시지를 다시 붙이지 않도록 id 를 따라간다
+    if (payload.id) {
+        lastChatId = Math.max(lastChatId, payload.id);
+    }
 
     const msgDiv = document.createElement('div');
     msgDiv.className = 'chat-message';

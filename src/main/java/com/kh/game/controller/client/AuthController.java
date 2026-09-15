@@ -40,8 +40,24 @@ public class AuthController {
 
     @GetMapping("/login")
     public String loginPage(@RequestParam(required = false) String redirect, Model model) {
-        model.addAttribute("redirect", redirect);
+        // 값은 hidden input 을 거쳐 auth-login.js 가 window.location.href 에 그대로 넣는다 → 사이트 내부 경로만 허용
+        model.addAttribute("redirect", sanitizeRedirect(redirect));
         return "client/auth/login";
+    }
+
+    /**
+     * 로그인 후 이동 경로 검증 (오픈 리다이렉트 방지).
+     * 허용: "/" 로 시작하는 사이트 내부 경로. 거부: 절대 URL·스킴, "//host"(프로토콜 상대), 백슬래시, 제어 문자.
+     * @return 허용되는 경로, 아니면 null (로그인 후 홈으로)
+     */
+    static String sanitizeRedirect(String redirect) {
+        if (redirect == null || !redirect.startsWith("/") || redirect.startsWith("//")) {
+            return null;
+        }
+        if (redirect.startsWith("/\\") || redirect.chars().anyMatch(c -> c < 0x20 || c == 0x7f)) {
+            return null;
+        }
+        return redirect;
     }
 
     @PostMapping("/check-login")

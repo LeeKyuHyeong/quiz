@@ -36,6 +36,8 @@
 | 후속 | 코드 4건: `/ws/**` CSRF 예외 · `JAVA_TOOL_OPTIONS` `-Djava.security.egd=file:/dev/./urandom` · 없는 경로 404 처리 · `hibernate.dialect` 지정 제거 | ✅ 2026-09-15 | 2026-09-14 서버 로그·nginx 실측에서 발견. **404 건은 로그 위생이 아니라 응답 버그였음** — `NoResourceFoundException`이 `Exception` 핸들러에 잡혀 스캐너 요청에 500 에러 페이지를 돌려주고 있었다. 검증: 신규 테스트 4건(CSRF 예외는 수정 전 403 실패 확인), `./mvnw clean test` 305건 통과, dev 부팅 8초·dialect 경고 0. `9c12679` 배포 완료(2026-09-15 07:52, green→blue, 헬스 12회째). 외부 확인: `/robots.txt` 404(이전 200 에러페이지), `/.git/HEAD` JSON 404, `/ws/websocket` 101, `/actuator/health` 403. 서버 확인 2026-09-15(사용자): green 정상 종료·blue `SecureRandom` WARN 없음 — 이상 없음 |
 | 후속 | 인프라: `game.conf` HSTS 없음(3월 컨테이너 nginx 설정에는 있었음) · SHA 이미지 14개 누적(디스크 18%, 급하지 않음) · `/root/backup` 구 평문 덤프 600 권한 적용 완료 | 🔲 | SSOT 백로그 |
 
+| 기능 | 비밀번호 초기화(관리자→임시 비밀번호 메일)·본인 재설정(`/auth/password-reset`, 이메일 코드) | ✅ 2026-09-15 | `82c1ebf`. 배경: 구 초기화는 `temp`+밀리초%10000 을 아무에게도 알리지 않아 계정 잠금과 같았고, "비밀번호 찾기" 문구가 가리키는 기능은 없었음. 운영 확인(사용자): Brevo 키 활성화 후 인증 메일·재설정 성공 |
+
 **정정**: §1-2 ①이 "서버 공인 IP"라고 적은 tools의 기본 호스트 값은 현재 운영 VPS가 아니라 **별도 서버**의 IP다(인프라 기록 기준). 해당 서버에 과거 DB가 남아 있는지는 미확인.
 
 ---

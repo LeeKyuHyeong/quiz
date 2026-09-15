@@ -211,7 +211,7 @@ docker exec "quiz-app-$ACTIVE" date     # KST
 | 도메인 `kyuhyeong.com` | 등록기관 수동 | 등록기관 콘솔 | 🔲 |
 | Docker Hub 토큰 (`DOCKERHUB_TOKEN`) | 수동 재발급 → GitHub Secret 교체 | Docker Hub 계정 설정 | 🔲 |
 | 배포 SSH 키 (`SERVER_SSH_KEY`) | 수동 | 서버 `authorized_keys` | 만료 없음 (유출 시 교체) |
-| Brevo API 키 (`BREVO_API_KEY`) | 수동 → 서버 `.env` → 앱 재생성 | Brevo 대시보드 | 🔲 |
+| Brevo API 키 (`BREVO_API_KEY`) | 수동 → 서버 `.env` → 앱 재생성(무중단은 `gh workflow run deploy.yml`) | Brevo 대시보드 → SMTP & API → API Keys. **키는 대시보드에서 활성화(activate)해야 401이 풀린다** (2026-09-15 겪음) | 🔲 |
 | Brevo Authorised IPs | 서버 IP 변경 시 재등록 | 미등록이면 메일 API가 401 | 서버 IP 변경 시 |
 | VPS 계약 | 호스팅사 | 호스팅 콘솔 | 🔲 |
 
@@ -224,6 +224,6 @@ docker exec "quiz-app-$ACTIVE" date     # KST
 | 배포 Actions가 헬스체크 단계에서 실패 | 새 이미지 기동 실패(스키마 `validate` 불일치, env 누락) | `docker compose logs --tail=100 app-<유휴 색>` — 활성 색은 영향 없음 |
 | 기동 로그에 `배치 작업을 찾을 수 없음: <ID>` | 코드에서 지운 배치의 `batch_config` 행이 DB에 남음 | `SELECT batch_id, enabled FROM batch_config;` 후 해당 행 삭제 |
 | 시간이 9시간 어긋남 | 컨테이너 TZ 폴백 | `docker exec quiz-app-<색> date`, 이미지에 `tzdata` 포함 여부 |
-| 메일 인증 코드가 안 감 (401) | Brevo Authorised IPs 미등록 / 키 만료 | 앱 로그의 Brevo 응답 코드 |
+| 메일 인증 코드·임시 비밀번호가 안 감 (401) | Brevo 키 미활성화·만료 / Authorised IPs 미등록 | `docker compose logs app-<색> \| grep '\[Mail\]'` 의 응답 본문: `Key not found`→키, `unrecognised IP address`→IP |
 | 멀티플레이가 폴링으로만 동작, 브라우저 콘솔에 `[WS] Connection error` | nginx `game.conf`에 `location /ws/` Upgrade 헤더 전달이 빠짐 (2026-09-14 이전 상태) | §1의 `--http1.1` curl → 101 이어야 함. 400 `Can "Upgrade" only to "WebSocket"` 이면 `infra/nginx/game.conf`의 `/ws/` 블록을 서버에 복원 |
 | 기동 직후 첫 요청이 10~30초 걸림 | `SecureRandom` 엔트로피 부족 (`SessionIdGeneratorBase` WARN) | `docker compose logs app-<색> \| grep SecureRandom`. `JAVA_TOOL_OPTIONS`에 `-Djava.security.egd=file:/dev/./urandom` |

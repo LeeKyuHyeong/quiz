@@ -86,12 +86,12 @@ private Long version;
 
 | Type | 트리거 | 페이로드 |
 |------|--------|----------|
-| `ROOM_UPDATE` | join/leave/ready/kick | 참가자 목록, 상태 |
+| `ROOM_UPDATE` | join/leave/unload 유예 적용/ready/kick | 참가자 목록, 상태 (`GameRoomService.buildRoomStatus`, 폴링 `/status`와 동일 형태·`success` 키 없음) |
 | `GAME_START` | startGame | (empty) |
 | `ROUND_UPDATE` | startRound/nextRound/skipSong | 라운드 정보, 타이머 |
 | `ROUND_RESULT` | 정답/전원스킵 | 정답자, 점수 |
 | `GAME_FINISH` | 게임 종료 | (empty) |
-| `CHAT` | sendChat | 메시지, 닉네임, 타입 |
+| `CHAT` | sendChat, 시스템 메시지 저장 | GET `/chats` 항목과 동일(`toChatInfo`: id, memberId, nickname, message, messageType `CHAT`/`CORRECT_ANSWER`/`SYSTEM`, roundNumber, createdAt, isHost) |
 | `KICKED` | kick | 대상 멤버 ID |
 | `RESTART` | restart | (empty) |
 
@@ -431,9 +431,10 @@ ORDER BY CASE m.multiTier
     COALESCE(m.multiLp, 0) DESC
 ```
 
-**JPA SIZE() 함수**:
+**정원 판단 (LEFT 제외 상관 서브쿼리)**:
 ```java
-WHERE SIZE(r.participants) < r.maxPlayers  // 컬렉션 크기 DB 레벨 비교
+// 참가자 행은 나가도 LEFT 로 남으므로 SIZE(r.participants) 를 쓰면 안 된다 (2026-09-16 수정)
+WHERE (SELECT COUNT(p) FROM GameRoomParticipant p WHERE p.gameRoom = r AND p.status <> 'LEFT') < r.maxPlayers
 ```
 
 ### 10.3 감사 필드
@@ -472,7 +473,7 @@ const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
 
 - 30초 polling으로 동시 로그인 감지
 - 401 응답 시 자동 로그인 페이지 redirect
-- `navigator.sendBeacon()`으로 탭 닫기 시에도 leave 요청 보장
+- 탭 닫기·뒤로가기는 `navigator.sendBeacon()`으로 `/game/multi/room/{code}/unload` 호출 — CSRF 헤더를 실을 수 없어 이 경로만 CSRF 예외. 즉시 나가지 않고 `RoomUnloadService`가 유예(`game.multi.unload-grace-ms`, 기본 8초) 뒤 적용, 그 사이 페이지 GET(대기실·플레이·결과)이 오면 취소 → 새로고침·게임 내 이동은 나가기가 아님
 
 ### 11.3 Dual-Mode (WS + Polling)
 

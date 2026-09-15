@@ -44,7 +44,7 @@ WebSocket 구독만 막으면 비참가자는 `ws-client.js` 의 재시도 5회(
 - `GameRoomParticipant.status` = `JOINED` / `PLAYING` / `LEFT`. 강퇴도 `LEFT` (`GameRoomService.kickParticipant`).
 - 방장은 방 생성 시 참가자로 저장(`createRoom`), 재시작 시 참가자 상태가 `JOINED` 로 초기화(`restart`). → 대기실·플레이·결과 페이지 모두 **"JOINED 또는 PLAYING 인 참가자"** 로 통일 판단 가능.
 - 결과 페이지는 `leave-to-lobby` 호출 전에 `GameWebSocket.disconnect()` 를 먼저 하므로(`multi-result.js:115`) LEFT 이후 구독이 남는 경로 없음.
-- 종료된 방에서 `beforeunload` 의 `/leave` beacon 은 무시됨(`leaveRoom` 컨트롤러 573행) → 결과 페이지 진입 시 참가자 레코드가 살아 있다.
+- `beforeunload` 의 beacon 은 `/unload` 로 가며(2026-09-16, `1007051`) 유예 뒤 `leaveRoom` 을 부른다. `leaveRoom` 은 FINISHED 방을 무시하고 결과 페이지 GET 이 유예 중인 나가기를 취소하므로 → 결과 페이지 진입 시 참가자 레코드가 살아 있다. (이전에는 `/leave` beacon 이 CSRF 403 으로 아예 도달하지 않았다.)
 - 관리자 화면은 WebSocket 을 쓰지 않는다(`templates/admin` 에 sockjs 참조 0건) → 관리자 예외 불필요.
 - 회원 id 는 `accessor.getUser()` → `Authentication.getPrincipal()` → `CustomUserDetails.getMember().getId()`. `Member` 재조회 불필요.
 

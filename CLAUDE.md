@@ -244,12 +244,17 @@ Controller (MVC + REST) → Service (Business Logic) → Repository (JPA) → Ma
 ### Multiplayer Flow
 
 1. Create room → join room → toggle ready. 생성 요청 본문은 **통째로 `GameSettings`로 바인딩**된다 — JS 키는 DTO 필드명(`privateRoom`, 모드 필드 최상위)과 같아야 하며 모르는 키는 Jackson이 조용히 버린다(`MultiGameControllerRoomLifecycleTest`의 계약 테스트가 지킴). 비공개 방 = 로비에 🔒로 보이되 코드 미노출, 코드로만 입장, 비밀번호 없음(`GameRoom.password` 컬럼은 미사용)
-2. Host starts game → room `PLAYING`, round `PREPARING` phase (all participants load song)
-3. Each participant calls `/round-ready` when ready
-4. Host starts round → `PLAYING` phase (song plays, chat for answers)
-5. First correct answer wins → `RESULT` phase → next round or game end (room `FINISHED`)
+2. Host starts game → room `PLAYING` (round phase는 아직 null)
+3. Host starts round → round `PLAYING` phase (song plays, chat for answers). `RoundPhase.PREPARING`은 어디서도 설정되지 않는다
+4. First correct answer wins → `RESULT` phase → next round or game end (room `FINISHED`)
 
-상태 변화는 `GameBroadcastService`가 STOMP topic으로 push한다. 클라이언트는 `ws-client.js`(지수 백오프 재연결 후 polling fallback). push payload(`buildRoomStatus`)에는 `success` 키가 없다 — 클라이언트는 `success === false`만 "방 종료"로 본다. 구독·폴링 GET(`/round`·`/chats`)은 `GameRoomService.isActiveParticipant`로 참가자만 허용(`/status`는 참가 전 미리보기용이라 열려 있음).
+상태 변화는 `GameBroadcastService`가 STOMP topic으로 push한다. 클라이언트는 `ws-client.js`(지수 백오프 재연결 후 polling fallback). **push payload는 폴링 응답과 같은 형태여야 한다** — `ROOM_UPDATE`는 `GameRoomService.buildRoomStatus`(단, `success` 키가 없어 클라이언트는 `success === false`만 "방 종료"로 본다), `CHAT`은 `MultiGameService.toChatInfo`(GET `/chats` 항목과 동일: `id`·`memberId`·`isHost`·`messageType` `CORRECT_ANSWER`). 시스템 메시지(`addSystemMessage`)도 저장 직후 `CHAT`으로 push된다(WebSocket 사용자는 채팅 폴링을 돌리지 않으므로). 구독·폴링 GET(`/round`·`/chats`)과 액션 POST(`/chat`·`/skip-vote`)는 활성 참가자(JOINED/PLAYING)만 허용 — LEFT 행은 남아 있으므로 상태를 보지 않는 조회를 쓰면 안 된다(`/status`는 참가 전 미리보기용이라 열려 있음).
+
+**참가자 행은 지우지 않고 `LEFT`로만 바꾼다.** 정원(`GameRoom.getCurrentPlayerCount`, `findAvailableRooms`)은 LEFT를 제외한 수다 — `SIZE(r.participants)`나 `participants.size()`를 쓰면 한 번 나간 자리를 다시 채울 수 없다(2026-09-16 수정, `GameRoomCapacityTest`).
+
+**나가기 3종:** ① 버튼 `/leave`(CSRF) — WAITING·PLAYING 모두 실제로 나가고 방장이면 남은 사람에게 위임, 마지막이면 방 종료; FINISHED는 무시(재시작 지원). ② 결과 화면 `/leave-to-lobby` — FINISHED에서 LEFT 처리. ③ 탭 닫기·뒤로가기 `/unload`(`navigator.sendBeacon`, 헤더를 못 실어 **이 경로만 CSRF 예외**) — 즉시 나가지 않고 `RoomUnloadService`가 `game.multi.unload-grace-ms`(기본 8000) 뒤 적용하며, 그 사이 대기실·플레이·결과 페이지 GET이나 재참가가 오면 취소된다. 그래서 F5와 대기실→플레이→결과 이동은 나가기가 아니다. 대기 목록은 인메모리(배포 시 소실, 정리 배치가 뒷정리). 방치된 PLAYING 방은 `RoomCleanupBatch`가 2시간 뒤 종료한다.
+
+`nextRound`·`skipCurrentSong`·`startRound`는 방이 PLAYING일 때만 동작한다 — FINISHED 방에서 재호출되면 `finishGame`이 다시 돌아 전적·LP가 이중 반영되기 때문.
 
 ### Key Services
 

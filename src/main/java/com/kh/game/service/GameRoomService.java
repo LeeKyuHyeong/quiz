@@ -27,12 +27,40 @@ public class GameRoomService {
     private static final int CODE_LENGTH = 6;
     private final SecureRandom random = new SecureRandom();
 
+    public static final int ROOM_NAME_MIN = 2;
+    public static final int ROOM_NAME_MAX = 30;   // 생성 화면 maxlength 와 동일 (엔티티 컬럼은 50)
+    public static final int MAX_PLAYERS_MIN = 2;
+    public static final int MAX_PLAYERS_MAX = 10;
+    public static final int TOTAL_ROUNDS_MIN = 1;
+    public static final int TOTAL_ROUNDS_MAX = 20;
+
+    /**
+     * 방 생성 본문 검증 (컨트롤러가 언박싱 전에 호출, createRoom 도 다시 호출)
+     * 클라이언트 검증만 있으면 API 로 직접 보낸 빈 이름·초과 길이·null 인원이 DB 오류·NPE 로 500 이 된다.
+     * @return 앞뒤 공백을 자른 방 이름
+     */
+    public String validateRoomSettings(String roomName, Integer maxPlayers, Integer totalRounds) {
+        String name = roomName == null ? "" : roomName.trim();
+        if (name.length() < ROOM_NAME_MIN || name.length() > ROOM_NAME_MAX) {
+            throw new BusinessException("방 이름은 " + ROOM_NAME_MIN + "~" + ROOM_NAME_MAX + "자로 입력해주세요.");
+        }
+        if (maxPlayers == null || maxPlayers < MAX_PLAYERS_MIN || maxPlayers > MAX_PLAYERS_MAX) {
+            throw new BusinessException("최대 인원은 " + MAX_PLAYERS_MIN + "~" + MAX_PLAYERS_MAX + "명이어야 합니다.");
+        }
+        if (totalRounds == null || totalRounds < TOTAL_ROUNDS_MIN || totalRounds > TOTAL_ROUNDS_MAX) {
+            throw new BusinessException("라운드 수는 " + TOTAL_ROUNDS_MIN + "~" + TOTAL_ROUNDS_MAX + " 사이여야 합니다.");
+        }
+        return name;
+    }
+
     /**
      * 방 생성
      */
     @Transactional
     public GameRoom createRoom(Member host, String roomName, int maxPlayers, int totalRounds,
                                boolean isPrivate, String settings) {
+        roomName = validateRoomSettings(roomName, maxPlayers, totalRounds);
+
         // 종료된 방의 참가 정보 자동 정리
         cleanupStaleParticipations(host);
 

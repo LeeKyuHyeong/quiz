@@ -506,10 +506,15 @@ public class MultiGameController {
             return ResponseEntity.ok(result);
         }
 
+        // 언박싱 전에 검증 (null 인원·라운드는 NPE 500 이 아니라 거부 응답). BusinessException → success:false JSON
+        String roomName = gameRoomService.validateRoomSettings(
+                settings.getRoomName(), settings.getMaxPlayers(), settings.getTotalRounds());
+        settings.setRoomName(roomName);
+
         String settingsJson = objectMapper.writeValueAsString(settings);
         GameRoom room = gameRoomService.createRoom(
                 member,
-                settings.getRoomName(),
+                roomName,
                 settings.getMaxPlayers(),
                 settings.getTotalRounds(),
                 settings.isPrivateRoom(),

@@ -12,7 +12,10 @@ const GameWebSocket = {
     reconnectAttempts: 0,
     maxReconnectAttempts: 5,
     reconnectTimer: null,
+    stableTimer: null,          // 연결이 이 시간 동안 살아 있어야 재연결 시도 횟수를 초기화한다
+    stableAfterMs: 5000,
     fallbackCallback: null,
+    fallbackActivated: false,
 
     /**
      * WebSocket 연결 및 방 토픽 구독
@@ -25,8 +28,21 @@ const GameWebSocket = {
         this.handlers = messageHandlers || {};
         this.fallbackCallback = fallbackFn || null;
         this.reconnectAttempts = 0;
+        this.fallbackActivated = false;
+        this._clearTimers();
 
         this._doConnect();
+    },
+
+    _clearTimers() {
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+        if (this.stableTimer) {
+            clearTimeout(this.stableTimer);
+            this.stableTimer = null;
+        }
     },
 
     _doConnect() {
@@ -47,8 +63,15 @@ const GameWebSocket = {
 
             this.stompClient.connect(headers, () => {
                 this.connected = true;
-                this.reconnectAttempts = 0;
                 console.log('[WS] Connected to /topic/room/' + this.roomCode);
+
+                // CONNECTED 직후 SUBSCRIBE 가 거부되면(참가자 아님) ERROR 로 바로 끊긴다.
+                // 여기서 시도 횟수를 0 으로 되돌리면 그 경우 폴백 없이 1초마다 영원히 재접속하므로,
+                // 연결이 일정 시간 살아 있을 때만 초기화한다.
+                this.stableTimer = setTimeout(() => {
+                    this.stableTimer = null;
+                    this.reconnectAttempts = 0;
+                }, this.stableAfterMs);
 
                 // 방 토픽 구독
                 this.subscription = this.stompClient.subscribe(
@@ -92,6 +115,14 @@ const GameWebSocket = {
     },
 
     _handleDisconnect() {
+        if (this.stableTimer) {
+            clearTimeout(this.stableTimer);
+            this.stableTimer = null;
+        }
+        if (this.reconnectTimer || this.fallbackActivated) {
+            return;  // 이미 재연결이 예약됐거나 폴링으로 넘어갔다
+        }
+
         this.reconnectAttempts++;
 
         if (this.reconnectAttempts > this.maxReconnectAttempts) {
@@ -105,11 +136,16 @@ const GameWebSocket = {
         console.log(`[WS] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
 
         this.reconnectTimer = setTimeout(() => {
+            this.reconnectTimer = null;
             this._doConnect();
         }, delay);
     },
 
     _activateFallback() {
+        if (this.fallbackActivated) {
+            return;
+        }
+        this.fallbackActivated = true;
         if (this.fallbackCallback) {
             console.log('[WS] Activating polling fallback');
             this.fallbackCallback();
@@ -117,10 +153,7 @@ const GameWebSocket = {
     },
 
     disconnect() {
-        if (this.reconnectTimer) {
-            clearTimeout(this.reconnectTimer);
-            this.reconnectTimer = null;
-        }
+        this._clearTimers();
         if (this.subscription) {
             this.subscription.unsubscribe();
             this.subscription = null;

@@ -159,6 +159,7 @@ function disconnectWebSocket() {
 
 function startPolling() {
     if (usingWebSocket) return;  // WS 활성 중이면 폴링 시작 안 함
+    if (roundPollingInterval) return;  // 이미 폴링 중 ("다시 연결" 반복 클릭 등) → 중복 인터벌 방지
     roundPollingInterval = setInterval(fetchRoundInfo, 1000);
     chatPollingInterval = setInterval(fetchChats, 500);  // 채팅은 더 빠르게
 }

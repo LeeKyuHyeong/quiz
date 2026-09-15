@@ -149,8 +149,9 @@ function handleKicked(payload) {
 
 // === 폴링 (초기 로드 + 폴백용) ===
 
-// 폴링 시작
+// 폴링 시작 (이미 돌고 있으면 중복 인터벌을 만들지 않는다)
 function startPolling() {
+    if (pollingInterval) return;
     pollingInterval = setInterval(fetchRoomStatus, 2000);
 }
 
@@ -162,8 +163,9 @@ function stopPolling() {
     }
 }
 
-// 채팅 폴링 시작
+// 채팅 폴링 시작 (이미 돌고 있으면 중복 인터벌을 만들지 않는다)
 function startChatPolling() {
+    if (chatPollingInterval) return;
     chatPollingInterval = setInterval(fetchChats, 1000);
 }
 

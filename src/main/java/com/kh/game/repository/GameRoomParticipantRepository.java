@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -61,6 +62,10 @@ public interface GameRoomParticipantRepository extends JpaRepository<GameRoomPar
 
     // 회원이 해당 방에 참가중인지
     boolean existsByGameRoomAndMemberAndStatus(GameRoom gameRoom, Member member, GameRoomParticipant.ParticipantStatus status);
+
+    // 방 코드 + 회원 id 로 활성 참가자(JOINED/PLAYING) 여부 — WebSocket 구독 인가·폴링 GET 검사용 (엔티티 조회 없이 exists 1건)
+    boolean existsByGameRoomRoomCodeAndMemberIdAndStatusIn(String roomCode, Long memberId,
+                                                           Collection<GameRoomParticipant.ParticipantStatus> statuses);
 
     // ========== 관리자 회원관리용 - 실시간 게임 수 집계 ==========
 

@@ -54,7 +54,8 @@ public class SecurityConfig {
                         .csrfTokenRepository(new HttpSessionCsrfTokenRepository())
                         .csrfTokenRequestHandler(csrfHandler)
                         // SockJS 폴백 전송(xhr_streaming, xhr_send 등)은 POST 이지만 CSRF 토큰을 실을 수 없다.
-                        // STOMP CONNECT 인증은 WebSocketAuthInterceptor 가 세션 기준으로 처리한다.
+                        // 인증은 핸드셰이크가 세션의 Principal 을 WebSocket 세션에 전파하고,
+                        // 방 참가자 검사는 WebSocketAuthInterceptor 가 STOMP SUBSCRIBE 시점에 수행한다.
                         .ignoringRequestMatchers(new AntPathRequestMatcher("/ws/**"))
                 )
                 .formLogin(form -> form

@@ -54,6 +54,23 @@ public class MultiGameController {
         return ResponseEntity.ok(Map.of("success", false, "message", e.getMessage()));
     }
 
+    /**
+     * 폴링 GET(/round, /chats) 전용 참가자 검사.
+     * WebSocket 구독 인가(WebSocketAuthInterceptor)와 같은 기준: 로그인 + 해당 방의 JOINED/PLAYING 참가자.
+     * 통과하면 null, 아니면 401/403 JSON 응답을 돌려준다.
+     * (/status 는 참가 전 방 미리보기(multi-join.js)가 쓰므로 검사 대상이 아니다.)
+     */
+    private ResponseEntity<Map<String, Object>> denyUnlessParticipant(String roomCode, CustomUserDetails userDetails) {
+        if (userDetails == null) {
+            return ResponseEntity.status(401).body(Map.of("success", false, "message", "로그인이 필요합니다."));
+        }
+        if (!gameRoomService.isActiveParticipant(roomCode, userDetails.getMember().getId())) {
+            log.warn("Multi polling denied: roomCode={} memberId={}", roomCode, userDetails.getMember().getId());
+            return ResponseEntity.status(403).body(Map.of("success", false, "message", "방 참가자만 조회할 수 있습니다."));
+        }
+        return null;
+    }
+
     // ========== 페이지 ==========
 
     /**
@@ -1017,7 +1034,14 @@ public class MultiGameController {
      */
     @GetMapping("/room/{roomCode}/round")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> getRoundInfo(@PathVariable String roomCode) {
+    public ResponseEntity<Map<String, Object>> getRoundInfo(
+            @PathVariable String roomCode,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        ResponseEntity<Map<String, Object>> denied = denyUnlessParticipant(roomCode, userDetails);
+        if (denied != null) {
+            return denied;
+        }
+
         Map<String, Object> result = new HashMap<>();
 
         GameRoom room = gameRoomService.findByRoomCode(roomCode).orElse(null);
@@ -1092,7 +1116,12 @@ public class MultiGameController {
     @ResponseBody
     public ResponseEntity<Map<String, Object>> getChats(
             @PathVariable String roomCode,
-            @RequestParam(defaultValue = "0") Long lastId) {
+            @RequestParam(defaultValue = "0") Long lastId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        ResponseEntity<Map<String, Object>> denied = denyUnlessParticipant(roomCode, userDetails);
+        if (denied != null) {
+            return denied;
+        }
 
         Map<String, Object> result = new HashMap<>();
 

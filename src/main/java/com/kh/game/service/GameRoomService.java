@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -256,6 +257,16 @@ public class GameRoomService {
      */
     public Optional<GameRoomParticipant> getParticipant(GameRoom room, Member member) {
         return participantRepository.findByGameRoomAndMember(room, member);
+    }
+
+    /**
+     * 방 코드 + 회원 id 기준 활성 참가자(JOINED/PLAYING) 여부.
+     * WebSocket 구독 인가(WebSocketAuthInterceptor)와 폴링 GET(/round, /chats) 검사가 같은 기준을 쓴다.
+     */
+    public boolean isActiveParticipant(String roomCode, Long memberId) {
+        return participantRepository.existsByGameRoomRoomCodeAndMemberIdAndStatusIn(
+                roomCode, memberId,
+                EnumSet.of(GameRoomParticipant.ParticipantStatus.JOINED, GameRoomParticipant.ParticipantStatus.PLAYING));
     }
 
     /**

@@ -106,9 +106,11 @@ public class GameRoom {
         RESULT          // 결과 표시
     }
 
-    // 현재 참가자 수
+    // 현재 참가자 수 (나간 사람은 행이 남되 LEFT 이므로 제외)
     public int getCurrentPlayerCount() {
-        return participants.size();
+        return (int) participants.stream()
+                .filter(p -> p.getStatus() != GameRoomParticipant.ParticipantStatus.LEFT)
+                .count();
     }
 
     // 참가 가능 여부

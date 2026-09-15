@@ -23,8 +23,10 @@ public interface GameRoomRepository extends JpaRepository<GameRoom, Long> {
     boolean existsByRoomCode(String roomCode);
 
     // 대기중인 방 목록 (참가 가능한 방). 비공개 방도 포함 — 목록에는 보이되 코드는 노출하지 않는다 (컨트롤러/템플릿에서 처리)
+    // 정원은 LEFT 를 제외한 활성 참가자 수로 판단한다 (GameRoom.getCurrentPlayerCount 와 같은 기준)
     @Query("SELECT r FROM GameRoom r WHERE r.status = 'WAITING' " +
-            "AND SIZE(r.participants) < r.maxPlayers ORDER BY r.createdAt DESC")
+            "AND (SELECT COUNT(p) FROM GameRoomParticipant p WHERE p.gameRoom = r AND p.status <> 'LEFT') < r.maxPlayers " +
+            "ORDER BY r.createdAt DESC")
     List<GameRoom> findAvailableRooms();
 
     // 대기중인 공개 방 목록 (페이징)

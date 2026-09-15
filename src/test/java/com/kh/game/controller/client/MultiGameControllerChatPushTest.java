@@ -29,6 +29,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -131,9 +132,13 @@ class MultiGameControllerChatPushTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
+        // 정답이면 "정답: ..." 시스템 메시지도 같이 push 되므로 보낸 사람의 채팅만 고른다
         ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
-        verify(gameBroadcastService).broadcastChat(eq(room.getRoomCode()), captor.capture());
-        return captor.getValue();
+        verify(gameBroadcastService, atLeastOnce()).broadcastChat(eq(room.getRoomCode()), captor.capture());
+        return captor.getAllValues().stream()
+                .filter(p -> !"SYSTEM".equals(p.get("messageType")))
+                .findFirst()
+                .orElseThrow();
     }
 
     @Test
@@ -159,6 +164,31 @@ class MultiGameControllerChatPushTest {
         assertThat(push.get("messageType")).isEqualTo("CORRECT_ANSWER");
         assertThat(push.get("memberId")).isEqualTo(guest.getId());
         assertThat(push.get("isHost")).isEqualTo(false);
+    }
+
+    /**
+     * 배경: 시스템 메시지("게임 시작", "라운드 N", "정답: ...")는 DB 에만 저장되고 push 되지 않았다.
+     * WebSocket 이 살아 있으면 채팅 폴링을 돌리지 않으므로 그 사용자에게는 아예 보이지 않았다 (2026-09-16 발견).
+     */
+    @Test
+    @DisplayName("게임 시작 시스템 메시지가 CHAT push 로 나간다")
+    void systemMessage_isPushedAsChat() throws Exception {
+        gameRoomService.toggleReady(room, guest);
+
+        mockMvc.perform(post("/game/multi/room/" + room.getRoomCode() + "/start")
+                        .with(user(new CustomUserDetails(host)))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
+        verify(gameBroadcastService).broadcastChat(eq(room.getRoomCode()), captor.capture());
+        Map<String, Object> push = captor.getValue();
+
+        assertThat(push.get("messageType")).isEqualTo("SYSTEM");
+        assertThat((String) push.get("message")).contains("게임이 시작");
+        assertThat(push.get("id")).isNotNull();
     }
 
     @Test

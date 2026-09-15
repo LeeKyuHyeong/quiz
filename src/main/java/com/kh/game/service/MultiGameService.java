@@ -30,6 +30,7 @@ public class MultiGameService {
     private final MultiTierService multiTierService;
     private final BadgeService badgeService;
     private final ObjectMapper objectMapper;
+    private final GameBroadcastService gameBroadcastService;
 
     // 이미 출제된 노래 ID를 방별로 관리 (스레드 안전)
     private final ConcurrentHashMap<Long, Set<Long>> usedSongsByRoom = new ConcurrentHashMap<>();
@@ -540,11 +541,12 @@ public class MultiGameService {
     }
 
     /**
-     * 시스템 메시지 추가
+     * 시스템 메시지 추가 — 저장 후 CHAT 으로 push 한다.
+     * WebSocket 사용자는 채팅 폴링을 돌리지 않으므로 push 하지 않으면 시스템 메시지를 볼 수 없다.
      */
     private void addSystemMessage(GameRoom room, Member member, String message) {
-        GameRoomChat systemChat = GameRoomChat.system(room, member, message);
-        chatRepository.save(systemChat);
+        GameRoomChat systemChat = chatRepository.save(GameRoomChat.system(room, member, message));
+        gameBroadcastService.broadcastChat(room.getRoomCode(), toChatInfo(room, systemChat));
     }
 
     /**

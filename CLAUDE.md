@@ -2,924 +2,230 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
----
+## 문서 지도
 
-## 🧭 LLM 코딩 가이드라인 (행동 원칙)
-
-LLM 코딩에서 흔히 발생하는 실수를 줄이기 위한 행동 가이드라인. Andrej Karpathy의 LLM 코딩 함정 관찰을 기반으로 함.
-
-**Tradeoff:** 이 가이드라인은 **속도보다 신중함**에 무게를 둔다. 사소한 작업(오타 수정, 명백한 한 줄 변경)에는 판단껏 유연하게 적용할 것.
-
-### 1. Think Before Coding (코딩 전에 먼저 생각)
-
-**가정하지 마라. 혼란을 숨기지 마라. Tradeoff를 드러내라.**
-
-구현에 들어가기 전에:
-
-- **가정을 명시적으로 진술**한다. 불확실하면 추측하지 말고 질문한다.
-- **여러 해석이 가능하면 모두 제시**한다. 조용히 하나만 골라서 진행하지 않는다.
-- **더 단순한 접근이 존재하면 말한다.** 필요할 때는 반박(push back)한다.
-- **불명확하면 멈춘다.** 무엇이 헷갈리는지 명시하고 묻는다.
-
-**이 프로젝트에서의 적용 예시:**
-
-- **멀티플레이어 상태 머신 작업 시:** `GameRoom`은 방 상태 `RoomStatus`(`WAITING → PLAYING → FINISHED`)와 라운드 단계 `RoundPhase`(`PREPARING → PLAYING → RESULT`) 2단으로 흐른다. 한 phase 처리만 고치라는 요청이라도 `GameRoomService`·`MultiGameService` + WebSocket push(`GameBroadcastService`) + REST 액션(`/round-ready` 등) + 클라이언트 JS(`ws-client.js`, 연결 실패 시 polling fallback)가 동시에 영향. 어디까지 영향이 가는지 먼저 확인한다.
-- **AnswerValidation 작업 시:** `AnswerValidationService`(정규화) + `AnswerGeneratorUtil`(영→한 음역 변환) + `SongAnswer` 테이블(수동 정답)이 3중으로 얽혀 있음. "답이 인정 안 돼요"라는 요청은 어느 layer 문제인지 확인하고 패치한다. 추측으로 정규화 로직을 손대지 않는다.
-- **배치 작업 추가/수정 시:** `BatchScheduler`에 등록된 24개 잡 중 데이터 선후·실행 시각이 얽힌 잡이 있는지(`BatchService` seed의 cron 기본값·대상 엔티티) 확인 후 진행. 신규 배치는 클래스 + `BatchScheduler`의 `createTask`/`executeManually` 분기 + `BatchService` seed 세 곳을 함께 맞춘다.
-- **Multi-tier(LP) 로직:** 승급/강등 경계 처리는 `MultiTierService` + `LpDecayBatch` + 매치 종료 시 LP 변동 로직이 동시에 영향. 한 군데만 고치지 않는다.
-- **"화면이 깨졌어요" 요청:** 어떤 모드(Solo Guess / Host / Fan Challenge / Genre Challenge / Retro / Multi)인지, 어떤 테마(라이트/다크/`.game-page`)인지, 어떤 브레이크포인트(PC/768px/480px)인지 먼저 확인한다.
-
-### 2. Simplicity First (단순함이 먼저)
-
-**문제를 해결하는 최소 코드. 투기적인 것은 없다.**
-
-- 요청되지 않은 기능은 추가하지 않는다.
-- 1회용 코드에 추상화 계층을 만들지 않는다.
-- 요청되지 않은 "유연성"이나 "설정 가능성"을 끼워넣지 않는다.
-- 발생할 수 없는 시나리오에 예외 처리를 하지 않는다.
-- 200줄로 쓴 것이 50줄로 가능했다면, 다시 쓴다.
-
-자문: **"시니어 엔지니어가 이건 오버엔지니어링이라고 할까?"** 그렇다면 단순화한다.
-
-**이 프로젝트에서의 안티 패턴:**
-
-- 한 Service에서만 쓰는 로직을 `XxxStrategy` 인터페이스 + 구현체로 분리하지 말 것.
-- Batch Job 추가하는데 새로운 추상 `AbstractScheduledJob` 만들지 말 것. `BatchScheduler` + `BatchConfig`(cron 외부화) 기존 패턴을 따른다.
-- 게임 모드 추가 요청 시 "확장성"을 이유로 게임 엔진을 일반화하지 말 것. 기존 `GameSessionService` / `MultiGameService` / `FanChallengeService` 패턴을 그대로 답습한다.
-- 관리자 페이지 한 곳에서만 쓰는 DTO를 굳이 entity와 양방향 매핑하지 말 것. 명확히 분리한다.
-- 한 fragment에서만 쓰는 Thymeleaf 헬퍼를 굳이 `#strings` 확장으로 만들지 말 것. 인라인이면 인라인이다.
-
-### 3. Surgical Changes (외과적 변경)
-
-**필요한 곳만 건드린다. 내가 만든 흔적만 정리한다.**
-
-기존 코드를 수정할 때:
-
-- 인접한 코드, 주석, 포매팅을 "개선"하지 않는다.
-- 망가지지 않은 것을 리팩토링하지 않는다.
-- 내가 다르게 작성할 스타일이라도 **기존 스타일에 맞춘다.**
-- 무관한 dead code를 발견하면 *언급만* 한다. 삭제하지 않는다.
-
-내 변경이 고아(orphan)를 만들었다면:
-
-- *내 변경*으로 인해 사용되지 않게 된 import/변수/함수만 제거한다.
-- 변경 전부터 있던 dead code는 요청 없이 제거하지 않는다.
-
-검증 기준: **변경된 모든 라인은 사용자 요청과 직접 연결되어야 한다.**
-
-**이 프로젝트에서의 특별 주의:**
-
-- **`common.css`의 CSS 변수 시스템(`:root`, `[data-theme="dark"]`, `.game-page`)은 의도된 디자인이다.** 무관한 작업 중에 변수 정의를 "정리"하지 않는다.
-- **`SecurityConfig`의 `authorizeHttpRequests` 매처 순서**는 의존성이 있다(정적 자원·`/ws/**`·`/auth/**`·`/admin/login` `permitAll` → `/admin/**` `hasRole("ADMIN")` → `/mypage/**` `authenticated` → 나머지 `permitAll`). 새 경로 규칙을 추가하면서 기존 매처 순서를 재배열하지 않는다. (구 `AdminInterceptor`/`SessionValidationInterceptor`는 Spring Security 전환 때 제거됨, `68c9d74`)
-- **Thymeleaf fragment(`fragments/header.html`, `fragments/footer.html` 등)는 모든 화면이 의존한다.** "더 깔끔하게" 변경하지 않는다.
-- **`docker-compose.yml`은 푸시하면 배포 스크립트의 `git pull --ff-only`로 서버에 그대로 반영된다**(아래 CI/CD 참고). blue/green 두 벌이 `x-app-common` 앵커를 공유하므로 무관한 작업 중에 compose 파일을 건드리지 않는다.
-- **CI/CD 워크플로(`.github/workflows/deploy.yml`)는 한 번 맞춰놨다.** 다른 작업 중에 build step 순서나 path filter를 "최적화"하지 않는다.
-- **`BatchConfig` 테이블의 cron 식**은 운영 중 DB에서 조정한다. 코드에서 cron 기본값을 무관한 작업 중에 변경하지 않는다.
-
-### 4. Goal-Driven Execution (목표 주도 실행)
-
-**성공 기준을 정의한다. 검증될 때까지 루프를 돈다.**
-
-| 명령형 지시 | 목표형 변환 |
-|------------|------------|
-| "validation 추가해줘" | "잘못된 입력 테스트를 쓰고, 통과시켜라" |
-| "버그 고쳐줘" | "버그를 재현하는 테스트/시나리오를 만들고, 통과시켜라" |
-| "X를 리팩토링해줘" | "리팩토링 전후로 테스트가 모두 통과하는지 확인" |
-
-다단계 작업은 짧은 계획을 먼저 제시:
-
-```
-1. [단계] → 검증: [확인 방법]
-2. [단계] → 검증: [확인 방법]
-3. [단계] → 검증: [확인 방법]
-```
-
-**이 프로젝트에서의 검증 패턴:**
-
-- **Controller 추가:** Controller 작성 → `./mvnw test` 통과 → 가능하면 `MockMvc` 테스트로 200 / 4xx / 5xx 응답 검증.
-- **JPA Repository 메서드 추가:** 메서드 작성 → dev 프로파일 실행 → 실제 데이터로 결과 row 수/내용 확인.
-- **Batch Job 작업:** Job 추가/수정 → `AdminBatchController`에서 수동 trigger 또는 cron 조정 → `BatchExecutionHistory`에서 `COMPLETED` 확인 → 결과 테이블 검증.
-- **JPA 쿼리 최적화("느려요"):** `EXPLAIN` 결과를 **먼저** 확인하고, 인덱스/쿼리 변경 후 다시 `EXPLAIN`으로 검증.
-- **Thymeleaf 화면 변경:** `./mvnw spring-boot:run -Dspring-boot.run.profiles=dev` (포트 8082) → 라이트/다크 + PC/태블릿(768px)/모바일(480px) 모두 시각 확인.
-- **CSS 변경:** 라이트 + 다크 + `.game-page` 3개 테마 + PC/768px/480px 3개 브레이크포인트 = **9개 조합**을 의식해서 작성, 가능한 한 모두 확인.
-- **Docker 배포 작업:** 푸시 → Actions 로그에서 헬스체크 통과·upstream 전환 확인 → 서버에서 `docker compose logs -f app-blue`(또는 `app-green`, 활성 색은 `/etc/nginx/conf.d/quiz-upstream.conf`)로 부팅 로그 확인 → 영향 받는 엔드포인트에 curl로 응답 검증. 수동 재기동이 필요하면 `app`이 아니라 활성 색 서비스명을 지정한다.
+| 알고 싶은 것 | 위치 |
+|---|---|
+| 행동 원칙 원문·프로젝트 적용 예시 전체 | `docs/guides/llm-coding-guidelines.md` |
+| 보안 검토 예시 코드·상세 체크리스트 | `docs/guides/security-review.md` |
+| CSS 필수 템플릿·예시 코드 | `docs/guides/css-style.md` |
+| 패키지별 클래스 목록·서비스 설명·배치 목록·점수표 | `docs/architecture-reference.md` |
+| 설계 배경(동시성·WebSocket·예외·JPA·인프라·외부 API) | `System.md` |
+| 서버 수동 절차(롤백·재배포·백업/복원·재부팅) | `docs/runbook.md` |
+| 검증 기록·회귀 목록·미해결 항목 | `docs/verification/` (README 인덱스) |
+| 2026-09-16 이전 마무리 점검·수정 이력 | `docs/finish.md` |
 
 ---
 
-## 프로젝트 고유 규칙 (행동)
+## 행동 원칙
 
-- **구현 가이드 / 통합 가이드 / 작업 보고 문서는 사용자가 명시적으로 요청하기 전까지 만들지 않는다.** 코드부터 끝낸다.
-- **시크릿/키 파일은 `application-secret.properties` 또는 `.env` 환경변수로 분리하고 절대 커밋하지 않는다** (`BREVO_API_KEY`, `DB_PASSWORD`, `DOCKERHUB_TOKEN` 등).
-- **모든 환경 의존 값(경로, 호스트, 포트, 키)은 `application.properties` 또는 환경변수로 외부화한다.** 코드 내 하드코딩 금지.
-- 한국어 답변 OK. **단, 변수명 / 함수명 / 커밋 메시지는 영어 또는 코드 컨벤션에 맞춘 한국어**로 통일하고, 절대 혼용하지 않는다.
+속도보다 신중함. 사소한 작업(오타, 명백한 한 줄)은 유연하게.
 
-**이 가이드라인이 잘 작동하고 있다는 신호:**
+1. **Think Before Coding** — 가정을 진술하고, 해석이 여럿이면 모두 제시하고, 불명확하면 묻는다. 더 단순한 방법이 있으면 말한다.
+2. **Simplicity First** — 요청되지 않은 기능·추상화·유연성·불가능한 시나리오의 예외 처리를 넣지 않는다. "시니어가 오버엔지니어링이라 할까?"
+3. **Surgical Changes** — 인접 코드·주석·포맷을 "개선"하지 않는다. 기존 스타일에 맞춘다. 내 변경으로 생긴 고아만 지운다. 무관한 dead code는 언급만. **변경된 모든 라인은 요청과 직접 연결되어야 한다.**
+4. **Goal-Driven** — "버그 고쳐줘" = 재현 테스트를 만들고 통과시킨다. 다단계 작업은 `단계 → 검증 방법` 계획을 먼저 제시한다.
 
-- diff에 불필요한 변경이 없다 — 요청한 변경만 나타난다.
-- 오버엔지니어링으로 인한 재작성이 줄어든다 — 처음부터 단순하다.
-- 실수 *후*가 아니라 구현 *전*에 명확화 질문이 온다.
-- 깔끔하고 최소한의 PR — 지나가다 하는 "개선"이 없다.
+**이 프로젝트에서 먼저 확인할 것 (한 곳만 고치면 안 되는 곳)**
+- 멀티플레이 상태 머신: `RoomStatus`(WAITING→PLAYING→FINISHED) + `RoundPhase`(PREPARING→PLAYING→RESULT) 2단. 한 phase만 고쳐도 `GameRoomService`·`MultiGameService` + `GameBroadcastService` push + REST 액션 + `ws-client.js`(polling fallback)가 함께 영향.
+- 정답 판정: `AnswerValidationService`(정규화) + `AnswerGeneratorUtil`(영→한 음역) + `SongAnswer` 테이블(수동 정답) 3중. "답이 인정 안 돼요"는 어느 층인지 먼저 확인.
+- 배치: 신규 배치는 클래스 + `BatchScheduler`의 `createTask`/`executeManually` 분기 + `BatchService` seed 세 곳을 함께.
+- LP/티어: `MultiTierService` + `LpDecayBatch` + 매치 종료 LP 변동이 함께.
+- "화면이 깨졌어요": 모드(Solo Guess/Host/Fan/Genre/Retro/Multi) × 테마(라이트/다크/`.game-page`) × 브레이크포인트(PC/768/480)를 먼저 특정.
+
+**건드리지 말 것 (의도된 설계)**
+- `common.css` 변수 시스템(`:root`, `[data-theme="dark"]`, `.game-page`).
+- `SecurityConfig` `authorizeHttpRequests` 매처 순서(정적·`/ws/**`·`/auth/**`·`/admin/login` permitAll → `/admin/**` ADMIN → `/mypage/**` authenticated → 나머지 permitAll). 구 `AdminInterceptor`/`SessionValidationInterceptor`는 `68c9d74`에서 제거됨.
+- Thymeleaf `fragments/header.html`·`footer.html` — 모든 화면이 의존.
+- `docker-compose.yml` — 푸시하면 서버에 그대로 반영(아래 CI/CD). blue/green이 `x-app-common` 앵커 공유.
+- `.github/workflows/deploy.yml` step 순서·path filter.
+- `BatchConfig` cron 기본값 — 운영은 DB에서 조정.
+
+**검증 패턴**
+- Controller 추가 → `./mvnw test` + `MockMvc`로 200/4xx/5xx. Repository 메서드 → dev 실행 후 실제 row 확인. 쿼리 최적화 → `EXPLAIN` 전후 비교.
+- Batch → `AdminBatchController` 수동 실행 → `BatchExecutionHistory` COMPLETED → 결과 테이블.
+- 화면·CSS → dev(8082)에서 라이트/다크/`.game-page` × PC/768/480 = 9조합.
+- 배포 → Actions 헬스체크·upstream 전환 로그 → 서버 `docker compose logs -f app-blue|app-green`(활성 색은 `/etc/nginx/conf.d/quiz-upstream.conf`) → 영향 엔드포인트 curl. 재기동은 `app`이 아니라 활성 색 서비스명.
+
+**프로젝트 고유 규칙**
+- 시크릿은 `application-secret.properties` 또는 `.env`(`BREVO_API_KEY`, `DB_PASSWORD`, `DOCKERHUB_TOKEN` 등). 절대 커밋 금지. 환경 의존 값(경로·호스트·포트·키)은 properties/환경변수로 외부화.
+- 한국어 답변 OK. 변수명·함수명·커밋 메시지는 영어 또는 코드 컨벤션에 맞춘 한국어로 통일, 혼용 금지.
+- 커밋 메시지에 `Co-Authored-By: Claude` 등 AI 트레일러 금지.
 
 ---
 
 ## ⚠️ 필수 준수 사항 (Quick Reference)
 
-**모든 작업 완료 전 반드시 확인할 것!**
-
-### CSS 작업 시
+### CSS
 | 규칙 | ❌ 금지 | ✅ 필수 |
 |------|--------|--------|
 | 색상 | `#1e293b`, `rgba(0,0,0,0.5)` | `var(--text-primary)`, `var(--overlay-medium)` |
-| 테마 | 라이트 모드만 작성 | 라이트 + 다크 모드 + `.game-page` 모두 정의 |
-| 반응형 | PC만 작성, 임의 브레이크포인트 | PC + 태블릿(768px) + 모바일(480px) 3단계 |
+| 테마 | 라이트만 | 라이트 + 다크 + `.game-page` |
+| 반응형 | PC만, 임의 브레이크포인트 | PC + 768px + 480px |
 | 단위 | `width: 350px` | `width: 100%`, `max-width: 24rem` |
-| z-index | `9999`, `99999` | 정해진 계층값 사용 (모달=1000, 토스트=5000) |
+| z-index | `9999` | 계층값(모달 1000, 토스트 5000) |
 
-### 보안 (모든 기능 구현 시)
+### 보안
 | 규칙 | ❌ 금지 | ✅ 필수 |
 |------|--------|--------|
-| SQL | `"SELECT * FROM song WHERE title = '" + title + "'"` | `@Param` 바인딩, JPA 메서드 쿼리 |
+| SQL | `"... WHERE title = '" + title + "'"` | `@Param` 바인딩, JPA 메서드 쿼리, 동적은 Specification |
 | XSS | `th:utext="${userInput}"`, `innerHTML = userInput` | `th:text`, `textContent` |
-| 인증 | API에 세션 검증 없음 | 모든 POST/PUT/DELETE에 인증+권한 검증 |
-| IDOR | ID만으로 리소스 접근 | 소유권 검증 (`member.getId().equals(...)`) |
+| 인증 | POST에 검증 없음 | 모든 POST/PUT/DELETE에 인증+권한. 새 관리자 경로는 `/admin/**` 아래 |
+| IDOR | ID만으로 접근 | 소유권 검증(`member.getId().equals(...)` 또는 `findByIdAndMemberId`) |
+| CSRF | 토큰 없는 fetch | `th:action` 폼 자동, AJAX는 fetch 래퍼가 meta 토큰 첨부. 예외는 `/ws/**`·`/unload`뿐 |
+| 로깅 | 비밀번호·개인정보 로깅 | id·이메일 정도만 |
 
-### Thymeleaf 작업 시
+### Thymeleaf
 | 규칙 | ❌ 금지 | ✅ 필수 |
 |------|--------|--------|
 | 이벤트 핸들러 | `th:onclick="'fn(\'' + ${var} + '\')'"` | `th:data-x="${var}"` + `onclick="fn(this.dataset.x)"` |
-| 문자열 출력 | `th:utext="${userInput}"` | `th:text="${userInput}"` |
 | URL 파라미터 | `th:href="'/path?id=' + ${id}"` | `th:href="@{/path(id=${id})}"` |
 
-> **이유**: Thymeleaf 보안 정책상 `onclick`, `onload` 등 이벤트 핸들러에서 문자열 변수 직접 삽입 금지 (XSS 방지)
-
 ### 빌드
-- `mvn` ❌ → `./mvnw` ✅
-- Java 17 필수 (`JAVA_HOME` 설정)
-
-### Git 커밋
-- 커밋 메시지에 `Co-Authored-By: Claude` 등 AI 관련 트레일러 포함 금지
+- `mvn` ❌ → `./mvnw` ✅ · Java 17 필수(`JAVA_HOME`, 아래 경로)
 
 ---
 
-## Build & Run Commands
-
-**IMPORTANT:**
-- Use `./mvnw` (Maven Wrapper) instead of `mvn` for all commands
-- Set JAVA_HOME to Java 17 before running commands
+## Build & Run
 
 ```bash
-# Set Java 17 (required for all commands) - adjust path to your JDK location
-export JAVA_HOME="/c/Program Files/Java/jdk-17"  # Windows/Git Bash (집 PC, 2026-09-15 확인. 기본 java 는 21 이라 반드시 지정)
-# export JAVA_HOME="$HOME/.sdkman/candidates/java/17.0.12-amzn"  # Linux/macOS with SDKMAN
+# JDK 17 (기본 java가 17이 아니라 반드시 지정)
+export JAVA_HOME="/c/Program Files/Java/jdk-17"          # 집 PC (기본 21)
+# export JAVA_HOME="$HOME/.jdks/corretto-17.0.12"        # 회사 PC (기본 8)
 
-# Run application (dev profile, port 8082) — 프로필 기본값 없음, 생략 불가
-./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
-
-# Build WAR package
-./mvnw clean package -DskipTests
-
-# Run all tests
-./mvnw test
-
-# Run a single test class
-./mvnw test -Dtest=GameApplicationTests
-
-# Run a single test method
-./mvnw test -Dtest=GameApplicationTests#testMethodName
-
-# Docker deployment (production)
-docker-compose up -d
-
-# View logs
-docker-compose logs -f app
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev    # 8082. 프로필 기본값 없음, 생략 불가
+./mvnw clean package -DskipTests                          # WAR
+./mvnw test                                               # 전체 (H2, 로컬 DB 불필요)
+./mvnw test -Dtest=GameRoomCapacityTest                   # 클래스 / #메서드
 ```
 
-## Architecture Overview
+운영 로그: `docker compose logs -f app-blue`(또는 `app-green`). `app` 서비스는 없다.
 
-This is a **multiplayer music guessing game** built with Spring Boot 3.4.1 + Java 17 + MariaDB.
+---
 
-### Layered Architecture
+## Architecture
 
-```
-Controller (MVC + REST) → Service (Business Logic) → Repository (JPA) → MariaDB
-         ↓
-    Thymeleaf Templates (server-side rendering)
-```
+Spring Boot 3.4.1 + Java 17 + JPA + MariaDB 11.8 + Thymeleaf + STOMP/SockJS. `Controller(MVC+REST) → Service → Repository(JPA) → MariaDB`, 화면은 Thymeleaf SSR.
 
-### Package Structure (`com.kh.game`)
+`com.kh.game` 패키지: `controller/client`(13) · `controller/admin`(25) · `service`(23 + `BrevoMailClient`) · `entity`(`@Entity` 29 + enum 3) · `repository` · `batch`(24, `BatchScheduler`) · `config`(`SecurityConfig`, `WebSocketConfig`+`WebSocketAuthInterceptor`, `DataInitializer` 등) · `security`(`CustomUserDetails*`, 로그인 핸들러, `LoginRateLimiter`) · `exception`(`GlobalExceptionHandler`) · `util`(`AnswerGeneratorUtil`, `SecurityInputValidator`, `JunkInputFilter`) · `dto`(`GameSettings`, `WebSocketMessage`). 클래스 목록은 `docs/architecture-reference.md`.
 
-- **controller/client/** (13) - User-facing: `HomeController`, `AuthController`, `GameGuessController`, `GameHostController`, `GameFanChallengeController`, `GameGenreChallengeController`, `RetroGameController`, `MultiGameController`, `RankingController`, `SongReportController`, `BoardController`, `StatsController`, `MyPageController`
-- **controller/admin/** (25) - Admin panel: `AdminController` (dashboard), `AdminSongController`, `AdminSongPopularityController`, `AdminAnswerController`, `AdminArtistController`, `AdminGenreController`, `AdminBadWordController`, `AdminContentController`, `AdminMenuController`, `AdminMemberController`, `AdminLoginHistoryController`, `AdminRankingController`, `AdminGameHistoryController`, `AdminGameManagementController`, `AdminChallengeController`, `AdminFanChallengeController`, `AdminGenreChallengeController`, `AdminMultiController`, `AdminRoomController`, `AdminChatController`, `AdminSongReportController`, `AdminStatsController`, `AdminBatchController`, `AdminBatchAffectedController`, `AdminSystemController`
-- **service/** (23 + `BrevoMailClient`) - Business logic: `GameSessionService`, `MultiGameService`, `GameRoomService`, `GameBroadcastService`, `SongService`, `SongPopularityVoteService`, `SongReportService`, `MemberService`, `MemberSessionService`, `AnswerValidationService`, `YouTubeValidationService`, `BadWordService`, `BoardService`, `WrongAnswerStatsService`, `BatchService`, `GenreService`, `MultiTierService`, `FanChallengeService`, `FanChallengeStageService`, `GenreChallengeService`, `BadgeService`, `MenuConfigService`, `EmailVerificationService`
-- **entity/** - JPA `@Entity` 29개: `Member`, `MemberLoginHistory`, `MemberBadge`, `Badge`, `EmailVerification`, `Song`, `SongAnswer`, `SongReport`, `SongPopularityVote`, `Genre`, `GameSession`, `GameRound`, `GameRoundAttempt`, `GameRoom`, `GameRoomParticipant`, `GameRoomChat`, `BadWord`, `BatchConfig`, `BatchExecutionHistory`, `BatchAffectedSong`, `DailyStats`, `Board`, `BoardComment`, `BoardLike`, `FanChallengeRecord`, `FanChallengeStageConfig`, `GenreChallengeRecord`, `RankingHistory`, `MenuConfig` / enum 3개: `MultiTier`, `FanChallengeDifficulty`, `GenreChallengeDifficulty`
-- **repository/** - Spring Data JPA repositories
-- **batch/** - 24 scheduled batch jobs managed by `BatchScheduler`
-- **config/** - `SecurityConfig` (Spring Security 폼 로그인·CSRF·`/admin/**` ROLE_ADMIN·세션 1개 제한), `PasswordEncoderConfig` (BCrypt), `WebConfig` (업로드 리소스 핸들러), `WebSocketConfig` + `WebSocketAuthInterceptor` (STOMP SUBSCRIBE 방 참가자 인가 — 인증은 핸드셰이크가 세션 Principal 을 전파), `SchedulerConfig`, `DataInitializer`
-- **security/** - `CustomUserDetailsService`/`CustomUserDetails`, 로그인 성공·실패 핸들러, `LoginRateLimiter` (bucket4j 토큰 버킷, IP별 분당 20회 제한, 화이트리스트 지원)
-- **exception/** - `GlobalExceptionHandler` (`@RestControllerAdvice`, REST/MVC 분기 응답), `BusinessException`, `ResourceNotFoundException`
-- **util/** - `AnswerGeneratorUtil` (English→Korean phonetic conversion for song titles), `SecurityInputValidator` (이메일 정규식 + SQL Injection 패턴 차단), `JunkInputFilter`
-- **dto/** - `GameSettings` (multiplayer room configuration), `WebSocketMessage`
+### 게임 모드
+1. **Solo Guess** — 3회 시도. RANDOM/FIXED_GENRE/FIXED_ARTIST/FIXED_YEAR/라운드별 선택. 30곡 도전 모드는 랭킹 반영.
+2. **Solo Host** — 호스트가 힌트를 읽고 다른 사람이 맞힘.
+3. **Fan Challenge** — 아티스트 20곡(`CHALLENGE_SONG_COUNT`). NORMAL은 20곡 1단계, HARDCORE만 단계제(20/25/30, `FanChallengeStageConfig`)·랭킹 반영. 퍼펙트 클리어 추적.
+4. **Genre Challenge** — 장르 50곡(`GenreChallengeService` MIN/MAX). HARDCORE만 랭킹 반영.
+5. **Retro** — `releaseYear < 2000` 또는 장르 `RETRO`.
+6. **Multiplayer** — 방 기반. 서버→클라이언트 STOMP push, 액션은 REST POST, 연결 실패 시 polling. 첫 정답 100점. LP 티어(Bronze→Challenger).
 
-### Game Modes
+### 점수·난이도 (출처: enum·상수)
+| 항목 | 값 |
+|---|---|
+| Solo 30곡 도전(시간) | 0-5초 100 · 5-8초 90 · 8-12초 80 · 12-15초 70 · 15초+ 60 · 3실패 0 |
+| Solo casual / Host / Multi | 10→7→5 / 100→70→50 / 첫 정답 100 |
+| Fan Challenge (`FanChallengeDifficulty`) | NORMAL 재생 7s·답 6s / HARDCORE 5s·5s. 생명 3. 초성 힌트 없음. 랭크는 HARDCORE만 |
+| Genre Challenge (`GenreChallengeDifficulty`) | NORMAL 7s·6s / HARDCORE 5s·5s. 생명 5. 랭크는 HARDCORE만 |
 
-1. **Solo Guess** - User guesses songs with 3 attempts. Supports various modes (RANDOM, FIXED_GENRE, FIXED_ARTIST, FIXED_YEAR, per-round selection). Includes "30-song Challenge" for ranked play.
-2. **Solo Host** - User reads clues for others to guess (100/70/50 points)
-3. **Fan Challenge** - Artist-focused challenge (`FanChallengeService.CHALLENGE_SONG_COUNT` = 20곡). Two difficulty levels (NORMAL 7s listen + 6s answer / HARDCORE 5s + 5s, lives 3). NORMAL은 1단계(20곡) 고정, HARDCORE만 단계제(20/25/30곡, `FanChallengeStageConfig`)와 랭킹 반영. Perfect clear tracking, artist-specific rankings.
-4. **Genre Challenge** - Genre-focused challenge (`GenreChallengeService` MIN/MAX_SONG_COUNT = 50곡). NORMAL 7s + 6s / HARDCORE 5s + 5s, lives 5, HARDCORE만 랭킹 반영.
-5. **Retro Game** - Nostalgia mode: `releaseYear < 2000` 또는 장르 `RETRO` 곡 (`SongRepository`).
-6. **Multiplayer** - Room-based game. 서버→클라이언트는 STOMP/SockJS WebSocket push, 액션은 REST POST, 연결 실패 시 polling fallback. First correct answer scores 100 points. LP-based tier system (Bronze→Challenger).
+### 데이터 흐름
+`GameSession → GameRound → GameRoundAttempt`(솔로) · `GameRoom → GameRoomParticipant, GameRoomChat`(멀티) · `Song → SongAnswer`(정답 변형) · `Board → BoardComment, BoardLike` · `Member → MemberBadge → Badge` · `FanChallengeRecord`/`GenreChallengeRecord`(난이도·단계·점수) · `RankingHistory`(일일 스냅샷) · `MenuConfig`(메뉴)
 
-### Key Data Flow
+### Multiplayer Flow (변경이 잦은 규칙 — 여기가 단일 출처)
+1. 방 생성 → 참가 → 준비. 생성 본문은 **통째로 `GameSettings`로 바인딩** — JS 키는 DTO 필드명(`privateRoom`, 모드 필드 최상위)과 같아야 하며 모르는 키는 Jackson이 조용히 버린다(`MultiGameControllerRoomLifecycleTest` 계약 테스트). 비공개 방 = 로비에 🔒로 보이되 코드 미노출, 코드로만 입장, 비밀번호 없음(`GameRoom.password` 미사용).
+2. 방장 시작 → 방 `PLAYING`(round phase는 null). 3. 라운드 시작 → `PLAYING`(`PREPARING`은 어디서도 설정되지 않음). 4. 첫 정답 → `RESULT` → 다음 라운드 또는 방 `FINISHED`.
 
-- `GameSession` → contains `GameRound` → tracks `GameRoundAttempt` (solo mode)
-- `GameRoom` → has `GameRoomParticipant` → stores `GameRoomChat` (multiplayer mode)
-- `Song` → has multiple `SongAnswer` for fuzzy matching validation
-- `Board` → has `BoardComment` and `BoardLike` (community board)
-- `Member` → has `MemberBadge` → links to `Badge` (achievement system)
-- `FanChallengeRecord` → tracks artist challenge attempts with difficulty, stage and score
-- `GenreChallengeRecord` → tracks genre challenge attempts with difficulty and score
-- `RankingHistory` → stores daily ranking snapshots for historical tracking
-- `MenuConfig` → configurable navigation menu items for client UI
+- **push payload = 폴링 응답 형태.** `ROOM_UPDATE`는 `GameRoomService.buildRoomStatus`(`success` 키가 없어 클라이언트는 `success === false`만 "방 종료"로 봄), `CHAT`은 `MultiGameService.toChatInfo`(GET `/chats` 항목과 동일: `id`·`memberId`·`isHost`·`messageType` `CORRECT_ANSWER`). 시스템 메시지(`addSystemMessage`)도 저장 직후 `CHAT` push(WS 사용자는 채팅 폴링 안 함).
+- 구독·폴링 GET(`/round`·`/chats`)·액션 POST(`/chat`·`/skip-vote`)는 활성 참가자(JOINED/PLAYING)만. `/status`는 참가 전 미리보기라 열려 있음.
+- **참가자 행은 지우지 않고 `LEFT`로만 바꾼다.** 정원(`getCurrentPlayerCount`, `findAvailableRooms`)은 LEFT 제외 — `SIZE(r.participants)`를 쓰면 나간 자리를 못 채운다(`GameRoomCapacityTest`).
+- **나가기 3종:** ① `/leave`(CSRF) — WAITING·PLAYING 모두 실제로 나감, 방장이면 위임, 마지막이면 종료, FINISHED는 무시(재시작 지원). ② `/leave-to-lobby` — FINISHED에서 LEFT. ③ `/unload`(`sendBeacon`, **이 경로만 CSRF 예외**) — `RoomUnloadService`가 `game.multi.unload-grace-ms`(기본 8000) 뒤 적용, 그 사이 대기실·플레이·결과 GET이나 재참가면 취소. 그래서 F5와 페이지 이동은 나가기가 아님. 대기 목록은 인메모리. 방치된 PLAYING 방은 `RoomCleanupBatch`가 2시간 뒤 종료.
+- `nextRound`·`skipCurrentSong`·`startRound`는 방이 PLAYING일 때만 — FINISHED에서 재호출되면 `finishGame`이 다시 돌아 전적·LP 이중 반영.
 
-### Multiplayer Flow
+### 알아야 할 서비스 규칙
+- **정답 판정**: 정규화(소문자, 공백·특수문자 제거, 영숫자+한글만) 후 `Song.title`과 `SongAnswer` 모두 비교. `AnswerGeneratorUtil`이 영→한 음역 변형 생성(~700 단어 표).
+- **YouTube 검증**: oEmbed → 썸네일 크기 2단계(삭제 영상 감지). **금칙어**: `ConcurrentHashMap` 캐시, 변경 시 자동 리로드.
+- **DataInitializer**: `count()==0`일 때 메뉴·금칙어·뱃지·팬 챌린지 단계 seed. 기본 admin·테스트 회원은 prod에서 생성 안 함.
+- **메일**: `BrevoMailClient` 한 곳(HTTPS, cafe24가 SMTP outbound 차단). 인증 코드·임시 비밀번호 모두 경유. `EmailVerificationService`는 가입·비밀번호 재설정 공용(`email_verification` 한 테이블).
+- **비밀번호**: BCrypt라 "찾기" 없음. 관리자 초기화(`/admin/member/reset-password/{id}`)는 12자 임시 비밀번호를 **메일 성공 후에만** 저장(본인 불가). 본인 재설정(`/auth/password-reset`)은 코드 인증 → 저장 → `MemberSessionService`로 세션 만료.
+- **LoginRateLimiter**: IP별 분당 20회(bucket4j), `X-Forwarded-For` 인식, 화이트리스트 `security.rate-limit.whitelist`. 로그인·가입·이메일 인증에 적용. **SecurityInputValidator**: 이메일 정규식 + SQLi 패턴 차단 → 400.
+- **티어**: Bronze→Challenger, 티어당 LP 0-100, ELO 기반 변동(순위·인원·상대 티어차). **뱃지**: 카테고리 BEGINNER/SCORE/VICTORY/STREAK/TIER/SPECIAL, 희귀도 COMMON/RARE/EPIC/LEGENDARY, `BadgeAwardBatch` 또는 `BadgeService`.
+- **배치 24개**: `BatchConfig` 테이블 cron으로 제어(`BatchService`가 기본값 seed). 정리 9 · 통계/랭킹 4 · 회원 4 · 곡 무결성 5 · 팬 챌린지 1 · 시스템 1. 목록은 `docs/architecture-reference.md`.
+- **게시판**: 카테고리 REQUEST/OPINION/QUESTION/FREE, 상태 ACTIVE/DELETED/HIDDEN.
 
-1. Create room → join room → toggle ready. 생성 요청 본문은 **통째로 `GameSettings`로 바인딩**된다 — JS 키는 DTO 필드명(`privateRoom`, 모드 필드 최상위)과 같아야 하며 모르는 키는 Jackson이 조용히 버린다(`MultiGameControllerRoomLifecycleTest`의 계약 테스트가 지킴). 비공개 방 = 로비에 🔒로 보이되 코드 미노출, 코드로만 입장, 비밀번호 없음(`GameRoom.password` 컬럼은 미사용)
-2. Host starts game → room `PLAYING` (round phase는 아직 null)
-3. Host starts round → round `PLAYING` phase (song plays, chat for answers). `RoundPhase.PREPARING`은 어디서도 설정되지 않는다
-4. First correct answer wins → `RESULT` phase → next round or game end (room `FINISHED`)
-
-상태 변화는 `GameBroadcastService`가 STOMP topic으로 push한다. 클라이언트는 `ws-client.js`(지수 백오프 재연결 후 polling fallback). **push payload는 폴링 응답과 같은 형태여야 한다** — `ROOM_UPDATE`는 `GameRoomService.buildRoomStatus`(단, `success` 키가 없어 클라이언트는 `success === false`만 "방 종료"로 본다), `CHAT`은 `MultiGameService.toChatInfo`(GET `/chats` 항목과 동일: `id`·`memberId`·`isHost`·`messageType` `CORRECT_ANSWER`). 시스템 메시지(`addSystemMessage`)도 저장 직후 `CHAT`으로 push된다(WebSocket 사용자는 채팅 폴링을 돌리지 않으므로). 구독·폴링 GET(`/round`·`/chats`)과 액션 POST(`/chat`·`/skip-vote`)는 활성 참가자(JOINED/PLAYING)만 허용 — LEFT 행은 남아 있으므로 상태를 보지 않는 조회를 쓰면 안 된다(`/status`는 참가 전 미리보기용이라 열려 있음).
-
-**참가자 행은 지우지 않고 `LEFT`로만 바꾼다.** 정원(`GameRoom.getCurrentPlayerCount`, `findAvailableRooms`)은 LEFT를 제외한 수다 — `SIZE(r.participants)`나 `participants.size()`를 쓰면 한 번 나간 자리를 다시 채울 수 없다(2026-09-16 수정, `GameRoomCapacityTest`).
-
-**나가기 3종:** ① 버튼 `/leave`(CSRF) — WAITING·PLAYING 모두 실제로 나가고 방장이면 남은 사람에게 위임, 마지막이면 방 종료; FINISHED는 무시(재시작 지원). ② 결과 화면 `/leave-to-lobby` — FINISHED에서 LEFT 처리. ③ 탭 닫기·뒤로가기 `/unload`(`navigator.sendBeacon`, 헤더를 못 실어 **이 경로만 CSRF 예외**) — 즉시 나가지 않고 `RoomUnloadService`가 `game.multi.unload-grace-ms`(기본 8000) 뒤 적용하며, 그 사이 대기실·플레이·결과 페이지 GET이나 재참가가 오면 취소된다. 그래서 F5와 대기실→플레이→결과 이동은 나가기가 아니다. 대기 목록은 인메모리(배포 시 소실, 정리 배치가 뒷정리). 방치된 PLAYING 방은 `RoomCleanupBatch`가 2시간 뒤 종료한다.
-
-`nextRound`·`skipCurrentSong`·`startRound`는 방이 PLAYING일 때만 동작한다 — FINISHED 방에서 재호출되면 `finishGame`이 다시 돌아 전적·LP가 이중 반영되기 때문.
-
-### Key Services
-
-- **AnswerValidationService** - Validates user answers with normalization (lowercase, strip spaces/special chars, keep only alphanumeric + Korean), checks both `Song.title` and `SongAnswer` table
-- **AnswerGeneratorUtil** - Generates answer variants including English→Korean phonetic conversion using word/phoneme mapping tables (~700 common words)
-- **YouTubeValidationService** - Two-phase validation: oEmbed API check → thumbnail size check (detects deleted videos)
-- **BadWordService** - Profanity filtering with ConcurrentHashMap cache, auto-reloads on changes
-- **SongReportService** - Handles user reports for problematic songs
-- **DataInitializer** - CommandLineRunner. `count()==0`일 때 메뉴·금칙어·뱃지·팬 챌린지 단계 설정을 seed. 기본 admin·테스트 데이터는 prod에서 생성하지 않음
-- **BoardService** - Community board CRUD with category filtering, comments, and likes
-- **MultiTierService** - LP and tier management for multiplayer with ELO-based rating calculations
-- **FanChallengeService** / **FanChallengeStageService** - Artist challenge game logic, HARDCORE 단계(20/25/30곡) 설정
-- **GenreChallengeService** - Genre challenge game logic (50곡, lives 5)
-- **BadgeService** - Achievement badge management with automatic and manual award conditions
-- **EmailVerificationService** - 6자리 이메일 인증 코드 발급/검증. 회원가입(미가입 이메일)과 비밀번호 재설정(가입 이메일) 공용, `email_verification` 한 테이블 사용
-- **BrevoMailClient** - **Brevo Transactional Email API**(HTTPS) 호출 한 곳. cafe24가 SMTP 포트(25/465/587) outbound를 차단해 Gmail SMTP 대신 도입. `RestClient`로 호출하며 4xx/5xx/네트워크 에러를 분리 처리. 인증 코드·임시 비밀번호 메일이 모두 여기를 거침
-- **MemberSessionService** - `SessionRegistry`로 특정 회원의 로그인 세션을 만료. 관리자 세션 강제 종료·비밀번호 초기화·재설정 뒤 호출
-- **비밀번호 초기화/재설정** - 비밀번호는 BCrypt 단방향이라 "찾기"는 없다. 관리자 초기화(`/admin/member/reset-password/{id}`)는 12자 임시 비밀번호를 **메일 발송 성공 후에만** 저장(본인 계정 불가). 본인 재설정(`/auth/password-reset`, 로그인 불필요)은 이메일 코드 인증 → 새 비밀번호 저장 → 세션 만료
-- **LoginRateLimiter** - IP별 토큰 버킷(bucket4j) 기반 분당 20회 제한. `X-Forwarded-For`/`X-Real-IP` 헤더 인식, 화이트리스트 IP 지원(`security.rate-limit.whitelist`). 로그인/회원가입/이메일 인증 엔드포인트에 적용
-- **SecurityInputValidator** - 이메일 정규식 검증 + SQLi 페이로드 패턴 차단(SLEEP, BENCHMARK, DBMS_PIPE, WAITFOR, UNION SELECT, XOR, %2527 등). 위반 시 `IllegalArgumentException` → 400 응답
-
-### Tier System (Multiplayer)
-
-LP-based ranking system similar to League of Legends:
-- **Tiers:** Bronze → Silver → Gold → Platinum → Diamond → Master → Challenger
-- **LP Range:** 0-100 per tier, promotion/demotion at boundaries
-- **ELO Rating:** Combined tier+LP rating for matchmaking calculations
-- **LP Changes:** Based on game placement, player count, and opponent tier differential
-
-### Badge System
-
-Achievement badges with categories and rarities:
-- **Categories:** BEGINNER, SCORE, VICTORY, STREAK, TIER, SPECIAL
-- **Rarities:** COMMON (gray), RARE (blue), EPIC (purple), LEGENDARY (gold)
-- Awarded via `BadgeAwardBatch` or directly through `BadgeService`
-
-### Batch Jobs (managed by BatchScheduler)
-
-All 24 batches are DB-configurable via `BatchConfig` table with cron expressions (`BatchService` seeds defaults):
-- **Cleanup:** `SessionCleanupBatch`, `GameSessionCleanupBatch`, `RoomCleanupBatch`, `ChatCleanupBatch`, `BoardCleanupBatch`, `LoginHistoryCleanupBatch`, `BatchExecutionHistoryCleanupBatch`, `GameRoundAttemptCleanupBatch`, `SongReportCleanupBatch`
-- **Stats & Rankings:** `DailyStatsBatch`, `RankingSnapshotBatch`, `WeeklyRankingResetBatch`, `MonthlyRankingResetBatch`
-- **Member Management:** `InactiveMemberBatch`, `BadgeAwardBatch`, `LpDecayBatch`, `LoginStreakBatch`
-- **Song Integrity:** `SongFileCheckBatch`, `SongAnalyticsBatch`, `YouTubeVideoCheckBatch`, `DuplicateSongCheckBatch`, `SongAnswerGenerationBatch`
-- **Fan Challenge:** `WeeklyPerfectRefreshBatch`
-- **System:** `SystemReportBatch`
-
-### Scoring System
-
-**Solo Guess (30곡 도전 모드 — 시간 기반):**
-
-| 답변 시간 | 점수 |
-|----------|------|
-| 0-5초 | 100점 |
-| 5-8초 | 90점 |
-| 8-12초 | 80점 |
-| 12-15초 | 70점 |
-| 15초+ | 60점 |
-| 3번 실패 | 0점 |
-
-- **Solo Guess (casual):** 10 → 7 → 5 points (3 attempts)
-- **Solo Host:** 100 → 70 → 50 points (3 attempts, host reads clues)
-- **Multiplayer:** 100 points for first correct answer
-
-**Fan Challenge 난이도:**
-
-| 설정 | NORMAL | HARDCORE |
-|------|--------|----------|
-| 노래 재생 | 7초 | 5초 |
-| 답변 시간 | 6초 | 5초 |
-| 생명 | 3개 | 3개 |
-| 초성 힌트 | X | X |
-| 랭크 기록 | X | O |
-
-> 값 출처: `FanChallengeDifficulty` enum (NORMAL 7000/6000, HARDCORE 5000/5000, 생명 3, `isShowChosungHint`=false, `isRanked`=HARDCORE만). 난이도는 2단계뿐. 곡 수는 20곡(`CHALLENGE_SONG_COUNT`), HARDCORE 단계는 20/25/30곡.
-
-**Genre Challenge 난이도:**
-
-| 설정 | NORMAL | HARDCORE |
-|------|--------|----------|
-| 노래 재생 | 7초 | 5초 |
-| 답변 시간 | 6초 | 5초 |
-| 생명 | 5개 | 5개 |
-| 랭크 기록 | X | O |
-
-> 값 출처: `GenreChallengeDifficulty` enum (NORMAL 7000/6000/5/false, HARDCORE 5000/5000/5/true). 곡 수 50곡(`GenreChallengeService` MIN/MAX_SONG_COUNT).
-
-### Community Board
-
-- Categories: REQUEST (곡 추천/요청), OPINION (의견/후기), QUESTION (질문), FREE (자유)
-- Features: Comments, likes, view count tracking
-- Status: ACTIVE, DELETED, HIDDEN
+---
 
 ## Configuration
 
-- **Profile:** 기본값 없음 (`application.properties`에 `spring.profiles.active` 미지정). 로컬은 `-Dspring-boot.run.profiles=dev`, 운영은 compose의 `SPRING_PROFILES_ACTIVE=prod`
-- **Dev profile:** Port 8082, MariaDB localhost:3306/song (root/1234), JPA ddl-auto=validate
-- **Schema:** `src/main/resources/sql/schema.sql`이 단일 출처 (dev·prod 모두 `validate`, Flyway 없음). **엔티티 변경 시 schema.sql을 함께 수정하고 로컬 DB·운영 DB에 직접 반영**해야 앱이 기동한다
-- **Prod profile:** Uses environment variables for DB credentials, Docker volumes for persistence
-- **Admin auth:** DB-based via `Member` table with `role=ADMIN`
-- **File uploads:** `uploads/songs/`, max 50MB — MP3 지원 제거 후 데드 코드(운영 볼륨 파일 0개, `BATCH_SONG_FILE_CHECK` 비활성). `Song.file_path`·`GameRoom.password` 와 함께 스키마 변경을 동반하는 정리 대상으로 보류(`finish.md` 7)
-- **Session timeout:** 30 minutes
-- **Admin routes:** Protected by Spring Security (`/admin/**` → `hasRole("ADMIN")`, `SecurityConfig`)
-- **Docker memory:** App 640M ×2 (blue/green, 평시 한 벌만 기동, JVM `MaxRAMPercentage=50`), DB 256M
-
-### 환경변수 (Production `.env` 필수 항목)
-
-| 변수 | 용도 | 예시 |
-|------|------|------|
-| `DOCKERHUB_USERNAME` | Docker Hub 사용자명 (이미지 pull) | `positivelee` |
-| `DB_USERNAME` / `DB_PASSWORD` | MariaDB 자격 증명 | `root` / `...` |
-| `BREVO_API_KEY` | Brevo Transactional Email API 키 (`xkeysib-...`) | brevo.com에서 발급 |
-| `MAIL_FROM` | 인증 메일 발신자 주소 (Brevo에서 사전 검증 필수) | `noreply@example.com` |
-
-> ⚠️ **Brevo 보안 설정**: Brevo 대시보드의 `Security → Authorised IPs`에 운영 서버 IP를 등록해야 함. 미등록 시 모든 API 호출이 `401 unauthorized`로 거부됨. 서버 IP가 바뀌면 재등록 필요.
-
-### `docker-compose.yml` 동기화
-
-서버 `/root/quiz`는 git 클론이며 배포 스크립트가 매번 `git pull --ff-only`를 실행한다 → **compose 변경은 푸시만으로 서버에 반영된다.** 단 서버 `.env`(git 미추적)는 자동 반영되지 않으므로, 환경변수를 추가·변경하면 서버 `.env`를 먼저 고친 뒤 푸시한다(새 컨테이너가 기동 시 읽음).
-
-## CI/CD
-
-GitHub Actions workflow at `.github/workflows/deploy.yml`:
-- Triggers on push to main or manual dispatch (ignores **.md — 하위 경로 md 포함, .claude/**, .gitignore, LICENSE)
-- **build 잡**: JDK 17 → `./mvnw clean test`(실패 시 중단, surefire 리포트 업로드) → WAR 패키징 → Docker 이미지 push (`latest` + 커밋 SHA)
-- **deploy 잡 (SSH, blue/green 무중단)**: `git pull --ff-only` → SHA 태그 pull 후 `latest` 재태깅 → nginx upstream(`/etc/nginx/conf.d/quiz-upstream.conf`)으로 활성 색 판별 → 유휴 색 기동 → `/actuator/health` 최대 90초 폴링(실패 시 신규 컨테이너 정지, 전환 안 함) → upstream 재작성 + `nginx -s reload` → 30초 드레인 후 구 색 정지
-- Requires secrets: `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY`, `SERVER_PORT`, `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`
-- 테스트 JVM 시간대는 `pom.xml` surefire `argLine`으로 `Asia/Seoul` 고정 (UTC 러너에서 날짜 경계 테스트 실패 방지)
-
-## Security Review Guide
-
-**⚠️ CRITICAL: 모든 기능 구현 시 보안 검토 필수!**
-
-### 기능 구현 단계별 보안 체크
-
-모든 기능 구현은 다음 5단계를 거쳐야 함:
-
-```
-1. 설계 → 2. 구현 → 3. 보안 검토 → 4. 테스트 → 5. 코드 리뷰
-                        ↑
-                   [필수 단계]
-```
-
-### 1. SQL Injection 방지
-
-**⚠️ 절대 금지: 문자열 연결로 쿼리 생성**
-
-```java
-// ❌ 취약한 코드 - 절대 금지
-@Query("SELECT s FROM Song s WHERE s.title = '" + title + "'")
-List<Song> findByTitle(String title);
-
-String sql = "SELECT * FROM song WHERE artist = '" + artist + "'";
-jdbcTemplate.query(sql, ...);
-
-// ✅ 안전한 코드 - Spring Data JPA 메서드 쿼리
-List<Song> findByTitle(String title);
-List<Song> findByArtistContaining(String artist);
-
-// ✅ 안전한 코드 - 파라미터 바인딩 사용
-@Query("SELECT s FROM Song s WHERE s.title = :title")
-List<Song> findByTitle(@Param("title") String title);
-
-// ✅ 안전한 코드 - Native Query도 파라미터 바인딩
-@Query(value = "SELECT * FROM song WHERE genre_id = :genreId", nativeQuery = true)
-List<Song> findByGenre(@Param("genreId") Long genreId);
-```
-
-**검토 체크리스트:**
-
-| 항목 | 확인 |
-|------|------|
-| `@Query`에 문자열 연결(`+`) 없음 | ☐ |
-| Native Query 사용 시 `:param` 바인딩 사용 | ☐ |
-| `JdbcTemplate` 사용 시 `?` 플레이스홀더 사용 | ☐ |
-| 동적 쿼리는 `Specification` 또는 `QueryDSL` 사용 | ☐ |
-| 검색/필터 기능에 사용자 입력 직접 삽입 없음 | ☐ |
-
----
-
-### 2. XSS (Cross-Site Scripting) 방지
-
-**⚠️ Thymeleaf 기본 이스케이프 활용 + 위험 패턴 금지**
-
-```html
-<!-- ❌ 취약한 코드 - 절대 금지 -->
-<span th:utext="${userInput}"></span>  <!-- utext는 HTML 그대로 출력 -->
-<div th:attr="onclick='alert(' + ${userInput} + ')'"></div>
-<script th:inline="javascript">
-    var data = /*[[${unsafeData}]]*/ '';  // 문자열 외부 삽입
-</script>
-
-<!-- ✅ 안전한 코드 - 기본 이스케이프 사용 -->
-<span th:text="${userInput}"></span>  <!-- HTML 이스케이프됨 -->
-<span th:text="${board.content}"></span>
-
-<!-- ✅ 안전한 코드 - JavaScript 내 데이터 전달 -->
-<script th:inline="javascript">
-    var data = /*[[${safeData}]]*/ '';  // 문자열 리터럴 내부는 안전
-    var config = /*[[${jsonData}]]*/ {};  // JSON도 이스케이프됨
-</script>
-
-<!-- ✅ 안전한 코드 - data 속성 활용 -->
-<div th:data-song-id="${song.id}" th:data-title="${song.title}"></div>
-<script>
-    const songId = element.dataset.songId;  // 안전하게 접근
-</script>
-```
-
-**JavaScript에서 DOM 조작 시:**
-
-```javascript
-// ❌ 취약한 코드
-element.innerHTML = userInput;
-document.write(userInput);
-$('#target').html(userInput);
-
-// ✅ 안전한 코드
-element.textContent = userInput;  // HTML 태그 무효화
-$('#target').text(userInput);     // jQuery에서 안전한 방법
-
-// ✅ HTML이 필요한 경우 - 서버에서 화이트리스트 필터링 후 전달
-element.innerHTML = sanitizedHtmlFromServer;
-```
-
-**서버 측 입력 검증 (Service Layer):**
-
-```java
-// 게시판, 채팅 등 사용자 입력 처리 시
-public String sanitizeInput(String input) {
-    if (input == null) return null;
-    // HTML 태그 제거 (필요시 jsoup 라이브러리 활용)
-    return Jsoup.clean(input, Whitelist.none());
-}
-
-// 게시판 저장 전 검증
-public Board saveBoard(BoardDto dto) {
-    dto.setTitle(sanitizeInput(dto.getTitle()));
-    dto.setContent(sanitizeInput(dto.getContent()));  // HTML 허용 시 Whitelist.basic() 사용
-    // ...
-}
-```
-
-**검토 체크리스트:**
-
-| 항목 | 확인 |
-|------|------|
-| `th:utext` 사용 시 입력값이 아닌 안전한 데이터만 사용 | ☐ |
-| JavaScript `innerHTML` 대신 `textContent` 사용 | ☐ |
-| 사용자 입력을 URL 파라미터로 반영 시 인코딩 적용 | ☐ |
-| 게시판/채팅 입력값 서버 측 필터링 적용 | ☐ |
-| JSON API 응답에 Content-Type: application/json 설정 | ☐ |
-
----
-
-### 3. 인증/인가 우회 방지
-
-**⚠️ 모든 보호 리소스에 인증/인가 검증 필수**
-
-**Controller 레벨 검증:**
-
-```java
-// ❌ 취약한 코드 - 인증 검증 없음
-@GetMapping("/admin/members")
-public String listMembers(Model model) {
-    model.addAttribute("members", memberService.findAll());
-    return "admin/members";
-}
-
-// ❌ 취약한 코드 - 세션만 확인, 권한 미확인
-@PostMapping("/admin/song/delete/{id}")
-public String deleteSong(@PathVariable Long id, HttpSession session) {
-    if (session.getAttribute("member") != null) {  // 로그인만 확인
-        songService.delete(id);
-    }
-    return "redirect:/admin/songs";
-}
-
-// ✅ 안전한 코드 - 권한까지 검증
-@PostMapping("/admin/song/delete/{id}")
-public String deleteSong(@PathVariable Long id, HttpSession session) {
-    Member member = (Member) session.getAttribute("member");
-    if (member == null || !"ADMIN".equals(member.getRole())) {
-        throw new AccessDeniedException("관리자 권한이 필요합니다.");
-    }
-    songService.delete(id);
-    return "redirect:/admin/songs";
-}
-
-// ✅ 더 안전한 코드 - Spring Security에서 일괄 처리 (현재 SecurityConfig의 /admin/** → hasRole("ADMIN"))
-// 새 관리자 경로가 /admin/** 아래에 있는지 확인
-```
-
-**리소스 소유권 검증 (IDOR 방지):**
-
-```java
-// ❌ 취약한 코드 - 다른 사용자 데이터 접근 가능
-@GetMapping("/mypage/history/{sessionId}")
-public String viewHistory(@PathVariable Long sessionId, Model model) {
-    GameSession session = gameSessionService.findById(sessionId);
-    model.addAttribute("session", session);  // 누구의 세션이든 조회 가능!
-    return "mypage/history";
-}
-
-// ✅ 안전한 코드 - 소유권 검증
-@GetMapping("/mypage/history/{sessionId}")
-public String viewHistory(@PathVariable Long sessionId, HttpSession httpSession, Model model) {
-    Member member = (Member) httpSession.getAttribute("member");
-    GameSession session = gameSessionService.findById(sessionId);
-
-    // 본인 소유 데이터인지 확인
-    if (!session.getMember().getId().equals(member.getId())) {
-        throw new AccessDeniedException("본인의 게임 기록만 조회할 수 있습니다.");
-    }
-
-    model.addAttribute("session", session);
-    return "mypage/history";
-}
-
-// ✅ Repository 레벨에서 검증하는 방법
-@Query("SELECT g FROM GameSession g WHERE g.id = :sessionId AND g.member.id = :memberId")
-Optional<GameSession> findByIdAndMemberId(@Param("sessionId") Long sessionId,
-                                          @Param("memberId") Long memberId);
-```
-
-**API 엔드포인트 보호:**
-
-```java
-// ❌ 취약한 코드 - AJAX 요청에 인증 없음
-@PostMapping("/api/room/{roomId}/kick/{memberId}")
-@ResponseBody
-public ResponseEntity<?> kickMember(@PathVariable Long roomId, @PathVariable Long memberId) {
-    gameRoomService.kickMember(roomId, memberId);
-    return ResponseEntity.ok().build();
-}
-
-// ✅ 안전한 코드 - 방장 권한 확인
-@PostMapping("/api/room/{roomId}/kick/{memberId}")
-@ResponseBody
-public ResponseEntity<?> kickMember(@PathVariable Long roomId,
-                                    @PathVariable Long memberId,
-                                    HttpSession session) {
-    Member currentMember = (Member) session.getAttribute("member");
-    if (currentMember == null) {
-        return ResponseEntity.status(401).body("로그인이 필요합니다.");
-    }
-
-    GameRoom room = gameRoomService.findById(roomId);
-    if (!room.getHost().getId().equals(currentMember.getId())) {
-        return ResponseEntity.status(403).body("방장만 강퇴할 수 있습니다.");
-    }
-
-    gameRoomService.kickMember(roomId, memberId);
-    return ResponseEntity.ok().build();
-}
-```
-
-**검토 체크리스트:**
-
-| 항목 | 확인 |
-|------|------|
-| `/admin/**` 경로가 `SecurityConfig`의 `hasRole("ADMIN")` 매처에 걸리는지 확인 | ☐ |
-| 모든 POST/PUT/DELETE에 인증 검증 존재 | ☐ |
-| 리소스 접근 시 소유권(IDOR) 검증 존재 | ☐ |
-| API 엔드포인트에도 세션 검증 적용 | ☐ |
-| 권한 상승 가능한 기능에 role 검증 존재 | ☐ |
-| 비밀번호 변경 시 현재 비밀번호 확인 | ☐ |
-
----
-
-### 4. 추가 보안 검토 항목
-
-#### CSRF (Cross-Site Request Forgery)
-
-```html
-<!-- Thymeleaf 폼에서 자동 CSRF 토큰 삽입 (Spring Security 사용 시) -->
-<form th:action="@{/board/save}" method="post">
-    <!-- th:action 사용 시 자동으로 _csrf 토큰 추가됨 -->
-    <input type="text" name="title" />
-    <button type="submit">저장</button>
-</form>
-
-<!-- AJAX 요청 시 CSRF 토큰 전달 -->
-<meta name="_csrf" th:content="${_csrf.token}"/>
-<meta name="_csrf_header" th:content="${_csrf.headerName}"/>
-
-<script>
-const csrfToken = document.querySelector('meta[name="_csrf"]').content;
-const csrfHeader = document.querySelector('meta[name="_csrf_header"]').content;
-
-fetch('/api/board/save', {
-    method: 'POST',
-    headers: {
-        [csrfHeader]: csrfToken,
-        'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(data)
-});
-</script>
-```
-
-#### 파일 업로드 보안
-
-```java
-// ✅ 안전한 파일 업로드 처리
-public String saveUploadFile(MultipartFile file) {
-    // 1. 파일 확장자 화이트리스트 검증
-    String originalFilename = file.getOriginalFilename();
-    String extension = getExtension(originalFilename).toLowerCase();
-    List<String> allowedExtensions = Arrays.asList("jpg", "jpeg", "png", "gif", "mp3");
-
-    if (!allowedExtensions.contains(extension)) {
-        throw new IllegalArgumentException("허용되지 않는 파일 형식입니다.");
-    }
-
-    // 2. 파일 크기 검증 (application.yml에서도 설정)
-    if (file.getSize() > 50 * 1024 * 1024) {  // 50MB
-        throw new IllegalArgumentException("파일 크기가 너무 큽니다.");
-    }
-
-    // 3. 저장 파일명은 UUID로 변경 (경로 조작 방지)
-    String savedFilename = UUID.randomUUID().toString() + "." + extension;
-
-    // 4. 저장 경로는 웹 루트 외부로 설정
-    Path uploadPath = Paths.get(uploadDir).resolve(savedFilename);
-    Files.copy(file.getInputStream(), uploadPath);
-
-    return savedFilename;
-}
-```
-
-#### 민감 정보 로깅 금지
-
-```java
-// ❌ 금지 - 비밀번호, 개인정보 로깅
-log.info("Login attempt: username={}, password={}", username, password);
-log.debug("Member info: {}", member);  // toString()에 민감정보 포함 시
-
-// ✅ 안전한 로깅
-log.info("Login attempt: username={}", username);
-log.info("Login success: memberId={}", member.getId());
-```
-
----
-
-### 보안 검토 최종 체크리스트
-
-기능 구현 완료 후 아래 항목을 모두 확인:
-
-| 카테고리 | 항목 | 확인 |
-|----------|------|------|
-| **SQL Injection** | 모든 쿼리에 파라미터 바인딩 사용 | ☐ |
-| | 동적 검색 조건에 문자열 연결 없음 | ☐ |
-| **XSS** | 사용자 입력 출력 시 `th:text` 사용 | ☐ |
-| | JavaScript에서 `textContent` 사용 | ☐ |
-| | 서버 측 입력값 필터링 적용 | ☐ |
-| **인증** | 보호 리소스에 로그인 검증 존재 | ☐ |
-| | 관리자 기능에 권한 검증 존재 | ☐ |
-| **인가** | 리소스 소유권(IDOR) 검증 존재 | ☐ |
-| | API 엔드포인트 권한 검증 존재 | ☐ |
-| **CSRF** | 상태 변경 요청에 CSRF 토큰 적용 | ☐ |
-| **파일** | 업로드 파일 확장자 화이트리스트 검증 | ☐ |
-| | 저장 파일명 UUID로 변경 | ☐ |
-| **로깅** | 민감정보(비밀번호 등) 로깅 없음 | ☐ |
-| **세션** | 로그인 성공 시 세션 ID 재생성 | ☐ |
-
-## CSS Style Guide
-
-**⚠️ CRITICAL: 색상 하드코딩 금지!**
-
-### 필수 규칙
-- **색상값을 직접 쓰지 말고 반드시 CSS 변수 사용** (`#1e293b` ❌ → `var(--text-primary)` ✅)
-- 새로운 색상이 필요하면 `common.css`의 `:root`에 변수 추가 후 사용
-- **⚠️ 라이트/다크 모드 1:1 매칭 필수** - 모든 스타일은 라이트와 다크 모드 양쪽에 정의해야 함
-- **⚠️ 반응형 3단계 필수** - 모든 레이아웃/크기 관련 스타일은 PC/태블릿/모바일 3단계로 정의해야 함
-
-### 테마 시스템 구조
-```
-common.css
-├── :root { }                    → 라이트 모드 기본값
-├── [data-theme="dark"] { }      → 다크 모드 오버라이드
-└── .game-page { }               → 게임 페이지 전용 (항상 다크)
-```
-
-### 주요 CSS 변수
-| 용도 | 변수명 |
-|------|--------|
-| 기본 텍스트 | `--text-primary` |
-| 보조 텍스트 | `--text-secondary` |
-| 흐린 텍스트 | `--text-muted` |
-| 기본 배경 | `--bg-base` |
-| 카드 배경 | `--bg-surface` |
-| 강조 배경 | `--bg-elevated` |
-| 테두리 | `--border-color` |
-
-### 주의사항: `.game-page` 클래스
-- `.game-page`는 CSS 변수를 다크 모드로 강제 오버라이드함
-- **흰색 배경 요소**에서 `var(--text-primary)`를 쓰면 흰 글씨가 됨!
-- 해결법: 해당 CSS 파일의 다크 테마 섹션(`[data-theme="dark"]`)에서 별도 처리
-
-### 예시: 흰색 배경 모달 처리
-```css
-/* 기본 스타일 */
-.modal-content {
-    background: white;
-    color: var(--text-primary);  /* 라이트 모드에서 정상 작동 */
-}
-
-/* 다크 모드 또는 .game-page에서 오버라이드 */
-[data-theme="dark"] .modal-content,
-.game-page .modal-content {
-    background: var(--bg-surface);  /* 다크 배경으로 변경 */
-    color: var(--text-primary);     /* 이제 흰 글씨가 맞음 */
-}
-```
-
-### ⚠️ CSS 작성 필수 템플릿
-
-새로운 컴포넌트 CSS 작성 시 반드시 아래 구조를 따라야 함:
-
-```css
-/* ========================================
-   [컴포넌트명] - 기본 스타일 (라이트 모드 + PC)
-   ======================================== */
-.component {
-    background: var(--bg-surface);
-    color: var(--text-primary);
-    padding: 2rem;
-    font-size: 1rem;
-}
-
-/* ========================================
-   [컴포넌트명] - 다크 모드
-   ======================================== */
-[data-theme="dark"] .component {
-    background: var(--bg-elevated);
-    border-color: var(--border-color);
-}
-
-/* .game-page는 항상 다크 모드이므로 함께 처리 */
-.game-page .component {
-    background: var(--bg-elevated);
-    border-color: var(--border-color);
-}
-
-/* ========================================
-   [컴포넌트명] - 태블릿 (768px 이하)
-   ======================================== */
-@media (max-width: 768px) {
-    .component {
-        padding: 1.5rem;
-        font-size: 0.95rem;
-    }
-}
-
-/* ========================================
-   [컴포넌트명] - 모바일 (480px 이하)
-   ======================================== */
-@media (max-width: 480px) {
-    .component {
-        padding: 1rem;
-        font-size: 0.9rem;
-    }
-}
-```
-
-### 체크리스트: CSS 작성 완료 전 확인
-
-| 항목 | 확인 |
-|------|------|
-| `:root` (라이트 모드) 스타일 정의 | ☐ |
-| `[data-theme="dark"]` 스타일 정의 | ☐ |
-| `.game-page` 스타일 정의 (필요시) | ☐ |
-| `@media (max-width: 768px)` 태블릿 스타일 | ☐ |
-| `@media (max-width: 480px)` 모바일 스타일 | ☐ |
-| 색상값 하드코딩 없음 | ☐ |
-| CSS 변수만 사용 | ☐ |
-
-### 반응형 브레이크포인트
-
-| 구분 | 브레이크포인트 | 용도 |
-|------|---------------|------|
-| **모바일** | `max-width: 480px` | 스마트폰 세로 |
-| **태블릿** | `max-width: 768px` | 태블릿/스마트폰 가로 |
-| **데스크탑** | `min-width: 769px` | PC (기본) |
-| **대형** | `min-width: 1200px` | 대형 모니터 (선택적) |
-
-```css
-/* 기본: 데스크탑 스타일 */
-.container { padding: 2rem; }
-
-/* 태블릿 이하 */
-@media (max-width: 768px) {
-    .container { padding: 1.5rem; }
-}
-
-/* 모바일 */
-@media (max-width: 480px) {
-    .container { padding: 1rem; }
-}
-```
-
-**⚠️ 금지:** 임의의 브레이크포인트 사용 (450px, 375px 등)
-
-**예외:** `game-multi.css`는 채팅+스코어보드 레이아웃 특성상 `900px` 브레이크포인트 허용
-
-### Z-Index 계층
-
-| 계층 | 값 | 용도 |
-|------|-----|------|
-| 기본 | `1-10` | 로컬 스태킹 (카드 내 요소) |
-| 고정 | `100` | 사이드바, 네비게이션 |
-| 드롭다운 | `500` | 드롭다운, 팝오버 |
-| 모달 배경 | `900` | 모달 오버레이 |
-| 모달 | `1000` | 모달 콘텐츠 |
-| 토스트 | `5000` | 알림 토스트 |
-| 최상위 | `10000` | 뱃지 토스트 (특수) |
-
-**⚠️ 금지:** 임의의 z-index 값 사용 (9999, 99999 등)
-
-### 단위 & 값 규칙
-
-- **Width/Height:** 반응형 단위 우선 사용
-  - 우선순위: `%` → `vw/vh` → `rem` → `px` (최후의 수단)
-  - 컨테이너 기준: `%` 사용 (예: `width: 100%`)
-  - 뷰포트 기준: `vw/vh` 사용 (예: `max-height: 80vh`)
-  - 고정 크기 필요 시: `rem` 사용 (예: `min-width: 20rem`)
-- **길이:** `rem` 사용 (px 금지, 예외: `1px` 보더)
-- **Border-radius:** `rem` 단위만 사용
-  - 작음: `0.25rem` / 중간: `0.5rem` / 큼: `0.75rem` / 매우 큼: `1rem` / 원형: `50%`
-- **Spacing:** `0.25rem` 단위로 증가 (0.5rem, 0.75rem, 1rem, 1.5rem, 2rem)
-- **Transition:** `0.2s` (빠름) / `0.3s` (기본) / `0.5s` (느림)
-
-```css
-/* ❌ 잘못된 예 */
-width: 350px;            /* 고정 px */
-height: 500px;           /* 고정 px */
-border-radius: 6px;      /* px 사용 */
-padding: 13px;           /* px 사용 */
-
-/* ✅ 올바른 예 */
-width: 100%;             /* 부모 기준 반응형 */
-max-width: 24rem;        /* 최대값 제한 */
-height: 80vh;            /* 뷰포트 기준 */
-border-radius: 0.5rem;   /* 표준 값 */
-padding: 0.75rem;        /* rem 사용 */
-```
-
-### RGBA 투명도 처리
-
-투명도가 필요한 색상도 변수 사용 권장. `common.css`에 정의된 `--overlay-*` 변수 활용:
-
-```css
-/* ❌ 하드코딩 */
-background: rgba(0, 0, 0, 0.5);
-color: rgba(255, 255, 255, 0.7);
-
-/* ✅ 변수 사용 */
-background: var(--overlay-medium);
-color: var(--text-secondary);
-```
+- **Profile:** 기본값 없음. 로컬 `-Dspring-boot.run.profiles=dev`, 운영은 compose `SPRING_PROFILES_ACTIVE=prod`.
+- **dev:** 8082, MariaDB `localhost:3306/song`, `ddl-auto=validate`. **prod:** 환경변수 자격증명, Docker 볼륨. **test:** H2 `MODE=MariaDB`, `create-drop`.
+- **Schema:** `src/main/resources/sql/schema.sql`이 단일 출처(dev·prod `validate`, Flyway 없음). **엔티티 변경 시 schema.sql 수정 + 로컬·운영 DB에 직접 ALTER**해야 기동한다.
+- **Admin:** `Member.role=ADMIN`, `/admin/**` → `hasRole("ADMIN")`. 세션 30분, 1계정 1세션.
+- **File uploads:** `uploads/songs/` 50MB — MP3 지원 제거 후 데드 코드. `Song.file_path`·`GameRoom.password`와 함께 스키마 변경 동반이라 보류(`docs/finish.md` 7, open-issues O-005).
+- **Docker memory:** App 640M ×2(blue/green, 평시 한 벌, JVM `MaxRAMPercentage=50`), DB 256M.
+
+### 운영 `.env` 필수 항목
+| 변수 | 용도 |
+|---|---|
+| `DOCKERHUB_USERNAME` | 이미지 pull |
+| `DB_USERNAME` / `DB_PASSWORD` | MariaDB 자격 증명 |
+| `BREVO_API_KEY` | Brevo API 키(`xkeysib-...`). **대시보드 Security → Authorised IPs에 서버 IP 등록 필수**, 미등록 시 전부 401 |
+| `MAIL_FROM` | 발신 주소(Brevo 사전 검증 필수) |
+
+`docker-compose.yml`은 배포 스크립트의 `git pull --ff-only`로 서버에 자동 반영된다. 서버 `.env`는 git 미추적이라 환경변수 추가·변경 시 서버 `.env`를 먼저 고친 뒤 푸시한다.
+
+## CI/CD (`.github/workflows/deploy.yml`)
+
+- 트리거: main push 또는 수동. `**.md`·`.claude/**`·`.gitignore`·`LICENSE`만 바뀌면 안 돎.
+- **build**: JDK 17 → `./mvnw clean test`(실패 시 중단, surefire 리포트 업로드) → WAR → Docker 이미지 push(`latest` + SHA).
+- **deploy**(SSH, blue/green): `git pull --ff-only` → SHA pull 후 `latest` 재태깅 → nginx upstream(`/etc/nginx/conf.d/quiz-upstream.conf`)으로 활성 색 판별 → 유휴 색 기동 → `/actuator/health` 90초 폴링(실패 시 신규 정지, 전환 안 함) → upstream 재작성 + `nginx -s reload` → 30초 드레인 후 구 색 정지.
+- Secrets: `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY`, `SERVER_PORT`, `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`.
+- 테스트 JVM 시간대는 surefire `argLine`으로 `Asia/Seoul` 고정.
+
+## 보안 검토 (요약)
+
+모든 기능은 `설계 → 구현 → 보안 검토 → 테스트 → 리뷰`. Quick Reference 표 + 아래를 확인하고, 예시와 상세 체크리스트는 `docs/guides/security-review.md`.
+
+- 새 관리자 경로가 `/admin/**` 아래인가. 새 POST에 인증·권한·소유권 검증이 있는가. 비밀번호 변경은 현재 비밀번호 확인.
+- 파일 업로드는 확장자 화이트리스트 + UUID 파일명 + 웹 루트 밖 저장.
+- 로그인 성공 시 세션 ID 재생성(Spring Security 기본). 로그·에러 응답에 개인정보·스택트레이스 노출 금지.
+- 반복 호출 가능한 경로(로그인·가입·인증 메일)는 `LoginRateLimiter` 대상인지 확인.
+
+## CSS (요약)
+
+색상은 변수만. 라이트/다크/`.game-page` 1:1. 반응형은 480/768 두 브레이크포인트(`game-multi.css`만 900px 허용). 필수 템플릿과 예시는 `docs/guides/css-style.md`.
+
+- 테마 구조: `common.css`의 `:root`(라이트) → `[data-theme="dark"]` → `.game-page`(항상 다크). `.game-page`에서 흰 배경 요소에 `var(--text-primary)`를 쓰면 흰 글씨가 된다 → 다크 섹션에서 별도 처리.
+- 주요 변수: `--text-primary`·`--text-secondary`·`--text-muted` / `--bg-base`·`--bg-surface`·`--bg-elevated` / `--border-color` / `--overlay-*`(투명도). 새 색은 `:root`에 변수 추가 후 사용.
+- z-index: 기본 1-10 · 고정 100 · 드롭다운 500 · 모달 배경 900 · 모달 1000 · 토스트 5000 · 뱃지 토스트 10000.
+- 단위: `%` → `vw/vh` → `rem` → `px`(최후, `1px` 보더만). radius 0.25/0.5/0.75/1rem/50%. spacing 0.25rem 단위. transition 0.2/0.3/0.5s.
 
 ## 서버 인프라 (SSOT 참조)
 
-- **서버/배포 인프라 SSOT: `D:\dev\career\03-infra\01-vps.md`** (비공개 저장소, 이 리포·운영서버에 없음). 구 `D:\server-infra.md`는 2026-09-08 폐기.
-- 포트·도메인·방화벽·컨테이너 TZ 규칙(`Asia/Seoul` 의무)·배포 반영 매트릭스·트러블슈팅은 그 문서 참조.
-- 서버 nginx 설정(`game.conf`·`quiz-upstream.conf`)의 재구축용 사본은 `infra/nginx/`. 서버 원본이 진실이며 배포 스크립트는 `quiz-upstream.conf`만 다시 쓴다. `location /ws/` Upgrade 블록이 없으면 WebSocket이 성립하지 않는다.
-- 사람이 서버에서 직접 하는 절차(롤백·재배포·백업/복원·재부팅 점검)는 `docs/runbook.md`.
-- **인프라(compose/nginx/포트/배포) 변경 시 그 문서도 함께 최신화할 것.**
+- 인프라 SSOT: `D:\dev\career\03-infra\01-vps.md`(비공개, 이 리포·서버에 없음). 포트·도메인·방화벽·TZ(`Asia/Seoul` 의무)·트러블슈팅은 그 문서.
+- nginx 설정 재구축용 사본 `infra/nginx/`(`game.conf`·`quiz-upstream.conf`). 서버 원본이 진실, 배포 스크립트는 `quiz-upstream.conf`만 다시 쓴다. `location /ws/` Upgrade 블록이 없으면 WebSocket 불성립.
+- 서버 수동 절차는 `docs/runbook.md`. **인프라 변경 시 그 문서도 함께 최신화.**
+
+## 검증 설정
+
+> 전역 `~/.claude/CLAUDE.md`의 검증 규칙(AC → 검증 실행 → 기록)이 이 저장소에 적용될 때의 값. 검증 기록은 `docs/verification/`.
+
+- 유형: 본인 작성·운영 중(전역 onboarding §1 특성 테스트 절차 해당 없음).
+- 명령: 위 Build & Run. 전체 테스트는 H2라 로컬 DB 불필요, 2026-09-16 기준 389건. 로컬 실행만 MariaDB `song` 필요.
+- 사용자 시나리오: 수동 체크리스트(Playwright 스펙은 저장소 미포함). 멀티는 브라우저 2개 + 시크릿 창(참가자 B·비참가자 C).
+- 테스트 계정(dev, `DataInitializer`, prod 미생성): 관리자 `a@a.com`(ADMIN) · 일반 `test1@test.com`~`test6@test.com`(USER). 비밀번호는 코드에만.
+- 외부 연동: Brevo는 `@MockBean`/`@Mock`(`AuthControllerPasswordResetTest`, `MemberServicePasswordTest`), 실제 발송은 운영 반영 후 🙋. YouTube는 Mockito(`YouTubeValidationServiceTest`, `YouTubeVideoCheckBatchTest`). DB는 H2 `MODE=MariaDB`라 MariaDB 전용 SQL은 테스트에서 못 잡는다.
+- 배포 후 Smoke: `docs/runbook.md` §1 + 영향 엔드포인트 curl.
+- 기록: `docs/verification/`(README 인덱스 · `records/` · `regression-list.md` · `open-issues.md`). 2026-09-16 이전은 `docs/finish.md`.
+
+### P0 핵심 시나리오 (2026-09-16 확정)
+1. 인증: 회원가입(이메일 코드) → 로그인 → 비밀번호 재설정. 세션 1개 제한·레이트리밋·`redirect` 내부 경로만
+2. 멀티: 방 생성 → 참가 → 준비 → 시작 → 정답 → 결과 → 나가기 3종. LP·전적은 1회만 반영
+3. 솔로 30곡 도전: 3회 시도·시간 점수 → 세션 저장 → 랭킹 반영
+4. 팬/장르 챌린지 HARDCORE: 기록 저장 → 랭킹·뱃지
+5. 관리자: 곡 등록/수정/소프트 삭제 → 게임 곡 풀 즉시 반영, 정답 변형 생성
+6. 배치: 관리자 수동 실행 → `BatchExecutionHistory` COMPLETED
+
+P1: 랭킹 스냅샷·주/월 리셋, 게시판, 곡 신고, 관리자 회원 관리 · P2: 통계, 메뉴 설정, 금칙어 · P3: 문구·CSS
+
+### 이 프로젝트만의 규칙
+- 엔티티 변경 = `schema.sql` + 로컬·운영 DB ALTER. 검증 기록의 "DB·설정 변경"에 반드시 적는다.
+- 멀티는 push payload = 폴링 응답 계약 유지(`MultiGameControllerChatPushTest`, `MultiGameControllerRoomLifecycleTest`).
+- JS 수정은 Maven 밖 → 수동 시나리오나 스크래치 하네스, 기록에 방법 명시.
+- 버그 수정은 실패 테스트 선행 → `regression-list.md` 1행 추가.

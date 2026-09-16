@@ -256,7 +256,7 @@ console.log('== 판정 ==', log.join(' | ') || '(응답 없음)');
 | 스케일 아웃하면 | 인가는 인스턴스 로컬이라 그대로 동작. 브로커(SimpleBroker)가 문제이고 그건 별도 과제 |
 | 이걸 어떻게 발견했나 | 면접 답변을 코드와 대조하다가. "방 단위로 세션을 관리한다"는 표현이 코드와 맞지 않아 파고들었음 |
 
-### 7-4. `finish.md` 진행 현황에 추가할 행 (형식 맞춤)
+### 7-4. `docs/finish.md` 진행 현황에 추가할 행 (형식 맞춤)
 
 ```
 | 보안 | STOMP 구독 인가 + 폴링 GET(`/round`·`/chats`) 참가자 검사, 도달 불가 `WebSocketAuthInterceptor` CONNECT 블록 제거 | ✅ 2026-09-15 | `06a6e4a`. 배경: 방 코드만으로 비참가자·비로그인이 토픽 구독·`/round`·`/chats` 수신 가능. 인터셉터는 `HTTP_SESSION` 키를 읽으나 채우는 곳 없음(핸드셰이크가 이미 Principal 전파 — dev 프로브로 실측). `/status` 는 참가 전 미리보기(`multi-join.js`)가 써서 제외. 검증: 신규 테스트 17건, `./mvnw clean test` 335건 통과, dev STOMP 프로브로 비로그인 SUBSCRIBE ERROR·`/round` 401 확인. 2브라우저 수동 시나리오·운영 반영 미실시. 상세 `docs/ws-subscription-authorization.md` |

@@ -14,6 +14,8 @@ const GameWebSocket = {
     reconnectTimer: null,
     stableTimer: null,          // 연결이 이 시간 동안 살아 있어야 재연결 시도 횟수를 초기화한다
     stableAfterMs: 5000,
+    keepAliveTimer: null,       // WebSocket 트래픽은 HTTP 세션을 연장하지 않는다. 연결 중에는 폴링도 멈추므로 직접 연장한다
+    keepAliveMs: 5 * 60 * 1000, // 서버 세션 유휴 한도(60분)보다 충분히 짧게
     fallbackCallback: null,
     fallbackActivated: false,
 
@@ -43,6 +45,21 @@ const GameWebSocket = {
             clearTimeout(this.stableTimer);
             this.stableTimer = null;
         }
+        this._stopKeepAlive();
+    },
+
+    _startKeepAlive() {
+        this._stopKeepAlive();
+        this.keepAliveTimer = setInterval(() => {
+            fetch('/auth/status').catch(() => { /* 일시적 네트워크 오류는 다음 주기에 다시 */ });
+        }, this.keepAliveMs);
+    },
+
+    _stopKeepAlive() {
+        if (this.keepAliveTimer) {
+            clearInterval(this.keepAliveTimer);
+            this.keepAliveTimer = null;
+        }
     },
 
     _doConnect() {
@@ -64,6 +81,7 @@ const GameWebSocket = {
             this.stompClient.connect(headers, () => {
                 this.connected = true;
                 console.log('[WS] Connected to /topic/room/' + this.roomCode);
+                this._startKeepAlive();
 
                 // CONNECTED 직후 SUBSCRIBE 가 거부되면(참가자 아님) ERROR 로 바로 끊긴다.
                 // 여기서 시도 횟수를 0 으로 되돌리면 그 경우 폴백 없이 1초마다 영원히 재접속하므로,
@@ -115,6 +133,7 @@ const GameWebSocket = {
     },
 
     _handleDisconnect() {
+        this._stopKeepAlive();
         if (this.stableTimer) {
             clearTimeout(this.stableTimer);
             this.stableTimer = null;

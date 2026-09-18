@@ -21,3 +21,6 @@
 | R-014 | Auth | 로그인 `redirect` 파라미터는 `/`로 시작하는 내부 경로만 허용 (오픈 리다이렉트) | `AuthControllerLoginRedirectTest` | finish ⑬ | 2026-09-16 |
 | R-015 | Auth | 비밀번호 재설정: 이메일 코드 인증 → 저장 → 세션 만료. 관리자 초기화는 메일 성공 후에만 저장 | `AuthControllerPasswordResetTest`, `MemberServicePasswordTest` | finish 2026-09-15 기능 | 2026-09-16 |
 | R-016 | System | 없는 경로는 500 에러 페이지가 아니라 404. `/ws/**`만 CSRF 예외 | `GlobalExceptionHandlerTest`, `SecurityFilterChainTest` | finish 2026-09-15 후속 | 2026-09-16 |
+| R-017 | Auth/Admin | 관리자가 회원을 정지·권한 변경하면 그 회원의 기존 세션이 끊긴다 (ACTIVE 로의 변경은 유지) | `MemberStateChangeSessionTest` | records/2026-09-18_session-lifecycle | 2026-09-18 |
+| R-018 | Auth | 1계정 1세션: 두 번째 로그인 시 먼저 있던 세션이 만료 표시되고 상태 확인 `SESSION_INVALIDATED`·fetch 401·화면 이동 302 (`CustomUserDetails` equals/hashCode) | `SessionLifecycleContractTest#secondLogin_*`, `#fetchWithInvalidatedSession_*` | records/2026-09-18_session-lifecycle | 2026-09-18 |
+| R-019 | Auth/WS | `/auth/validate-session` 은 세션을 연장하지 않는다. WebSocket 연결 중에는 `/auth/status` keepalive 로만 유지된다. **세션 저장소를 바꿀 때(Redis) 이 테스트를 그 프로파일로도 돌릴 것** | `SessionLifecycleContractTest` (실제 Tomcat + STOMP) | records/2026-09-18_session-lifecycle | 2026-09-18 |

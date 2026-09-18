@@ -156,7 +156,7 @@ Spring Boot 3.4.1 + Java 17 + JPA + MariaDB 11.8 + Thymeleaf + STOMP/SockJS. `Co
 - **Profile:** 기본값 없음. 로컬 `-Dspring-boot.run.profiles=dev`, 운영은 compose `SPRING_PROFILES_ACTIVE=prod`.
 - **dev:** 8082, MariaDB `localhost:3306/song`, `ddl-auto=validate`. **prod:** 환경변수 자격증명, Docker 볼륨. **test:** H2 `MODE=MariaDB`, `create-drop`.
 - **Schema:** `src/main/resources/sql/schema.sql`이 단일 출처(dev·prod `validate`, Flyway 없음). **엔티티 변경 시 schema.sql 수정 + 로컬·운영 DB에 직접 ALTER**해야 기동한다.
-- **Admin:** `Member.role=ADMIN`, `/admin/**` → `hasRole("ADMIN")`. 세션 30분, 1계정 1세션.
+- **Admin:** `Member.role=ADMIN`, `/admin/**` → `hasRole("ADMIN")`. 세션 유휴 60분(열린 탭의 상태 확인은 연장하지 않음, 멀티 WS 연결 중에는 keepalive), 1계정 1세션.
 - **File uploads:** `uploads/songs/` 50MB — MP3 지원 제거 후 데드 코드. `Song.file_path`·`GameRoom.password`와 함께 스키마 변경 동반이라 보류(`docs/finish.md` 7, open-issues O-005).
 - **Docker memory:** App 640M ×2(blue/green, 평시 한 벌, JVM `MaxRAMPercentage=50`), DB 256M.
 

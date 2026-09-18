@@ -258,20 +258,4 @@ public class AuthController {
 
         return ResponseEntity.ok(result);
     }
-
-    // 세션 유효성 검증 (Spring Security maximumSessions가 처리, 하위 호환용 유지)
-    @GetMapping("/validate-session")
-    @ResponseBody
-    public ResponseEntity<Map<String, Object>> validateSession(@AuthenticationPrincipal CustomUserDetails userDetails) {
-        Map<String, Object> result = new HashMap<>();
-
-        if (userDetails == null) {
-            result.put("valid", false);
-            result.put("reason", "NOT_LOGGED_IN");
-        } else {
-            result.put("valid", true);
-        }
-
-        return ResponseEntity.ok(result);
-    }
 }

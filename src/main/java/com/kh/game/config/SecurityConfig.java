@@ -2,17 +2,23 @@ package com.kh.game.config;
 
 import com.kh.game.security.CustomAuthenticationFailureHandler;
 import com.kh.game.security.CustomAuthenticationSuccessHandler;
+import com.kh.game.security.SessionCheckFilter;
+import com.kh.game.security.SessionExpiredHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
+import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 @Configuration
@@ -29,7 +35,39 @@ public class SecurityConfig {
         return new SessionRegistryImpl();
     }
 
+    /**
+     * 세션이 시간 초과로 사라질 때 SessionRegistry 에서도 지운다.
+     * 없으면 레지스트리에 죽은 세션이 계속 쌓이고, /auth/validate-session 이 이미 끝난 세션을 유효하다고 답한다.
+     */
     @Bean
+    public HttpSessionEventPublisher httpSessionEventPublisher() {
+        return new HttpSessionEventPublisher();
+    }
+
+    /**
+     * 열린 탭의 주기적 세션 확인(/auth/validate-session)은 세션을 읽지 않는 체인에서 SessionCheckFilter 가 바로 답한다.
+     * 기본 체인(ConcurrentSessionFilter)이나 DispatcherServlet(FlashMap 조회)까지 가면 세션을 읽어 유휴 시간이 연장되고,
+     * 탭을 열어 둔 동안 세션이 만료되지 않는다.
+     */
+    @Bean
+    @Order(0)
+    public SecurityFilterChain sessionCheckFilterChain(HttpSecurity http) throws Exception {
+        http
+                .securityMatcher(new AntPathRequestMatcher(SessionCheckFilter.PATH, "GET"))
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .securityContext(context -> context.disable())
+                .requestCache(cache -> cache.disable())
+                // 익명 인증 객체를 만들 때도 세션 ID 를 읽으려고 getSession(false) 를 부른다
+                .anonymous(anonymous -> anonymous.disable())
+                .csrf(csrf -> csrf.disable())
+                .addFilterBefore(new SessionCheckFilter(sessionRegistry()), AuthorizationFilter.class);
+
+        return http.build();
+    }
+
+    @Bean
+    @Order(1)
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         CsrfTokenRequestAttributeHandler csrfHandler = new CsrfTokenRequestAttributeHandler();
         csrfHandler.setCsrfRequestAttributeName(null);
@@ -79,7 +117,7 @@ public class SecurityConfig {
                 )
                 .sessionManagement(session -> session
                         .maximumSessions(1)
-                        .expiredUrl("/auth/login?expired=true")
+                        .expiredSessionStrategy(new SessionExpiredHandler())
                         .sessionRegistry(sessionRegistry())
                 )
                 .httpBasic(basic -> basic.disable());

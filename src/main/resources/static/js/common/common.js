@@ -97,10 +97,12 @@ window.addEventListener('unhandledrejection', function(event) {
     }
 });
 
-// ========== 중복 로그인 감지 (세션 유효성 체크) ==========
+// ========== 로그인 세션 상태 감시 (다른 기기 로그인·시간 초과 감지) ==========
+// /auth/validate-session 은 세션을 연장하지 않는다 (서버 SessionCheckFilter). 연장은 실제 사용자 요청만 한다.
 const SessionManager = {
     checkInterval: null,
     isChecking: false,
+    wasLoggedIn: false,     // 이 페이지에서 로그인 상태가 한 번이라도 확인됐는가
 
     // 세션 체크 시작 (30초 간격)
     startSessionCheck() {
@@ -141,8 +143,15 @@ const SessionManager = {
 
             const result = await response.json();
 
-            if (!result.valid && result.reason === 'SESSION_INVALIDATED') {
+            if (result.valid) {
+                this.wasLoggedIn = true;
+            } else if (result.reason === 'SESSION_INVALIDATED') {
                 this.handleSessionInvalidated(result.message);
+            } else if (this.wasLoggedIn) {
+                this.handleSessionInvalidated('오랫동안 이용하지 않아 로그아웃되었습니다.');
+            } else {
+                // 로그인하지 않은 방문자 — 감시할 세션이 없다
+                this.stopSessionCheck();
             }
         } catch (error) {
             // 네트워크 오류는 무시 (오프라인 등)
@@ -152,9 +161,13 @@ const SessionManager = {
         }
     },
 
-    // 세션 무효화 처리 (다른 기기에서 로그인됨)
+    // 세션 종료 처리 (다른 기기 로그인, 관리자 조치, 시간 초과)
     handleSessionInvalidated(message) {
+        if (!this.checkInterval && !this.wasLoggedIn) {
+            return;  // 이미 처리했다 (주기 확인과 fetch 401 이 겹칠 수 있다)
+        }
         this.stopSessionCheck();
+        this.wasLoggedIn = false;
 
         // 토스트 알림 표시
         const msg = message || '다른 기기에서 로그인하여 현재 세션이 종료되었습니다.';
@@ -162,7 +175,7 @@ const SessionManager = {
 
         // 잠시 후 로그인 페이지로 이동 (토스트 확인 시간)
         setTimeout(() => {
-            window.location.href = '/auth/login';
+            window.location.href = '/auth/login?expired=true';
         }, 1500);
     }
 };

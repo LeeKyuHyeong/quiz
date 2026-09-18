@@ -23,6 +23,12 @@ function validateEmailClient(email) {
 // 이메일 입력 시 실시간 형식 피드백
 const emailInputEl = document.getElementById('email');
 const errorMessageEl = document.getElementById('errorMessage');
+
+// 세션이 끝나서 넘어온 경우 (다른 기기 로그인, 관리자 조치, 시간 초과)
+if (new URLSearchParams(window.location.search).get('expired') === 'true') {
+    errorMessageEl.textContent = '로그인 세션이 종료되었습니다. 다시 로그인해 주세요.';
+    errorMessageEl.style.display = 'block';
+}
 emailInputEl.addEventListener('blur', function () {
     const email = this.value.trim();
     if (!email) return;

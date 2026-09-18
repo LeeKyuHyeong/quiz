@@ -31,7 +31,9 @@ public class GameGuessController {
     private final BadgeService badgeService;
 
     @GetMapping
-    public String setup(Model model) {
+    public String setup(@AuthenticationPrincipal CustomUserDetails userDetails, Model model) {
+        Member member = memberService.findLoginMember(userDetails);
+        model.addAttribute("nickname", member != null ? member.getNickname() : null);
         model.addAttribute("genres", genreService.findActiveGenresForGame());
         return "client/game/guess/setup";
     }
@@ -173,7 +175,7 @@ public class GameGuessController {
         session.setStatus(GameSession.GameStatus.PLAYING);
 
         // 로그인한 회원인 경우 연결
-        Long memberId = userDetails != null ? userDetails.getMember().getId() : null;
+        Long memberId = userDetails != null ? userDetails.getMemberId() : null;
         if (memberId != null) {
             memberService.findById(memberId).ifPresent(session::setMember);
         }
@@ -825,7 +827,7 @@ public class GameGuessController {
             session.setSettings(previous.getSettings());
 
             // 로그인한 회원인 경우 연결
-            Long memberId = userDetails != null ? userDetails.getMember().getId() : null;
+            Long memberId = userDetails != null ? userDetails.getMemberId() : null;
             if (memberId != null) {
                 memberService.findById(memberId).ifPresent(session::setMember);
             }

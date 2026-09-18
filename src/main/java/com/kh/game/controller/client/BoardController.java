@@ -5,6 +5,7 @@ import com.kh.game.entity.BoardComment;
 import com.kh.game.entity.Member;
 import com.kh.game.security.CustomUserDetails;
 import com.kh.game.service.BoardService;
+import com.kh.game.service.MemberService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -25,6 +26,7 @@ import java.util.Map;
 public class BoardController {
 
     private final BoardService boardService;
+    private final MemberService memberService;
 
     // 게시판 목록 페이지
     @GetMapping("/board")
@@ -36,7 +38,7 @@ public class BoardController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             Model model) {
 
-        Member member = userDetails != null ? userDetails.getMember() : null;
+        Member member = memberService.findLoginMember(userDetails);
         Board.BoardCategory boardCategory = null;
         if (category != null && !category.isEmpty()) {
             try {
@@ -67,7 +69,7 @@ public class BoardController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             Model model) {
 
-        Member member = userDetails != null ? userDetails.getMember() : null;
+        Member member = memberService.findLoginMember(userDetails);
         Board board = boardService.findByIdAndIncrementView(id).orElse(null);
         if (board == null || board.getStatus() != Board.BoardStatus.ACTIVE) {
             return "redirect:/board";
@@ -90,7 +92,7 @@ public class BoardController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             Model model) {
 
-        Member member = userDetails != null ? userDetails.getMember() : null;
+        Member member = memberService.findLoginMember(userDetails);
         if (member == null) {
             return "redirect:/auth/login?redirect=/board/write";
         }
@@ -108,7 +110,7 @@ public class BoardController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             Model model) {
 
-        Member member = userDetails != null ? userDetails.getMember() : null;
+        Member member = memberService.findLoginMember(userDetails);
         if (member == null) {
             return "redirect:/auth/login?redirect=/board/" + id + "/edit";
         }
@@ -134,7 +136,7 @@ public class BoardController {
             @RequestBody Map<String, String> request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        Member member = userDetails != null ? userDetails.getMember() : null;
+        Member member = memberService.findLoginMember(userDetails);
         if (member == null) {
             return ResponseEntity.ok(Map.of("success", false, "message", "로그인이 필요합니다."));
         }
@@ -173,7 +175,7 @@ public class BoardController {
             @RequestBody Map<String, String> request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        Member member = userDetails != null ? userDetails.getMember() : null;
+        Member member = memberService.findLoginMember(userDetails);
         if (member == null) {
             return ResponseEntity.ok(Map.of("success", false, "message", "로그인이 필요합니다."));
         }
@@ -195,7 +197,7 @@ public class BoardController {
             @PathVariable Long id,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        Member member = userDetails != null ? userDetails.getMember() : null;
+        Member member = memberService.findLoginMember(userDetails);
         if (member == null) {
             return ResponseEntity.ok(Map.of("success", false, "message", "로그인이 필요합니다."));
         }
@@ -212,7 +214,7 @@ public class BoardController {
             @RequestBody Map<String, String> request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        Member member = userDetails != null ? userDetails.getMember() : null;
+        Member member = memberService.findLoginMember(userDetails);
         if (member == null) {
             return ResponseEntity.ok(Map.of("success", false, "message", "로그인이 필요합니다."));
         }
@@ -236,7 +238,7 @@ public class BoardController {
             @PathVariable Long commentId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        Member member = userDetails != null ? userDetails.getMember() : null;
+        Member member = memberService.findLoginMember(userDetails);
         if (member == null) {
             return ResponseEntity.ok(Map.of("success", false, "message", "로그인이 필요합니다."));
         }
@@ -252,7 +254,7 @@ public class BoardController {
             @PathVariable Long boardId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        Member member = userDetails != null ? userDetails.getMember() : null;
+        Member member = memberService.findLoginMember(userDetails);
         if (member == null) {
             return ResponseEntity.ok(Map.of("success", false, "message", "로그인이 필요합니다."));
         }

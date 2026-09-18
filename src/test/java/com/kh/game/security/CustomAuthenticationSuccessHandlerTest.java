@@ -51,6 +51,8 @@ class CustomAuthenticationSuccessHandlerTest {
 
         userDetails = new CustomUserDetails(testMember);
         authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+        // 주체는 식별 값만 들고 있다 — 닉네임은 핸들러가 회원을 읽어서 채운다
+        when(memberService.findLoginMember(userDetails)).thenReturn(testMember);
     }
 
     @Test

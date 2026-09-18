@@ -39,7 +39,7 @@ public class GameGenreChallengeController {
     @GetMapping
     public String setup(@AuthenticationPrincipal CustomUserDetails userDetails, HttpSession httpSession, Model model) {
         // 로그인 상태 확인
-        Long memberId = userDetails != null ? userDetails.getMember().getId() : null;
+        Long memberId = userDetails != null ? userDetails.getMemberId() : null;
         if (memberId != null) {
             memberService.findById(memberId).ifPresent(member -> {
                 model.addAttribute("member", member);
@@ -122,7 +122,7 @@ public class GameGenreChallengeController {
 
         // 로그인 회원 확인
         Member member = null;
-        Long memberId = userDetails != null ? userDetails.getMember().getId() : null;
+        Long memberId = userDetails != null ? userDetails.getMemberId() : null;
         if (memberId != null) {
             member = memberService.findById(memberId).orElse(null);
         }
@@ -427,7 +427,7 @@ public class GameGenreChallengeController {
         model.addAttribute("ranking", ranking);
 
         // 내 기록
-        Long memberId = userDetails != null ? userDetails.getMember().getId() : null;
+        Long memberId = userDetails != null ? userDetails.getMemberId() : null;
         if (memberId != null) {
             Member member = memberService.findById(memberId).orElse(null);
             if (member != null) {
@@ -520,7 +520,7 @@ public class GameGenreChallengeController {
         }
 
         // 내 기록 조회 (로그인 시, 하드코어 기록)
-        Long memberId = userDetails != null ? userDetails.getMember().getId() : null;
+        Long memberId = userDetails != null ? userDetails.getMemberId() : null;
         if (memberId != null) {
             memberService.findById(memberId).ifPresent(member -> {
                 genreChallengeService.getMemberRecord(member, genre, GenreChallengeDifficulty.HARDCORE)
@@ -604,7 +604,7 @@ public class GameGenreChallengeController {
 
             // 로그인 회원 확인
             Member member = null;
-            Long memberId = userDetails != null ? userDetails.getMember().getId() : null;
+            Long memberId = userDetails != null ? userDetails.getMemberId() : null;
             if (memberId != null) {
                 member = memberService.findById(memberId).orElse(null);
             }

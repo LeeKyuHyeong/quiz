@@ -73,7 +73,7 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
 
     private Long extractMemberId(Principal user) {
         if (user instanceof Authentication auth && auth.getPrincipal() instanceof CustomUserDetails userDetails) {
-            return userDetails.getMember().getId();
+            return userDetails.getMemberId();
         }
         return null;
     }

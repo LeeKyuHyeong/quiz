@@ -23,7 +23,7 @@ public class MemberSessionService {
         int expired = 0;
         for (Object principal : sessionRegistry.getAllPrincipals()) {
             if (principal instanceof CustomUserDetails details
-                    && memberId.equals(details.getMember().getId())) {
+                    && memberId.equals(details.getMemberId())) {
                 for (SessionInformation session : sessionRegistry.getAllSessions(principal, false)) {
                     session.expireNow();
                     expired++;

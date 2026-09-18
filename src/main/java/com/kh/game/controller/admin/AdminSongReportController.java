@@ -3,6 +3,7 @@ package com.kh.game.controller.admin;
 import com.kh.game.entity.Member;
 import com.kh.game.entity.SongReport;
 import com.kh.game.security.CustomUserDetails;
+import com.kh.game.service.MemberService;
 import com.kh.game.service.SongReportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -22,6 +23,7 @@ import java.util.Map;
 public class AdminSongReportController {
 
     private final SongReportService songReportService;
+    private final MemberService memberService;
 
     /**
      * 기존 신고 목록 페이지 → 통합 노래 관리로 리다이렉트
@@ -72,7 +74,7 @@ public class AdminSongReportController {
             @PathVariable Long id,
             @RequestBody Map<String, String> request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Member admin = userDetails.getMember();
+        Member admin = memberService.findLoginMember(userDetails);
 
         String statusStr = request.get("status");
         String adminNote = request.getOrDefault("adminNote", "");
@@ -95,7 +97,7 @@ public class AdminSongReportController {
     public ResponseEntity<Map<String, Object>> disableSong(
             @PathVariable Long id,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Member admin = userDetails.getMember();
+        Member admin = memberService.findLoginMember(userDetails);
         return ResponseEntity.ok(songReportService.disableSong(id, admin));
     }
 }

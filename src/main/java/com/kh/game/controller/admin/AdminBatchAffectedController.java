@@ -4,6 +4,7 @@ import com.kh.game.entity.BatchAffectedSong;
 import com.kh.game.entity.Member;
 import com.kh.game.security.CustomUserDetails;
 import com.kh.game.service.BatchService;
+import com.kh.game.service.MemberService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -28,6 +29,7 @@ import java.util.Map;
 public class AdminBatchAffectedController {
 
     private final BatchService batchService;
+    private final MemberService memberService;
 
     @GetMapping
     public String index(Model model) {
@@ -78,7 +80,7 @@ public class AdminBatchAffectedController {
     @ResponseBody
     public ResponseEntity<Map<String, Object>> restoreSong(@PathVariable Long id,
                                                             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Member admin = userDetails.getMember();
+        Member admin = memberService.findLoginMember(userDetails);
         boolean success = batchService.restoreSong(id, admin);
         if (success) {
             return ResponseEntity.ok(Map.of("success", true, "message", "곡이 복구되었습니다."));
@@ -91,7 +93,7 @@ public class AdminBatchAffectedController {
     @ResponseBody
     public ResponseEntity<Map<String, Object>> restoreAllByHistory(@PathVariable Long historyId,
                                                                     @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Member admin = userDetails.getMember();
+        Member admin = memberService.findLoginMember(userDetails);
         int restoredCount = batchService.restoreAllByHistory(historyId, admin);
 
         Map<String, Object> result = new HashMap<>();
@@ -105,7 +107,7 @@ public class AdminBatchAffectedController {
     @ResponseBody
     public ResponseEntity<Map<String, Object>> restoreAllByBatchId(@PathVariable String batchId,
                                                                     @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Member admin = userDetails.getMember();
+        Member admin = memberService.findLoginMember(userDetails);
         int restoredCount = batchService.restoreAllByBatchId(batchId, admin);
 
         Map<String, Object> result = new HashMap<>();
@@ -119,7 +121,7 @@ public class AdminBatchAffectedController {
     @ResponseBody
     public ResponseEntity<Map<String, Object>> restoreSelected(@RequestBody Map<String, Object> request,
                                                                 @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Member admin = userDetails.getMember();
+        Member admin = memberService.findLoginMember(userDetails);
 
         @SuppressWarnings("unchecked")
         java.util.List<Integer> ids = (java.util.List<Integer>) request.get("ids");

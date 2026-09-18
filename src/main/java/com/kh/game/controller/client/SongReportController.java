@@ -3,6 +3,7 @@ package com.kh.game.controller.client;
 import com.kh.game.entity.Member;
 import com.kh.game.entity.SongReport;
 import com.kh.game.security.CustomUserDetails;
+import com.kh.game.service.MemberService;
 import com.kh.game.service.SongReportService;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ import java.util.Map;
 public class SongReportController {
 
     private final SongReportService songReportService;
+    private final MemberService memberService;
 
     /**
      * 곡 신고 제출
@@ -29,7 +31,7 @@ public class SongReportController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             HttpSession session) {
 
-        Member member = userDetails != null ? userDetails.getMember() : null;
+        Member member = memberService.findLoginMember(userDetails);
         // 파라미터 추출
         Long songId;
         try {

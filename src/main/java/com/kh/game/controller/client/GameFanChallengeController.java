@@ -41,7 +41,7 @@ public class GameFanChallengeController {
     @GetMapping
     public String setup(@AuthenticationPrincipal CustomUserDetails userDetails, HttpSession httpSession, Model model) {
         // 로그인 상태 확인
-        Long memberId = userDetails != null ? userDetails.getMember().getId() : null;
+        Long memberId = userDetails != null ? userDetails.getMemberId() : null;
         if (memberId != null) {
             memberService.findById(memberId).ifPresent(member -> {
                 model.addAttribute("member", member);
@@ -161,7 +161,7 @@ public class GameFanChallengeController {
 
         // 로그인 회원 확인
         Member member = null;
-        Long memberId = userDetails != null ? userDetails.getMember().getId() : null;
+        Long memberId = userDetails != null ? userDetails.getMemberId() : null;
         if (memberId != null) {
             member = memberService.findById(memberId).orElse(null);
         }
@@ -459,7 +459,7 @@ public class GameFanChallengeController {
         model.addAttribute("ranking", ranking);
 
         // 내 기록 및 퍼펙트 뱃지
-        Long memberId = userDetails != null ? userDetails.getMember().getId() : null;
+        Long memberId = userDetails != null ? userDetails.getMemberId() : null;
         if (memberId != null) {
             Member member = memberService.findById(memberId).orElse(null);
             if (member != null) {
@@ -612,7 +612,7 @@ public class GameFanChallengeController {
         }
 
         // 내 기록 조회 (로그인 시, 하드코어 기록 - 단계별)
-        Long memberId = userDetails != null ? userDetails.getMember().getId() : null;
+        Long memberId = userDetails != null ? userDetails.getMemberId() : null;
         if (memberId != null) {
             memberService.findById(memberId).ifPresent(member -> {
                 fanChallengeService.getMemberRecord(member, artist, FanChallengeDifficulty.HARDCORE, stageLevel)
@@ -645,7 +645,7 @@ public class GameFanChallengeController {
         Map<String, Object> result = new HashMap<>();
 
         // 로그인 확인
-        Long memberId = userDetails != null ? userDetails.getMember().getId() : null;
+        Long memberId = userDetails != null ? userDetails.getMemberId() : null;
         if (memberId == null) {
             result.put("success", false);
             result.put("message", "로그인이 필요합니다");
@@ -739,7 +739,7 @@ public class GameFanChallengeController {
 
             // 로그인 회원 확인
             Member member = null;
-            Long memberId = userDetails != null ? userDetails.getMember().getId() : null;
+            Long memberId = userDetails != null ? userDetails.getMemberId() : null;
             if (memberId != null) {
                 member = memberService.findById(memberId).orElse(null);
             }

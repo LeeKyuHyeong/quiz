@@ -22,7 +22,7 @@ public class CustomAuthenticationSuccessHandler implements AuthenticationSuccess
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                         Authentication authentication) throws IOException, ServletException {
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-        Member member = userDetails.getMember();
+        Member member = memberService.findLoginMember(userDetails);
 
         // 로그인 이력 기록 및 lastLoginAt 갱신
         String ipAddress = getClientIp(request);

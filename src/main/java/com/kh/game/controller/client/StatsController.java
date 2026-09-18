@@ -2,6 +2,7 @@ package com.kh.game.controller.client;
 
 import com.kh.game.entity.Member;
 import com.kh.game.security.CustomUserDetails;
+import com.kh.game.service.MemberService;
 import com.kh.game.service.WrongAnswerStatsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -18,13 +19,14 @@ import java.util.Map;
 public class StatsController {
 
     private final WrongAnswerStatsService wrongAnswerStatsService;
+    private final MemberService memberService;
 
     @GetMapping("/stats")
     public String statsPage(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             Model model) {
 
-        Member member = userDetails != null ? userDetails.getMember() : null;
+        Member member = memberService.findLoginMember(userDetails);
         // 가장 어려운 곡 TOP 10
         List<Map<String, Object>> hardestSongs = wrongAnswerStatsService.getHardestSongs(5, 10);
 

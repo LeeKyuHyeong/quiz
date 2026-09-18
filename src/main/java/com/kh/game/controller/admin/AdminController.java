@@ -24,7 +24,7 @@ public class AdminController {
     @GetMapping("/login")
     public String login(@AuthenticationPrincipal CustomUserDetails userDetails) {
         // 이미 ADMIN으로 인증된 경우 바로 이동
-        if (userDetails != null && userDetails.getMember().getRole() == Member.MemberRole.ADMIN) {
+        if (userDetails != null && userDetails.getRole() == Member.MemberRole.ADMIN) {
             return "redirect:/admin/song";
         }
         return "admin/login";

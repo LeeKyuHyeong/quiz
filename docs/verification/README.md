@@ -11,6 +11,7 @@
 
 | 일자 | 기록 | 유형 | 우선순위 | 판정 |
 |---|---|---|---|---|
+| 2026-09-19 | [로그인 주체 슬림화](records/2026-09-19_slim-login-principal.md) | 리팩토링 | P0 | 조건부 |
 | 2026-09-18 | [로그인 세션 수명 정리](records/2026-09-18_session-lifecycle.md) | 버그 | P0 | 조건부 |
 | 2026-09-16 | [CLAUDE.md 요약·분리](records/2026-09-16_claude-md-summary.md) | 문서 | P3 | 수용 가능 |
 | 2026-09-16 | [검증 문서 체계 도입](records/2026-09-16_verification-docs-setup.md) | 문서 | P3 | 수용 가능 |

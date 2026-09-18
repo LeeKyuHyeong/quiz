@@ -106,7 +106,7 @@
 
 <script th:inline="javascript">
     const isLoggedIn = [[${#authorization.expression('isAuthenticated()')}]];
-    const memberNickname = [[${#authentication?.principal instanceof T(com.kh.game.security.CustomUserDetails) ? #authentication.principal.member.nickname : null}]];
+    const memberNickname = [[${nickname}]];
 </script>
 <script th:src="@{/js/client/game-retro-setup.js}"></script>
 </body>

@@ -148,8 +148,8 @@ class CustomUserDetailsServiceTest {
 
         assertThat(userDetails).isInstanceOf(CustomUserDetails.class);
         CustomUserDetails customUserDetails = (CustomUserDetails) userDetails;
-        assertThat(customUserDetails.getMember().getId()).isEqualTo(1L);
-        assertThat(customUserDetails.getMember().getNickname()).isEqualTo("testUser");
+        assertThat(customUserDetails.getMemberId()).isEqualTo(1L);
+        assertThat(customUserDetails.getEmail()).isEqualTo("user@test.com");
     }
 
     @Test

@@ -27,7 +27,7 @@ public class MyPageController {
 
     @GetMapping
     public String myPage(@AuthenticationPrincipal CustomUserDetails userDetails, Model model) {
-        Long memberId = userDetails != null ? userDetails.getMember().getId() : null;
+        Long memberId = userDetails != null ? userDetails.getMemberId() : null;
         if (memberId == null) {
             return "redirect:/auth/login?redirect=/mypage";
         }
@@ -63,7 +63,7 @@ public class MyPageController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
         Map<String, Object> result = new HashMap<>();
-        Long memberId = userDetails != null ? userDetails.getMember().getId() : null;
+        Long memberId = userDetails != null ? userDetails.getMemberId() : null;
 
         if (memberId == null) {
             result.put("success", false);
@@ -83,7 +83,7 @@ public class MyPageController {
     @GetMapping("/badges/new")
     @ResponseBody
     public ResponseEntity<List<Map<String, Object>>> getNewBadges(@AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long memberId = userDetails != null ? userDetails.getMember().getId() : null;
+        Long memberId = userDetails != null ? userDetails.getMemberId() : null;
 
         if (memberId == null) {
             return ResponseEntity.ok(List.of());
@@ -115,7 +115,7 @@ public class MyPageController {
     @ResponseBody
     public ResponseEntity<Map<String, Object>> markBadgesAsRead(@AuthenticationPrincipal CustomUserDetails userDetails) {
         Map<String, Object> result = new HashMap<>();
-        Long memberId = userDetails != null ? userDetails.getMember().getId() : null;
+        Long memberId = userDetails != null ? userDetails.getMemberId() : null;
 
         if (memberId == null) {
             result.put("success", false);

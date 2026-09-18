@@ -170,7 +170,7 @@ public class AuthController {
     @GetMapping("/password-reset")
     public String passwordResetPage(@AuthenticationPrincipal CustomUserDetails userDetails, Model model) {
         // 로그인 상태면 본인 이메일로 고정. 비밀번호는 단방향 해시라 "찾기"는 불가능하고 재설정만 가능하다.
-        model.addAttribute("email", userDetails != null ? userDetails.getMember().getEmail() : null);
+        model.addAttribute("email", userDetails != null ? userDetails.getEmail() : null);
         return "client/auth/password-reset";
     }
 
@@ -246,7 +246,7 @@ public class AuthController {
         Map<String, Object> result = new HashMap<>();
 
         if (userDetails != null) {
-            Member member = userDetails.getMember();
+            Member member = memberService.findLoginMember(userDetails);
             result.put("isLoggedIn", true);
             result.put("memberId", member.getId());
             result.put("nickname", member.getNickname());

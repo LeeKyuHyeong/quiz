@@ -10,6 +10,7 @@ import com.kh.game.repository.GameRoomParticipantRepository;
 import com.kh.game.repository.GameSessionRepository;
 import com.kh.game.repository.MemberLoginHistoryRepository;
 import com.kh.game.repository.MemberRepository;
+import com.kh.game.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -97,6 +98,17 @@ public class MemberService {
 
     public Optional<Member> findById(Long id) {
         return memberRepository.findById(id);
+    }
+
+    /**
+     * 로그인 주체의 회원을 DB 에서 읽는다. 주체(CustomUserDetails)는 식별·권한 값만 들고 있다.
+     * @return 비로그인이면 null
+     */
+    public Member findLoginMember(CustomUserDetails userDetails) {
+        if (userDetails == null) {
+            return null;
+        }
+        return memberRepository.findById(userDetails.getMemberId()).orElseThrow();
     }
 
     public Member save(Member member) {

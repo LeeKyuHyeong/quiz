@@ -348,7 +348,7 @@ public class RankingController {
     public ResponseEntity<Map<String, Object>> getMyBest30Ranking(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        Long memberId = userDetails != null ? userDetails.getMember().getId() : null;
+        Long memberId = userDetails != null ? userDetails.getMemberId() : null;
         Map<String, Object> result = new HashMap<>();
 
         if (memberId == null) {
@@ -421,7 +421,7 @@ public class RankingController {
     public ResponseEntity<Map<String, Object>> getMyRanking(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        Long memberId = userDetails != null ? userDetails.getMember().getId() : null;
+        Long memberId = userDetails != null ? userDetails.getMemberId() : null;
         Map<String, Object> result = new HashMap<>();
 
         if (memberId == null) {

@@ -181,7 +181,7 @@ public class AdminMemberController {
                 memberSessionService.expireSessions(id);
             }
             log.info("Admin status change: actorId={}, targetId={}, newStatus={}",
-                    actor.getMember().getId(), id, status);
+                    actor.getMemberId(), id, status);
             result.put("success", true);
             result.put("message", "상태가 변경되었습니다.");
         } catch (IllegalArgumentException e) {
@@ -202,11 +202,11 @@ public class AdminMemberController {
                                                           @AuthenticationPrincipal CustomUserDetails actor) {
         Map<String, Object> result = new HashMap<>();
         try {
-            memberService.updateRoleSafely(id, Member.MemberRole.valueOf(role), actor.getMember().getId());
+            memberService.updateRoleSafely(id, Member.MemberRole.valueOf(role), actor.getMemberId());
             // 권한은 로그인 시점 값으로 계산된다 — 다시 로그인해야 새 권한이 적용된다
             memberSessionService.expireSessions(id);
             log.info("Admin role change: actorId={}, targetId={}, newRole={}",
-                    actor.getMember().getId(), id, role);
+                    actor.getMemberId(), id, role);
             result.put("success", true);
             result.put("message", "권한이 변경되었습니다.");
         } catch (BusinessException e) {
@@ -231,7 +231,7 @@ public class AdminMemberController {
         try {
             memberService.resetWeeklyStats(id);
             log.info("Admin weekly stats reset: actorId={}, targetId={}",
-                    actor.getMember().getId(), id);
+                    actor.getMemberId(), id);
             result.put("success", true);
             result.put("message", "주간 통계가 초기화되었습니다.");
         } catch (Exception e) {
@@ -248,10 +248,10 @@ public class AdminMemberController {
                                                              @AuthenticationPrincipal CustomUserDetails actor) {
         Map<String, Object> result = new HashMap<>();
         try {
-            memberService.issueTemporaryPassword(actor.getMember().getId(), id);
+            memberService.issueTemporaryPassword(actor.getMemberId(), id);
             memberSessionService.expireSessions(id);
             log.info("Admin password reset: actorId={}, targetId={}",
-                    actor.getMember().getId(), id);
+                    actor.getMemberId(), id);
             result.put("success", true);
             result.put("message", "임시 비밀번호를 회원 이메일로 발송했습니다. 기존 로그인 세션은 종료됩니다.");
         } catch (BusinessException e) {
@@ -273,7 +273,7 @@ public class AdminMemberController {
         try {
             memberSessionService.expireSessions(id);
             log.info("Admin session kick: actorId={}, targetId={}",
-                    actor.getMember().getId(), id);
+                    actor.getMemberId(), id);
             result.put("success", true);
             result.put("message", "세션이 강제 종료되었습니다.");
         } catch (Exception e) {

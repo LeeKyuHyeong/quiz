@@ -174,7 +174,12 @@ public class AdminMemberController {
                                                             @AuthenticationPrincipal CustomUserDetails actor) {
         Map<String, Object> result = new HashMap<>();
         try {
-            memberService.updateStatus(id, Member.MemberStatus.valueOf(status));
+            Member.MemberStatus newStatus = Member.MemberStatus.valueOf(status);
+            memberService.updateStatus(id, newStatus);
+            // 로그인 주체는 로그인 시점의 상태를 들고 있다 — 세션을 끊지 않으면 정지된 회원이 계속 이용한다
+            if (newStatus != Member.MemberStatus.ACTIVE) {
+                memberSessionService.expireSessions(id);
+            }
             log.info("Admin status change: actorId={}, targetId={}, newStatus={}",
                     actor.getMember().getId(), id, status);
             result.put("success", true);
@@ -198,6 +203,8 @@ public class AdminMemberController {
         Map<String, Object> result = new HashMap<>();
         try {
             memberService.updateRoleSafely(id, Member.MemberRole.valueOf(role), actor.getMember().getId());
+            // 권한은 로그인 시점 값으로 계산된다 — 다시 로그인해야 새 권한이 적용된다
+            memberSessionService.expireSessions(id);
             log.info("Admin role change: actorId={}, targetId={}, newRole={}",
                     actor.getMember().getId(), id, role);
             result.put("success", true);

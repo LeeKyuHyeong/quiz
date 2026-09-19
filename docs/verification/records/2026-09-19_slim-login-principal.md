@@ -2,7 +2,7 @@
 - 일자: 2026-09-19
 - 유형: 리팩토링 (+ 잠복 버그 1건)
 - 우선순위: P0 (인증 — 로그인한 모든 요청이 거치는 객체)
-- 판정: 조건부 — 자동 검증·로그인 상태 화면 확인 ✅, 운영 배포 후 Smoke 만 ⬜
+- 판정: 수용 가능 — 자동 검증·화면 확인·배포 Smoke ✅
 
 ## 1. 요청과 목적
 - 사용자가 원한 것: 세션을 외부 저장소(Redis)로 옮기기 전에, 세션에 실리는 로그인 주체를 정리한다.
@@ -46,7 +46,7 @@
 | Integration | `./mvnw test -Dtest=LoginPrincipalContentTest` | 3 passed. 수정 전 3건 실패 확인(직렬화 불가 2, 옛 닉네임 1) | ✅ |
 | 로컬 실행 | dev 프로파일을 18082 로 기동 → curl 로 비로그인 화면 9개 200·`/mypage` 302, 설정 화면의 `memberNickname = null` 확인 | 통과 | ✅ |
 | 사용자 시나리오 | 아래 6번 — 개발자가 dev 에서 직접 수행 (2026-09-19) | 4건 모두 기대대로 | ✅ |
-| 배포 후 Smoke | 미배포 | — | ⬜ |
+| 배포 후 Smoke | 2026-09-19 `0946f01` 배포 (Actions run 35409156181: CI 402 passed → green 헬스체크 통과 → upstream 전환). 외부 확인(브라우저 UA·GET): `/`·`/game/solo/guess`·`/board`·`/stats`·`/auth/login` 200, `/mypage` 302→로그인, `/auth/validate-session` `NOT_LOGGED_IN`, `/actuator/health` 403(nginx 차단), `/ws/websocket` 101, 새 JS 서빙(`_startKeepAlive`·`wasLoggedIn`) | 통과 | ✅ |
 
 ## 6. 수동 확인 시나리오
 [전제] dev 서버를 **다시 기동**한다(이전에 띄워 둔 8082 서버는 옛 클래스 + 새 템플릿이 섞인 상태).
@@ -65,7 +65,6 @@
 - 작성한 테스트의 단언이 과했다: `com.kh.game.entity` 문자열 전체를 금지했더니 `Member` 안에 선언된 enum(`MemberRole`·`MemberStatus`) 이름에 걸렸다 → 엔티티 클래스 인스턴스만 금지하는 패턴으로 좁힘
 
 ## 9. 미검증 영역과 남은 위험
-- 운영 배포 후 Smoke (⬜, O-010 과 함께)
 - `serialVersionUID = 1L` — 세션을 Redis 에 두게 되면 주체 필드 변경 시 기존 세션 역직렬화 실패를 어떻게 다룰지 정해야 한다 (Redis 작업에서)
 
 ## 10. Regression 등록

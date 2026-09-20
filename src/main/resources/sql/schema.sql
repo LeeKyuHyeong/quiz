@@ -535,6 +535,8 @@ CREATE TABLE `member` (
   `max_login_streak` int(11) DEFAULT 0,
   `last_login_date` date DEFAULT NULL,
   `last_game_played_at` datetime DEFAULT NULL,
+  `login_fail_count` int(11) NOT NULL DEFAULT 0,
+  `login_locked_until` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_member_email` (`email`),
   KEY `selected_badge_id` (`selected_badge_id`),

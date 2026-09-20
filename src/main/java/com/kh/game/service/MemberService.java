@@ -222,6 +222,8 @@ public class MemberService {
         Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new BusinessException("가입되지 않은 이메일입니다."));
         member.setPassword(passwordEncoder.encode(newPassword));
+        // 메일 인증을 거친 본인이므로 로그인 실패 잠금도 함께 푼다
+        memberRepository.resetLoginFailures(member.getId());
         return member;
     }
 
@@ -284,6 +286,7 @@ public class MemberService {
         memberRepository.save(member);
 
         loginHistoryRepository.save(MemberLoginHistory.success(member, ipAddress, userAgent));
+        memberRepository.resetLoginFailures(member.getId());
 
         return member;
     }
@@ -301,6 +304,7 @@ public class MemberService {
         memberRepository.save(member);
 
         loginHistoryRepository.save(MemberLoginHistory.success(member, ipAddress, userAgent));
+        memberRepository.resetLoginFailures(memberId);
     }
 
     // ========== 게임 결과 ==========

@@ -32,6 +32,7 @@ public class EmailVerificationService {
     private static final int CODE_TTL_MINUTES = 5;
     public static final int VERIFICATION_VALID_MINUTES = 10;
     private static final int MAX_ATTEMPTS = 5;
+    private static final int RESEND_COOLDOWN_SECONDS = 60;
     private static final SecureRandom RANDOM = new SecureRandom();
 
     /** 회원가입용 — 아직 가입되지 않은 이메일에만 보낸다. */
@@ -57,6 +58,16 @@ public class EmailVerificationService {
     }
 
     private void issueCode(String email, String screenName) {
+        // 재발송 간격. 발급 시각(DB) 기준이라 IP 요청 제한과 무관하게 걸린다 — 없으면 같은 주소로 메일을 계속 보내게 할 수 있고,
+        // 재발급이 기존 코드를 지우므로 코드당 시도 횟수 제한(MAX_ATTEMPTS)도 함께 초기화된다.
+        verificationRepository.findFirstByEmailOrderByCreatedAtDesc(email).ifPresent(last -> {
+            long elapsed = java.time.Duration.between(last.getCreatedAt(), java.time.LocalDateTime.now()).getSeconds();
+            if (elapsed < RESEND_COOLDOWN_SECONDS) {
+                throw new BusinessException("인증 메일은 " + RESEND_COOLDOWN_SECONDS + "초에 한 번만 보낼 수 있습니다. "
+                        + (RESEND_COOLDOWN_SECONDS - elapsed) + "초 뒤에 다시 시도해주세요.");
+            }
+        });
+
         verificationRepository.deleteAllByEmail(email);
 
         String code = generateCode();

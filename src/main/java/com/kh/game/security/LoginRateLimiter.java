@@ -14,6 +14,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 로그인 관련 엔드포인트의 IP 기반 Rate Limiting
@@ -27,12 +28,23 @@ import java.util.concurrent.TimeUnit;
  * - IP당 분당 N회 제한
  * - 토큰 버킷 알고리즘 (bucket4j)
  * - 메모리 기반 (단일 서버 환경. 멀티 서버는 Redis 백엔드로 전환 필요)
+ * - 10분 넘게 쓰이지 않은 IP 의 버킷은 지운다
  */
 @Slf4j
 @Component
 public class LoginRateLimiter {
 
     private final ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>();
+
+    /**
+     * IP 별 마지막 사용 시각(nanoTime). 오래 쓰이지 않은 버킷을 지우는 기준이다 — 지우지 않으면 접속한 IP 수만큼 계속 쌓인다.
+     * 버킷은 1분이면 가득 차므로, 10분 쉰 버킷을 지우고 새로 만들어도 제한 결과는 같다.
+     */
+    private final ConcurrentHashMap<String, Long> lastUsed = new ConcurrentHashMap<>();
+    private final AtomicLong lastEviction = new AtomicLong(System.nanoTime());
+
+    private static final long IDLE_NANOS = TimeUnit.MINUTES.toNanos(10);
+    private static final long EVICTION_INTERVAL_NANOS = TimeUnit.MINUTES.toNanos(1);
 
     /**
      * 분당 허용 요청 수
@@ -70,21 +82,12 @@ public class LoginRateLimiter {
     }
 
     /**
-     * 클라이언트 IP 주소를 요청에서 추출
-     * - X-Forwarded-For (프록시/로드밸런서 뒤) 우선
-     * - 없으면 remoteAddr
+     * 클라이언트 IP. 프록시 헤더를 직접 읽지 않는다 — X-Forwarded-For 의 앞쪽 값은 클라이언트가 마음대로 넣을 수 있고
+     * (nginx 는 받은 헤더 뒤에 실제 IP 를 덧붙인다), 그 값을 쓰면 요청마다 헤더를 바꿔 제한을 피할 수 있다.
+     * 운영은 server.forward-headers-strategy=native 라 Tomcat(RemoteIpValve)이 헤더를 오른쪽부터 읽어
+     * 내부 프록시를 건너뛴 실제 IP 를 getRemoteAddr() 에 넣어 준다.
      */
     public static String resolveClientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            // 첫 번째 IP가 실제 클라이언트
-            int comma = forwarded.indexOf(',');
-            return (comma > 0 ? forwarded.substring(0, comma) : forwarded).trim();
-        }
-        String realIp = request.getHeader("X-Real-IP");
-        if (realIp != null && !realIp.isBlank()) {
-            return realIp.trim();
-        }
         return request.getRemoteAddr();
     }
 
@@ -104,11 +107,17 @@ public class LoginRateLimiter {
      * 요청 시도. 허용되면 true, 한도 초과면 false.
      */
     public boolean tryAcquire(String ip) {
+        return tryAcquire(ip, System.nanoTime());
+    }
+
+    boolean tryAcquire(String ip, long nowNanos) {
         if (isWhitelisted(ip)) {
             log.debug("[RateLimit] IP={} 화이트리스트 통과", ip);
             return true;
         }
 
+        evictIdleBuckets(nowNanos);
+        lastUsed.put(ip, nowNanos);
         Bucket bucket = resolveBucket(ip);
         ConsumptionProbe probe = bucket.tryConsumeAndReturnRemaining(1);
 
@@ -122,5 +131,22 @@ public class LoginRateLimiter {
         log.warn("[RateLimit] IP={} 차단 (한도 초과, 다음 토큰까지 {}초 대기 필요)",
                 ip, waitSeconds);
         return false;
+    }
+
+    /** 요청 처리 중에 1분에 한 번만 돈다 — 별도 스케줄러를 두지 않는다. */
+    private void evictIdleBuckets(long nowNanos) {
+        long last = lastEviction.get();
+        if (nowNanos - last < EVICTION_INTERVAL_NANOS || !lastEviction.compareAndSet(last, nowNanos)) {
+            return;
+        }
+        lastUsed.forEach((ip, usedAt) -> {
+            if (nowNanos - usedAt > IDLE_NANOS && lastUsed.remove(ip, usedAt)) {
+                buckets.remove(ip);
+            }
+        });
+    }
+
+    int bucketCount() {
+        return buckets.size();
     }
 }

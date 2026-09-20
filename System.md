@@ -207,7 +207,7 @@ CustomAuthenticationSuccessHandler
 | XSS | `th:text` (자동 이스케이프), `textContent` |
 | CSRF | 모든 POST에 CSRF 토큰 필수 |
 | IDOR | Service 레벨에서 소유권 검증 |
-| Brute Force / Bot | `LoginRateLimiter` — bucket4j 기반 IP별 분당 20회 토큰 버킷 + 화이트리스트. 로그인 실패 메시지 일반화 |
+| Brute Force / Bot | `LoginRateLimiter` — bucket4j 기반 IP별 분당 20회 토큰 버킷 + 화이트리스트(IP 는 `getRemoteAddr()`, 위조 헤더 무시). `LoginAttemptService` — 계정당 연속 5회 실패 시 5분 잠금(DB, 확인·증가를 한 UPDATE 로). 인증 메일 주소당 60초 간격. 로그인 실패 메시지 일반화 |
 | 가짜 이메일 가입 | 회원가입 전 6자리 이메일 인증(`EmailVerificationService`). 코드 TTL 5분, 인증 후 10분 내 가입 유효 |
 
 ### 5.4 이메일 인증 흐름

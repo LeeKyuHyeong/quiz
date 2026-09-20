@@ -2,6 +2,8 @@ package com.kh.game.controller.admin;
 
 import com.kh.game.entity.Member;
 import com.kh.game.security.CustomUserDetails;
+import com.kh.game.security.LoginRateLimiter;
+import com.kh.game.service.LoginAttemptService;
 import com.kh.game.service.MemberService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -14,12 +16,17 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import java.time.Duration;
+import java.util.Optional;
+
 @Controller
 @RequestMapping("/admin")
 @RequiredArgsConstructor
 public class AdminController {
 
     private final MemberService memberService;
+    private final LoginRateLimiter loginRateLimiter;
+    private final LoginAttemptService loginAttemptService;
 
     @GetMapping("/login")
     public String login(@AuthenticationPrincipal CustomUserDetails userDetails) {
@@ -36,8 +43,19 @@ public class AdminController {
                                HttpServletRequest request,
                                HttpSession session,
                                Model model) {
+        // 이 폼도 비밀번호를 검사한다 — /auth/login-process 와 같은 제한을 걸지 않으면 잠금을 피해 가는 경로가 된다
+        String ipAddress = LoginRateLimiter.resolveClientIp(request);
+        if (!loginRateLimiter.tryAcquire(ipAddress)) {
+            model.addAttribute("error", "요청이 너무 잦습니다. 잠시 후 다시 시도해주세요.");
+            return "admin/login";
+        }
+        Optional<Duration> locked = loginAttemptService.reserveAttempt(username);
+        if (locked.isPresent()) {
+            model.addAttribute("error", LoginAttemptService.lockedMessage(locked.get()));
+            return "admin/login";
+        }
+
         try {
-            String ipAddress = getClientIpAddress(request);
             String userAgent = request.getHeader("User-Agent");
 
             Member member = memberService.login(username, password, ipAddress, userAgent);
@@ -63,22 +81,5 @@ public class AdminController {
     public String logout(HttpSession session) {
         session.invalidate();
         return "redirect:/admin/login";
-    }
-
-    private String getClientIpAddress(HttpServletRequest request) {
-        String[] headerNames = {
-                "X-Forwarded-For", "Proxy-Client-IP", "WL-Proxy-Client-IP",
-                "HTTP_X_FORWARDED_FOR", "HTTP_X_FORWARDED", "HTTP_FORWARDED_FOR",
-                "HTTP_FORWARDED", "HTTP_CLIENT_IP", "HTTP_VIA", "REMOTE_ADDR"
-        };
-
-        for (String header : headerNames) {
-            String ip = request.getHeader(header);
-            if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
-                return ip.split(",")[0].trim();
-            }
-        }
-
-        return request.getRemoteAddr();
     }
 }

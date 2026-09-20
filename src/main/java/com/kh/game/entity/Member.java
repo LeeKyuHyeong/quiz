@@ -263,6 +263,16 @@ public class Member {
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 
+    // 연속 로그인 실패 횟수와 잠금 해제 시각. 값은 MemberRepository 의 UPDATE 쿼리로만 바꾼다(updatable = false) —
+    // 게임 결과 저장처럼 엔티티를 통째로 저장하는 곳이 동시에 늘어난 실패 횟수를 옛 값으로 덮어쓰지 않게 하려는 것이다.
+    @Setter(lombok.AccessLevel.NONE)
+    @Column(name = "login_fail_count", nullable = false, updatable = false)
+    private int loginFailCount = 0;
+
+    @Setter(lombok.AccessLevel.NONE)
+    @Column(name = "login_locked_until", updatable = false)
+    private LocalDateTime loginLockedUntil;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

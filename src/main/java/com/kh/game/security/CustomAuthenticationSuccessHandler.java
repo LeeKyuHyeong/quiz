@@ -25,27 +25,13 @@ public class CustomAuthenticationSuccessHandler implements AuthenticationSuccess
         Member member = memberService.findLoginMember(userDetails);
 
         // 로그인 이력 기록 및 lastLoginAt 갱신
-        String ipAddress = getClientIp(request);
+        String ipAddress = LoginRateLimiter.resolveClientIp(request);
         String userAgent = request.getHeader("User-Agent");
         memberService.recordLoginSuccess(member.getId(), ipAddress, userAgent);
 
         // JSON 응답 (프론트엔드 AJAX)
         response.setContentType("application/json;charset=UTF-8");
         response.getWriter().write("{\"success\":true,\"nickname\":\"" + escapeJson(member.getNickname()) + "\"}");
-    }
-
-    private String getClientIp(HttpServletRequest request) {
-        String ip = request.getHeader("X-Forwarded-For");
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("Proxy-Client-IP");
-        }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("WL-Proxy-Client-IP");
-        }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getRemoteAddr();
-        }
-        return ip;
     }
 
     private String escapeJson(String value) {

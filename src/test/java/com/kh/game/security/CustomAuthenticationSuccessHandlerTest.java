@@ -77,4 +77,15 @@ class CustomAuthenticationSuccessHandlerTest {
         verify(memberService).recordLoginSuccess(eq(1L), anyString(), eq("TestBrowser/1.0"));
     }
 
+    @Test
+    @DisplayName("로그인 이력의 IP 는 클라이언트가 보낸 X-Forwarded-For 값이 아니라 실제 접속 IP 다")
+    void onAuthenticationSuccess_ignoresClientSuppliedForwardedFor() throws Exception {
+        request.addHeader("X-Forwarded-For", "198.51.100.1");
+        request.setRemoteAddr("203.0.113.7");
+
+        handler.onAuthenticationSuccess(request, response, authentication);
+
+        verify(memberService).recordLoginSuccess(eq(1L), eq("203.0.113.7"), any());
+    }
+
 }

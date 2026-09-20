@@ -144,7 +144,7 @@ Spring Boot 3.4.1 + Java 17 + JPA + MariaDB 11.8 + Thymeleaf + STOMP/SockJS. `Co
 - **DataInitializer**: `count()==0`일 때 메뉴·금칙어·뱃지·팬 챌린지 단계 seed. 기본 admin·테스트 회원은 prod에서 생성 안 함.
 - **메일**: `BrevoMailClient` 한 곳(HTTPS, cafe24가 SMTP outbound 차단). 인증 코드·임시 비밀번호 모두 경유. `EmailVerificationService`는 가입·비밀번호 재설정 공용(`email_verification` 한 테이블).
 - **비밀번호**: BCrypt라 "찾기" 없음. 관리자 초기화(`/admin/member/reset-password/{id}`)는 12자 임시 비밀번호를 **메일 성공 후에만** 저장(본인 불가). 본인 재설정(`/auth/password-reset`)은 코드 인증 → 저장 → `MemberSessionService`로 세션 만료.
-- **LoginRateLimiter**: IP별 분당 20회(bucket4j), `X-Forwarded-For` 인식, 화이트리스트 `security.rate-limit.whitelist`. 로그인·가입·이메일 인증에 적용. **SecurityInputValidator**: 이메일 정규식 + SQLi 패턴 차단 → 400.
+- **LoginRateLimiter**: IP별 분당 20회(bucket4j), 화이트리스트 `security.rate-limit.whitelist`, 10분 유휴 버킷 제거. 로그인(`LoginAttemptFilter`·관리자 폼)·가입·이메일 인증에 적용. **클라이언트 IP 는 `resolveClientIp`(= `getRemoteAddr()`)만 쓴다 — 프록시 헤더를 직접 읽지 말 것**(운영은 `forward-headers-strategy=native`). **LoginAttemptService**: 계정당 연속 5회 실패 → 5분 잠금, `member.login_fail_count`·`login_locked_until` 은 쿼리로만 변경. 인증 메일은 주소당 60초에 한 번. **SecurityInputValidator**: 이메일 정규식 + SQLi 패턴 차단 → 400.
 - **티어**: Bronze→Challenger, 티어당 LP 0-100, ELO 기반 변동(순위·인원·상대 티어차). **뱃지**: 카테고리 BEGINNER/SCORE/VICTORY/STREAK/TIER/SPECIAL, 희귀도 COMMON/RARE/EPIC/LEGENDARY, `BadgeAwardBatch` 또는 `BadgeService`.
 - **배치 24개**: `BatchConfig` 테이블 cron으로 제어(`BatchService`가 기본값 seed). 정리 9 · 통계/랭킹 4 · 회원 4 · 곡 무결성 5 · 팬 챌린지 1 · 시스템 1. 목록은 `docs/architecture-reference.md`.
 - **게시판**: 카테고리 REQUEST/OPINION/QUESTION/FREE, 상태 ACTIVE/DELETED/HIDDEN.

@@ -4,6 +4,7 @@ import com.kh.game.entity.Member;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
@@ -301,4 +302,32 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
            "AND ((m.lastLoginAt IS NOT NULL AND m.lastLoginAt < :threshold) " +
            "OR (m.lastLoginAt IS NULL AND m.createdAt < :threshold))")
     List<Member> findInactiveMembers(@org.springframework.data.repository.query.Param("threshold") java.time.LocalDateTime threshold);
+
+    // ===== 로그인 실패 제한 =====
+    // 확인과 증가를 한 UPDATE 로 묶는다 — 따로 하면 동시에 몰린 요청이 모두 "아직 5회 미만" 을 보고 통과한다.
+
+    // 잠금 시간이 지난 계정은 횟수를 0 으로 되돌린다
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE Member m SET m.loginFailCount = 0, m.loginLockedUntil = NULL " +
+           "WHERE m.email = :email AND m.loginLockedUntil IS NOT NULL AND m.loginLockedUntil <= :now")
+    int releaseExpiredLoginLock(@org.springframework.data.repository.query.Param("email") String email,
+                                @org.springframework.data.repository.query.Param("now") java.time.LocalDateTime now);
+
+    // 시도 1회를 미리 센다(성공하면 0 으로 되돌린다). 한도에 닿는 시도에서 잠금 시각을 함께 기록한다. 반환 1 = 시도 허용
+    // SET 순서 주의: MariaDB 는 왼쪽부터 대입하고 뒤 항목이 바뀐 값을 본다 — 잠금 시각을 횟수보다 먼저 계산해야 한다
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE Member m SET m.loginLockedUntil = CASE WHEN m.loginFailCount + 1 >= :limit THEN :lockedUntil ELSE m.loginLockedUntil END, " +
+           "m.loginFailCount = m.loginFailCount + 1 " +
+           "WHERE m.email = :email AND m.status = 'ACTIVE' AND m.loginFailCount < :limit")
+    int reserveLoginAttempt(@org.springframework.data.repository.query.Param("email") String email,
+                            @org.springframework.data.repository.query.Param("limit") int limit,
+                            @org.springframework.data.repository.query.Param("lockedUntil") java.time.LocalDateTime lockedUntil);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE Member m SET m.loginFailCount = 0, m.loginLockedUntil = NULL " +
+           "WHERE m.id = :id AND (m.loginFailCount > 0 OR m.loginLockedUntil IS NOT NULL)")
+    int resetLoginFailures(@org.springframework.data.repository.query.Param("id") Long id);
+
+    @Query("SELECT m.loginLockedUntil FROM Member m WHERE m.email = :email")
+    Optional<java.time.LocalDateTime> findLoginLockedUntil(@org.springframework.data.repository.query.Param("email") String email);
 }

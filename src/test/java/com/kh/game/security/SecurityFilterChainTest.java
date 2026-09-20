@@ -81,6 +81,17 @@ class SecurityFilterChainTest {
         public CustomAuthenticationFailureHandler failureHandler() {
             return new CustomAuthenticationFailureHandler();
         }
+
+        // SecurityConfig 가 로그인 요청 필터(LoginAttemptFilter)에 넘기는 의존성
+        @Bean
+        public LoginRateLimiter loginRateLimiter() {
+            return new LoginRateLimiter();
+        }
+
+        @Bean
+        public com.kh.game.service.LoginAttemptService loginAttemptService() {
+            return mock(com.kh.game.service.LoginAttemptService.class);
+        }
     }
 
     @BeforeEach

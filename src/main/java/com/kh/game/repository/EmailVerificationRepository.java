@@ -19,6 +19,9 @@ public interface EmailVerificationRepository extends JpaRepository<EmailVerifica
     // 해당 이메일의 최신 인증 완료 레코드 조회 (register 단계)
     Optional<EmailVerification> findFirstByEmailAndVerifiedTrueOrderByVerifiedAtDesc(String email);
 
+    // 해당 이메일로 마지막에 발급한 레코드 (재발송 간격 확인)
+    Optional<EmailVerification> findFirstByEmailOrderByCreatedAtDesc(String email);
+
     // 이메일별 기존 레코드 삭제 (코드 재발급 시)
     @Modifying
     @Query("DELETE FROM EmailVerification ev WHERE ev.email = :email")

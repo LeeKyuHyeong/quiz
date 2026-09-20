@@ -2,8 +2,11 @@ package com.kh.game.config;
 
 import com.kh.game.security.CustomAuthenticationFailureHandler;
 import com.kh.game.security.CustomAuthenticationSuccessHandler;
+import com.kh.game.security.LoginAttemptFilter;
+import com.kh.game.security.LoginRateLimiter;
 import com.kh.game.security.SessionCheckFilter;
 import com.kh.game.security.SessionExpiredHandler;
+import com.kh.game.service.LoginAttemptService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,6 +19,7 @@ import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
@@ -29,6 +33,8 @@ public class SecurityConfig {
 
     private final CustomAuthenticationSuccessHandler successHandler;
     private final CustomAuthenticationFailureHandler failureHandler;
+    private final LoginRateLimiter loginRateLimiter;
+    private final LoginAttemptService loginAttemptService;
 
     @Bean
     public SessionRegistry sessionRegistry() {
@@ -120,7 +126,9 @@ public class SecurityConfig {
                         .expiredSessionStrategy(new SessionExpiredHandler())
                         .sessionRegistry(sessionRegistry())
                 )
-                .httpBasic(basic -> basic.disable());
+                .httpBasic(basic -> basic.disable())
+                .addFilterBefore(new LoginAttemptFilter(loginRateLimiter, loginAttemptService),
+                        UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

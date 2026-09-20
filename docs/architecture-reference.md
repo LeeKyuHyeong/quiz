@@ -65,7 +65,7 @@ Controller (MVC + REST) → Service (Business Logic) → Repository (JPA) → Ma
 - **BrevoMailClient** - **Brevo Transactional Email API**(HTTPS) 호출 한 곳. cafe24가 SMTP 포트(25/465/587) outbound를 차단해 Gmail SMTP 대신 도입. `RestClient`로 호출하며 4xx/5xx/네트워크 에러를 분리 처리. 인증 코드·임시 비밀번호 메일이 모두 여기를 거침
 - **MemberSessionService** - `SessionRegistry`로 특정 회원의 로그인 세션을 만료. 관리자 세션 강제 종료·비밀번호 초기화·재설정 뒤 호출
 - **비밀번호 초기화/재설정** - 비밀번호는 BCrypt 단방향이라 "찾기"는 없다. 관리자 초기화(`/admin/member/reset-password/{id}`)는 12자 임시 비밀번호를 **메일 발송 성공 후에만** 저장(본인 계정 불가). 본인 재설정(`/auth/password-reset`, 로그인 불필요)은 이메일 코드 인증 → 새 비밀번호 저장 → 세션 만료
-- **LoginRateLimiter** - IP별 토큰 버킷(bucket4j) 기반 분당 20회 제한. `X-Forwarded-For`/`X-Real-IP` 헤더 인식, 화이트리스트 IP 지원(`security.rate-limit.whitelist`). 로그인/회원가입/이메일 인증 엔드포인트에 적용
+- **LoginRateLimiter** - IP별 토큰 버킷(bucket4j) 기반 분당 20회 제한. 클라이언트 IP 는 `getRemoteAddr()`(프록시 헤더는 Tomcat 이 해석), 10분 유휴 버킷 제거, 화이트리스트 IP 지원(`security.rate-limit.whitelist`). 로그인/회원가입/이메일 인증 엔드포인트에 적용
 - **SecurityInputValidator** - 이메일 정규식 검증 + SQLi 페이로드 패턴 차단(SLEEP, BENCHMARK, DBMS_PIPE, WAITFOR, UNION SELECT, XOR, %2527 등). 위반 시 `IllegalArgumentException` → 400 응답
 
 ### Tier System (Multiplayer)

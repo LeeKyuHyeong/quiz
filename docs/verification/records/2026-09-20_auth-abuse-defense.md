@@ -36,7 +36,7 @@
 | A2-8 | 노출 | 없는 이메일은 몇 번을 시도해도 같은 일반 문구 | ✅ | `#unknownEmail_neverRevealsLockState` |
 | A2-9 | 경계 | 동시에 16건을 보내도 비밀번호 검사까지 가는 시도는 5건 | ✅ | `#parallelAttempts_cannotExceedTheLimit` (H2) |
 | A2-10 | 권한 | `/admin/login-process` 도 같은 잠금·같은 횟수를 따른다 | ✅ | `#adminLoginForm_honorsTheLock`, `#adminLoginForm_failuresCount` |
-| A2-11 | 정상 | **MariaDB 에서도** 정확히 5번째 실패 뒤에 잠긴다 (UPDATE 의 SET 대입 순서가 H2 와 다름) | 🙋 | §6-2. H2 로는 확인 불가 |
+| A2-11 | 정상 | **MariaDB 에서도** 정확히 5번째 실패 뒤에 잠긴다 (UPDATE 의 SET 대입 순서가 H2 와 다름) | ✅ | 로컬 MariaDB dev(18082) 2026-09-20: `a@a.com` 에 틀린 비밀번호 7회 → 1~5회 일반 문구, 6·7회 잠금 문구. `/admin/login-process` 도 잠금 문구 |
 | A2-12 | 정상 | 로그인 화면에 잠금·429 안내 문구가 보인다 | 🙋 | §6-3 |
 | A3-1 | 예외 | 60초 안의 재요청은 메일을 보내지 않고 남은 초를 안내, 기존 코드·시도 횟수 유지 | ✅ | `EmailVerificationCooldownTest#resendWithinCooldown_*` |
 | A3-2 | 정상 | 60초가 지나면 새 코드로 재발송 | ✅ | `#resendAfterCooldown_isAllowed` |
@@ -72,7 +72,7 @@
 |---|---|---|---|
 | 재현(수정 전) | 새 테스트 5개 클래스 실행 | 11건 실패: IP 위조 200, 로그인 21번째 200, 5회 실패 뒤 로그인 성공, 관리자 폼으로 성공 이력 생성, 동시 시도 무제한, 쿨다운 없음, 버킷 미제거 | ✅ |
 | 빌드 + 전체 회귀 | `./mvnw clean test` | 421 passed (402 + 신규 19), 0 failed | ✅ |
-| 로컬 MariaDB | §6-1·6-2 | — | 🙋 |
+| 로컬 MariaDB | 개발자 ALTER(§6-1) 후 dev 18082 기동, curl 로 틀린 비밀번호 7회 + 관리자 폼 1회 | 5회까지 일반 문구 → 6회부터 잠금 문구, 관리자 폼도 잠금 | ✅ |
 | 사용자 시나리오 | §6-3 | — | 🙋 |
 | 운영 반영·Smoke | §6-4 | — | 🙋 |
 
@@ -83,7 +83,7 @@
 [기대] `SHOW COLUMNS FROM member LIKE 'login_%';` 에 2행 — `login_fail_count int NOT NULL 기본 0`, `login_locked_until datetime NULL`.
 
 ### 6-2. MariaDB 에서 잠금 시점 확인 (에이전트 — 6-1 뒤에 실행, 틀린 비밀번호만 보내므로 비밀번호 불필요)
-dev 를 18082 로 기동 → `/auth/login` 에서 CSRF 토큰·쿠키를 받아 `test6@test.com` 에 틀린 비밀번호 6회.
+dev 를 18082 로 기동 → `/auth/login` 에서 CSRF 토큰·쿠키를 받아 로컬 DB 에 **실제로 있는** 계정에 틀린 비밀번호 6회. (로컬 DB 에는 `test1~6` 이 없었다 — 없는 이메일은 잠기지 않는 것이 정상 동작이라 처음에는 잠금이 안 걸린 것처럼 보였다. `/auth/check-email` 로 존재 여부를 먼저 확인할 것. 2026-09-20 은 `a@a.com` 사용)
 [기대] 1~5회 "이메일 또는 비밀번호가 일치하지 않습니다.", 6회 "…로그인이 잠겼습니다. 5분 뒤에…". DB `login_fail_count = 5`, `login_locked_until` ≈ 5번째 시각 + 5분.
 [실패 모양] 5회째에 이미 잠금 문구가 나오면 SET 대입 순서 문제 → UPDATE 를 고쳐야 한다.
 - dev 는 접속 주소가 127.0.0.1(화이트리스트)이라 IP 제한은 이 절차로 볼 수 없다 — 계정 잠금만 확인.

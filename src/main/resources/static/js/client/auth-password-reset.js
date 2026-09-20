@@ -91,7 +91,8 @@ sendCodeBtn.addEventListener('click', async () => {
             setHint(emailHint, '메일을 확인하고 6자리 코드를 입력해주세요. (5분 내 유효)', 'success');
             codeGroup.classList.remove('hidden');
             verifyCodeEl.focus();
-            startResendCooldown(30);
+            // 서버의 재발송 간격(EmailVerificationService.RESEND_COOLDOWN_SECONDS = 60)과 같아야 한다 — 짧으면 버튼은 눌리는데 서버가 거부한다
+            startResendCooldown(60);
         } else {
             setHint(emailHint, result.message || '코드 발송에 실패했습니다.', 'error');
             sendCodeBtn.disabled = false;

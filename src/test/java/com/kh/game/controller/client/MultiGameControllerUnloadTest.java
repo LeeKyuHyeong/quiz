@@ -33,6 +33,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 실을 수 없어 CsrfFilter 가 403 으로 막았다. 탭을 닫은 방장의 방이 로비에 남고 위임도 일어나지 않았다
  * (2026-09-16 발견). 새 /unload 는 CSRF 예외이며 즉시 나가지 않고 유예 뒤에 적용한다 — 새로고침이나
  * 대기실→플레이 같은 게임 내 이동은 다음 페이지 GET 이 유예 중인 나가기를 취소한다.
+ * 2026-09-21: 신호는 페이지 토큰을 실어야 받는다(최신 페이지만) — 아래 테스트는 대기실을 열어 받은 토큰으로 보낸다.
+ * 토큰·순서 규칙 자체는 MultiGameControllerUnloadTokenTest.
  *
  * 지연 처리가 스케줄러 스레드에서 별도 트랜잭션으로 돌므로 이 테스트는 @Transactional 을 쓰지 않고 직접 정리한다.
  */
@@ -106,6 +108,14 @@ class MultiGameControllerUnloadTest {
         Thread.sleep(graceMs * 4);
     }
 
+    /** 대기실을 열고 그 페이지의 언로드 토큰을 돌려준다 (브라우저의 pagehide 신호가 싣는 값). */
+    private String openWaitingRoom(Member member) throws Exception {
+        return (String) mockMvc.perform(get("/game/multi/room/" + room.getRoomCode())
+                        .with(user(new CustomUserDetails(member))))
+                .andExpect(status().isOk())
+                .andReturn().getModelAndView().getModel().get("unloadToken");
+    }
+
     @Test
     @DisplayName("sendBeacon 처럼 CSRF 토큰 없이 보내도 200 이고, 즉시 나가지는 않는다")
     void unload_withoutCsrf_isAcceptedAndDeferred() throws Exception {
@@ -119,7 +129,9 @@ class MultiGameControllerUnloadTest {
     @Test
     @DisplayName("유예 시간이 지나면 나가기가 적용된다")
     void unload_appliesLeaveAfterGrace() throws Exception {
+        String token = openWaitingRoom(guest);
         mockMvc.perform(post("/game/multi/room/" + room.getRoomCode() + "/unload")
+                        .param("token", token)
                         .with(user(new CustomUserDetails(guest))))
                 .andExpect(status().isOk());
 
@@ -131,7 +143,9 @@ class MultiGameControllerUnloadTest {
     @Test
     @DisplayName("유예 중에 대기실 페이지를 다시 열면(새로고침) 나가기가 취소된다")
     void unload_isCancelledByReopeningWaitingRoom() throws Exception {
+        String token = openWaitingRoom(guest);
         mockMvc.perform(post("/game/multi/room/" + room.getRoomCode() + "/unload")
+                        .param("token", token)
                         .with(user(new CustomUserDetails(guest))))
                 .andExpect(status().isOk());
 
@@ -147,7 +161,9 @@ class MultiGameControllerUnloadTest {
     @Test
     @DisplayName("방장이 탭을 닫으면 유예 뒤 남은 참가자에게 방장이 넘어간다")
     void hostUnload_delegatesAfterGrace() throws Exception {
+        String token = openWaitingRoom(host);
         mockMvc.perform(post("/game/multi/room/" + room.getRoomCode() + "/unload")
+                        .param("token", token)
                         .with(user(new CustomUserDetails(host))))
                 .andExpect(status().isOk());
 

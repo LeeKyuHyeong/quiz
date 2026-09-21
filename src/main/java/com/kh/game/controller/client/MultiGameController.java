@@ -252,8 +252,8 @@ public class MultiGameController {
             return "redirect:/game/multi?error=notfound";
         }
 
-        // 페이지 재진입(새로고침·플레이→대기실 복귀)은 언로드로 예약된 나가기를 취소한다
-        roomUnloadService.cancelLeave(roomCode, memberId);
+        // 페이지 재진입(새로고침·플레이→대기실 복귀)은 언로드로 예약된 나가기를 취소하고, 이전 페이지의 신호를 무효로 만든다
+        String unloadToken = roomUnloadService.issuePageToken(roomCode, memberId);
 
         // 게임중이면 플레이 페이지로
         if (room.getStatus() == GameRoom.RoomStatus.PLAYING) {
@@ -326,6 +326,7 @@ public class MultiGameController {
         if (filterInfo != null) {
             model.addAttribute("filterInfo", filterInfo);
         }
+        model.addAttribute("unloadToken", unloadToken);
 
         return "client/game/multi/waiting";
     }
@@ -352,8 +353,8 @@ public class MultiGameController {
             return "redirect:/game/multi?error=notfound";
         }
 
-        // 대기실→플레이 이동·새로고침은 언로드로 예약된 나가기를 취소한다
-        roomUnloadService.cancelLeave(roomCode, memberId);
+        // 대기실→플레이 이동·새로고침은 언로드로 예약된 나가기를 취소하고, 이전 페이지의 신호를 무효로 만든다
+        String unloadToken = roomUnloadService.issuePageToken(roomCode, memberId);
 
         // 게임중이 아니면 대기실로
         if (room.getStatus() != GameRoom.RoomStatus.PLAYING) {
@@ -369,6 +370,7 @@ public class MultiGameController {
         model.addAttribute("room", room);
         model.addAttribute("member", member);
         model.addAttribute("isHost", room.isHost(member));
+        model.addAttribute("unloadToken", unloadToken);
 
         return "client/game/multi/play";
     }
@@ -395,8 +397,8 @@ public class MultiGameController {
             return "redirect:/game/multi";
         }
 
-        // 플레이→결과 이동은 언로드로 예약된 나가기를 취소한다
-        roomUnloadService.cancelLeave(roomCode, memberId);
+        // 플레이→결과 이동은 언로드로 예약된 나가기를 취소하고, 플레이 페이지의 신호를 무효로 만든다 (결과 화면은 신호를 보내지 않는다)
+        roomUnloadService.issuePageToken(roomCode, memberId);
 
         List<Map<String, Object>> finalResult = multiGameService.getFinalResult(room);
         // 표시할 참가자가 없으면(전원 0점으로 나간 방의 결과 URL 재방문 등) 템플릿이 results[0] 에서 죽는다
@@ -576,19 +578,21 @@ public class MultiGameController {
     }
 
     /**
-     * 페이지 언로드 나가기 API (beforeunload/pagehide 의 navigator.sendBeacon 전용)
+     * 페이지 언로드 나가기 API (pagehide 의 navigator.sendBeacon 전용)
      * sendBeacon 은 CSRF 헤더를 실을 수 없어 이 경로만 CSRF 예외(SecurityConfig). 그래서 즉시 나가지 않고
      * RoomUnloadService 가 유예 뒤 적용하며, 그 사이 페이지 GET(대기실·플레이·결과)이 오면 취소된다.
+     * token 은 신호를 보낸 페이지의 토큰 — 그 참가자의 최신 페이지가 아니면 무시한다(새 페이지 GET 뒤에 도착한 옛 페이지 신호).
      */
     @PostMapping("/room/{roomCode}/unload")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> unloadRoom(
             @PathVariable String roomCode,
+            @RequestParam(value = "token", required = false) String token,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
         Long memberId = userDetails != null ? userDetails.getMemberId() : null;
         if (memberId != null && gameRoomService.findByRoomCode(roomCode).isPresent()) {
-            roomUnloadService.scheduleLeave(roomCode, memberId);
+            roomUnloadService.scheduleLeave(roomCode, memberId, token);
         }
         // 비로그인·없는 방이어도 beacon 응답은 보는 이가 없다
         return ResponseEntity.ok(Map.of("success", true));

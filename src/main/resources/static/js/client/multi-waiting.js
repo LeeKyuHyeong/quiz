@@ -34,20 +34,21 @@ function startPollingFallback() {
     startChatPolling();
 }
 
-// 페이지 떠날 때 정리 및 방 나가기
-window.addEventListener('beforeunload', function() {
+// 페이지 떠날 때 정리 및 방 나가기 (탭 닫기·뒤로가기·새로고침·이동 모두 pagehide 가 온다)
+// 신호에 이 페이지의 토큰을 싣는다 — 새로고침·플레이 이동처럼 새 페이지가 이미 열렸으면 서버가 무시한다.
+// beforeunload 에서는 보내지 않는다: 새 페이지 GET 보다 먼저 도착해 유예 시간 안의 GET 에 기대게 된다.
+window.addEventListener('pagehide', function() {
     cleanup();
     // 새로고침 중이면 leave 요청 안 보냄 (방장 위임 후 새로고침 시)
     if (!isReloading) {
-        navigator.sendBeacon(`/game/multi/room/${roomCode}/unload`);
+        navigator.sendBeacon(`/game/multi/room/${roomCode}/unload`, new URLSearchParams({ token: unloadToken }));
     }
 });
 
-// 뒤로가기/앞으로가기 시에도 나가기 처리
-window.addEventListener('pagehide', function() {
-    cleanup();
-    if (!isReloading) {
-        navigator.sendBeacon(`/game/multi/room/${roomCode}/unload`);
+// 뒤로가기 캐시(bfcache)로 복원되면 서버 요청 없이 옛 화면이 살아난다 — 새로 받아 참가 상태와 토큰을 맞춘다
+window.addEventListener('pageshow', function(event) {
+    if (event.persisted) {
+        window.location.reload();
     }
 });
 

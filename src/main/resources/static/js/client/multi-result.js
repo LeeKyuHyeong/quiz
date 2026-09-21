@@ -6,17 +6,19 @@
 
 let pollingInterval = null;
 
-// 페이지 로드 시 WebSocket 연결 (비방장만)
+// 페이지 로드 시 WebSocket 연결 — 방장도 연결한다. 서버는 방 토픽 연결이 모두 끊긴 참가자를 유예 뒤 내보내므로(O-018),
+// 방장이 결과 화면에서 연결이 없으면 플레이 화면 연결이 끊긴 뒤 재시작한 방에서 방장이 나가게 될 수 있다.
 document.addEventListener('DOMContentLoaded', function() {
-    if (!isHost) {
-        connectResultWebSocket();
-    }
+    connectResultWebSocket();
 });
 
 // WebSocket 연결 (polling fallback 포함)
 function connectResultWebSocket() {
     GameWebSocket.connect(roomCode, {
         RESTART: function(payload) {
+            if (isHost) {
+                return;  // 재시작한 방장은 restartGame() 이 직접 대기실로 이동한다
+            }
             showRestartNotice();
             setTimeout(function() {
                 window.location.href = '/game/multi/room/' + roomCode;

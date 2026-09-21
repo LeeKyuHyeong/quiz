@@ -119,6 +119,30 @@ public class RoomPresenceService {
         }
     }
 
+    /**
+     * 재시작(FINISHED → WAITING) 직후 — 결과 화면에서 연결이 끊긴 참가자의 나가기를 다시 잡는다.
+     * 종료된 방에서는 leaveRoom 이 무시되므로, 결과 화면에서 창을 닫은 사람이 재시작으로 대기실에 JOINED 로 되살아나
+     * 준비를 못 해 아무도 시작하지 못하게 된다. 끊긴 지 유예가 이미 지났어도 재시작 직후 무시 구간보다는 늦게 잡는다.
+     * 재시작한 방장은 제외한다(방금 요청을 보낸 사람).
+     */
+    public synchronized void onRestart(String roomCode, Long hostId) {
+        Instant now = Instant.now();
+        String prefix = roomCode + ":";
+        long floorMs = GameRoomService.LEAVE_IGNORED_AFTER_RESTART.toMillis() + 1000;
+        absentSince.forEach((key, since) -> {
+            if (!key.startsWith(prefix)) {
+                return;
+            }
+            Long memberId = Long.valueOf(key.substring(prefix.length()));
+            if (memberId.equals(hostId)) {
+                return;
+            }
+            long remainingMs = disconnectGraceMs - Duration.between(since, now).toMillis();
+            roomUnloadService.rescheduleLeaveOnDisconnect(roomCode, memberId, Math.max(remainingMs, floorMs));
+            log.debug("Presence restart, leave rescheduled: key={}", key);
+        });
+    }
+
     /** 이 참가자의 방 토픽 연결이 지금 살아 있는가 */
     public synchronized boolean isConnected(String roomCode, Long memberId) {
         return sessionsByKey.containsKey(key(roomCode, memberId));

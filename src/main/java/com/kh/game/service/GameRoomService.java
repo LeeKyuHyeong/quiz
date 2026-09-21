@@ -28,7 +28,9 @@ public class GameRoomService {
     private final SecureRandom random = new SecureRandom();
 
     public static final int ROOM_NAME_MIN = 2;
-    public static final int ROOM_NAME_MAX = 30;   // 생성 화면 maxlength 와 동일 (엔티티 컬럼은 50)
+    public static final int ROOM_NAME_MAX = 30;
+    /** 재시작 직후 이 시간 동안은 leaveRoom 을 무시한다 (RoomPresenceService 가 재시작 때 다시 잡는 나가기는 이보다 늦게 잡는다) */
+    public static final java.time.Duration LEAVE_IGNORED_AFTER_RESTART = java.time.Duration.ofSeconds(5);   // 생성 화면 maxlength 와 동일 (엔티티 컬럼은 50)
     public static final int MAX_PLAYERS_MIN = 2;
     public static final int MAX_PLAYERS_MAX = 10;
     public static final int TOTAL_ROUNDS_MIN = 1;
@@ -156,7 +158,7 @@ public class GameRoomService {
         // (restart 후 대기실로 이동할 때 sendBeacon race condition 방지)
         if (room.getRestartedAt() != null) {
             java.time.Duration elapsed = java.time.Duration.between(room.getRestartedAt(), java.time.LocalDateTime.now());
-            if (elapsed.getSeconds() < 5) {
+            if (elapsed.compareTo(LEAVE_IGNORED_AFTER_RESTART) < 0) {
                 return;
             }
         }

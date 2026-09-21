@@ -11,6 +11,7 @@ import com.kh.game.service.GameRoomService;
 import com.kh.game.service.GenreService;
 import com.kh.game.service.MemberService;
 import com.kh.game.service.MultiGameService;
+import com.kh.game.service.RoomPresenceService;
 import com.kh.game.service.RoomUnloadService;
 import com.kh.game.service.SongService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -42,6 +43,7 @@ public class MultiGameController {
     private final ObjectMapper objectMapper;
     private final GameBroadcastService gameBroadcastService;
     private final RoomUnloadService roomUnloadService;
+    private final RoomPresenceService roomPresenceService;
 
     /**
      * 권한/비즈니스 규칙 위반(방장 검증 실패, 라운드 상태 불일치 등)을
@@ -784,6 +786,7 @@ public class MultiGameController {
         }
 
         gameRoomService.restartRoom(room, member);
+        roomPresenceService.onRestart(roomCode, memberId);  // 결과 화면에서 창을 닫은 참가자가 대기실에 되살아나지 않게
         result.put("success", true);
         result.put("roomCode", roomCode);
 

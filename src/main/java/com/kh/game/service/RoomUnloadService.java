@@ -156,6 +156,11 @@ public class RoomUnloadService {
         return true;
     }
 
+    /** 이 참가자의 나가기가 예약돼 있는가 */
+    public boolean isLeavePending(String roomCode, Long memberId) {
+        return pending.containsKey(key(roomCode, memberId));
+    }
+
     /** 이 예약이 아직 대기 목록의 현재 예약이면 꺼내고 true — 취소·대체됐으면 false. */
     private synchronized boolean claim(String key, Object id) {
         Pending current = pending.get(key);

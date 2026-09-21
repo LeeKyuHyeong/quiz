@@ -293,4 +293,77 @@ class RoomPresenceContractTest {
         sleep(400);
         assertThat(statusOf(guest)).isEqualTo(GameRoomParticipant.ParticipantStatus.JOINED);
     }
+
+    // ===== 결과 화면·재시작 (2026-09-22 권장안 2 레드팀) =====
+
+    /** 대기실 → 준비 → 시작 → (게임 종료 대신) 방을 FINISHED 로. 참가자는 finishGame 처럼 PLAYING 그대로다. */
+    private void playAndFinish(TestBrowser hostBrowser, TestBrowser guestBrowser) throws Exception {
+        String waiting = "/game/multi/room/" + room.getRoomCode();
+        guestBrowser.open(waiting);
+        guestBrowser.post(waiting + "/ready");
+        hostBrowser.open(waiting);
+        assertThat(hostBrowser.post(waiting + "/start")).contains("\"success\":true");
+        GameRoom r = reloadRoom();
+        r.setStatus(GameRoom.RoomStatus.FINISHED);
+        gameRoomRepository.save(r);
+    }
+
+    private long restartFloorMs() {
+        return GameRoomService.LEAVE_IGNORED_AFTER_RESTART.toMillis() + 1000;
+    }
+
+    @Test
+    @DisplayName("결과 화면에서 창을 닫은 참가자는 재시작한 대기실에 되살아나지 않는다")
+    void closedOnResultScreen_doesNotReviveOnRestart() throws Exception {
+        TestBrowser hostBrowser = browserOf(host);
+        TestBrowser guestBrowser = browserOf(guest);
+        playAndFinish(hostBrowser, guestBrowser);
+        subscribe(hostBrowser, host);                        // 결과 화면 방장
+        StompSession guestResult = subscribe(guestBrowser, guest);
+
+        guestResult.disconnect();                            // 결과 화면에서 창 닫기
+        sleep(graceMs * 4);                                  // 유예가 지나도 종료된 방이라 무시된다
+        assertThat(statusOf(guest)).isEqualTo(GameRoomParticipant.ParticipantStatus.PLAYING);
+
+        hostBrowser.open("/game/multi/room/" + room.getRoomCode() + "/result");
+        assertThat(hostBrowser.post("/game/multi/room/" + room.getRoomCode() + "/restart")).contains("\"success\":true");
+        assertThat(statusOf(guest)).as("재시작 직후 되살아남").isEqualTo(GameRoomParticipant.ParticipantStatus.JOINED);
+
+        assertThat(leftWithin(guest, restartFloorMs() + graceMs * 10)).as("다시 잡은 나가기로 LEFT").isTrue();
+        GameRoom r = reloadRoom();
+        assertThat(r.getHost().getId()).isEqualTo(host.getId());
+        assertThat(r.getStatus()).isEqualTo(GameRoom.RoomStatus.WAITING);
+    }
+
+    @Test
+    @DisplayName("결과 화면 방장: 결과 페이지 GET 뒤에 플레이 연결이 끊겨도, 결과 화면에서 구독하면 재시작 후 방장이 남는다")
+    void hostSubscribedOnResult_staysHostAfterRestart() throws Exception {
+        TestBrowser hostBrowser = browserOf(host);
+        TestBrowser guestBrowser = browserOf(guest);
+        String base = "/game/multi/room/" + room.getRoomCode();
+        guestBrowser.open(base);
+        guestBrowser.post(base + "/ready");
+        hostBrowser.open(base);
+        hostBrowser.post(base + "/start");
+        StompSession hostPlay = subscribe(hostBrowser, host);
+        subscribe(guestBrowser, guest);
+        GameRoom r = reloadRoom();
+        r.setStatus(GameRoom.RoomStatus.FINISHED);
+        gameRoomRepository.save(r);
+
+        hostBrowser.open(base + "/result");                  // 브라우저는 새 페이지를 받은 뒤에 옛 페이지를 내린다
+        hostPlay.disconnect();                               // 그래서 플레이 연결 끊김이 결과 GET 보다 늦다
+        subscribe(hostBrowser, host);                        // 결과 화면 방장 구독 (multi-result.js)
+        assertThat(hostBrowser.post(base + "/restart")).contains("\"success\":true");
+
+        // 운영 유예(60초)는 재시작 직후 무시 구간(5초)보다 길다 — 방장 나가기가 예약돼 있으면 재시작한 방에서 방장이 나간다.
+        // 테스트 유예는 짧아 무시 구간에 가려지므로, 예약 자체가 없는지로 확인한다.
+        assertThat(roomUnloadService.isLeavePending(room.getRoomCode(), host.getId())).as("방장 나가기 예약").isFalse();
+
+        sleep(restartFloorMs() + graceMs * 4);
+        r = reloadRoom();
+        assertThat(r.getHost().getId()).isEqualTo(host.getId());
+        assertThat(statusOf(host)).isEqualTo(GameRoomParticipant.ParticipantStatus.JOINED);
+        assertThat(statusOf(guest)).isEqualTo(GameRoomParticipant.ParticipantStatus.JOINED);
+    }
 }

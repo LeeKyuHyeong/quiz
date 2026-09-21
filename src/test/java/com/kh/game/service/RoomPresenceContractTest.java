@@ -422,4 +422,33 @@ class RoomPresenceContractTest {
 
         assertThat(leftWithin(guest, 3000)).isTrue();
     }
+
+    // ===== 탭 닫기 신호와 함께 (2026-09-22 권장안 5) =====
+
+    @Test
+    @DisplayName("탭 닫기 신호로 잡힌 나가기는 뒤이은 연결 끊김이 늦추지 않는다 (빠른 경로 유지)")
+    void unloadSignalLeave_isNotPostponedByDisconnect() throws Exception {
+        String token = roomUnloadService.issuePageToken(room.getRoomCode(), guest.getId());
+        assertThat(roomUnloadService.scheduleLeave(room.getRoomCode(), guest.getId(), token)).isTrue();
+
+        roomUnloadService.scheduleLeaveOnDisconnect(room.getRoomCode(), guest.getId(), 60_000);  // 운영 유예
+
+        assertThat(leftWithin(guest, 3000)).as("탭 닫기 유예로 나감 (60초를 기다리지 않음)").isTrue();
+    }
+
+    @Test
+    @DisplayName("실제 탭 닫기 순서: 신호(pagehide) 뒤 연결 끊김 — 탭 닫기 유예로 나간다")
+    void unloadSignalThenDisconnect_leavesWithUnloadGrace() throws Exception {
+        TestBrowser browser = browserOf(guest);
+        String base = "/game/multi/room/" + room.getRoomCode();
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("const unloadToken = \"([^\"]+)\"")
+                .matcher(browser.open(base));
+        assertThat(m.find()).isTrue();
+        StompSession s = subscribe(browser, guest);
+
+        browser.beacon(base + "/unload", m.group(1));
+        s.disconnect();
+
+        assertThat(leftWithin(guest, 3000)).isTrue();
+    }
 }

@@ -366,4 +366,60 @@ class RoomPresenceContractTest {
         assertThat(statusOf(host)).isEqualTo(GameRoomParticipant.ParticipantStatus.JOINED);
         assertThat(statusOf(guest)).isEqualTo(GameRoomParticipant.ParticipantStatus.JOINED);
     }
+
+    // ===== 폴링으로 넘어간 사용자 (2026-09-22 권장안 4 레드팀) =====
+
+    /** ws-client.js 는 재연결 5회 실패 뒤 폴링으로 넘어간다 — 연결은 없지만 화면은 살아 있는 사용자 */
+    private void pollFor(TestBrowser browser, String path, long millis) throws Exception {
+        long deadline = System.currentTimeMillis() + millis;
+        while (System.currentTimeMillis() < deadline) {
+            browser.get(path);
+            sleep(graceMs / 3);
+        }
+    }
+
+    @Test
+    @DisplayName("구독하던 사용자가 폴링으로 넘어가면(대기실 /status) 연결 끊김 나가기가 취소돼 남는다")
+    void fallbackToStatusPolling_staysInRoom() throws Exception {
+        TestBrowser browser = browserOf(guest);
+        StompSession s = subscribe(browser, guest);
+
+        s.disconnect();
+        pollFor(browser, "/game/multi/room/" + room.getRoomCode() + "/status", graceMs * 5);
+
+        assertThat(statusOf(guest)).isEqualTo(GameRoomParticipant.ParticipantStatus.JOINED);
+    }
+
+    @Test
+    @DisplayName("폴링 /chats·/round 도 연결 끊김 나가기를 취소한다")
+    void fallbackToChatAndRoundPolling_staysInRoom() throws Exception {
+        TestBrowser browser = browserOf(guest);
+        StompSession s = subscribe(browser, guest);
+        String base = "/game/multi/room/" + room.getRoomCode();
+
+        s.disconnect();
+        long deadline = System.currentTimeMillis() + graceMs * 5;
+        while (System.currentTimeMillis() < deadline) {
+            browser.get(base + "/chats?lastId=0");
+            browser.get(base + "/round");
+            sleep(graceMs / 3);
+        }
+
+        assertThat(statusOf(guest)).isEqualTo(GameRoomParticipant.ParticipantStatus.JOINED);
+    }
+
+    @Test
+    @DisplayName("폴링은 탭 닫기 신호로 잡힌 나가기는 취소하지 않는다 (다른 탭의 폴링이 닫은 탭의 나가기를 막지 않게)")
+    void polling_doesNotCancelUnloadSignalLeave() throws Exception {
+        TestBrowser browser = browserOf(guest);
+        String base = "/game/multi/room/" + room.getRoomCode();
+        String page = browser.open(base);
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("const unloadToken = \"([^\"]+)\"").matcher(page);
+        assertThat(m.find()).as("대기실 페이지의 unloadToken").isTrue();
+
+        browser.beacon(base + "/unload", m.group(1));
+        browser.get(base + "/status");
+
+        assertThat(leftWithin(guest, 3000)).isTrue();
+    }
 }

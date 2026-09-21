@@ -71,6 +71,8 @@ public class MultiGameController {
             log.warn("Multi polling denied: roomCode={} memberId={}", roomCode, userDetails.getMemberId());
             return ResponseEntity.status(403).body(Map.of("success", false, "message", "방 참가자만 조회할 수 있습니다."));
         }
+        // 폴링하는 화면은 살아 있다 — WebSocket 이 끊겨 폴링으로 넘어간 사용자를 연결 끊김으로 내보내지 않는다 (O-018)
+        roomUnloadService.cancelDisconnectLeave(roomCode, userDetails.getMemberId());
         return null;
     }
 
@@ -744,6 +746,8 @@ public class MultiGameController {
         // 요청자의 참가 상태 확인 (강퇴 감지용)
         Long memberId = userDetails != null ? userDetails.getMemberId() : null;
         if (memberId != null) {
+            // 대기실·결과 화면 폴링 — 화면이 살아 있으니 연결 끊김 나가기를 취소한다 (O-018)
+            roomUnloadService.cancelDisconnectLeave(roomCode, memberId);
             Member member = memberService.findById(memberId).orElse(null);
             if (member != null) {
                 GameRoomParticipant myParticipant = gameRoomService.getParticipant(room, member).orElse(null);

@@ -1,9 +1,13 @@
 package com.kh.game.support;
 
 import org.springframework.messaging.simp.stomp.StompHeaders;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.messaging.simp.stomp.StompSession;
 import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter;
+import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketHttpHeaders;
+import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
 
@@ -85,6 +89,11 @@ public class TestBrowser {
 
     /** STOMP 연결. heartbeat 는 {클라이언트가 보낼 간격, 서버에게 바라는 간격} — 기본 {0,0}(하트비트 없음) */
     public StompSession connectStomp(long... heartbeat) throws Exception {
+        return connectStomp(null, heartbeat);
+    }
+
+    /** scheduler 가 있으면 약속한 간격으로 하트비트를 실제로 보낸다 (없으면 약속만 하고 안 보냄 = 멈춘 클라이언트) */
+    public StompSession connectStomp(TaskScheduler scheduler, long... heartbeat) throws Exception {
         WebSocketHttpHeaders handshakeHeaders = new WebSocketHttpHeaders();
         handshakeHeaders.add("Cookie", cookies.getCookieStore().getCookies().stream()
                 .map(c -> c.getName() + "=" + c.getValue())
@@ -92,6 +101,9 @@ public class TestBrowser {
         StompHeaders connectHeaders = new StompHeaders();
         connectHeaders.setHeartbeat(heartbeat.length == 2 ? heartbeat : new long[]{0, 0});
         WebSocketStompClient client = new WebSocketStompClient(new StandardWebSocketClient());
+        if (scheduler != null) {
+            client.setTaskScheduler(scheduler);
+        }
         return client.connectAsync(URI.create("ws://localhost:" + port + "/ws/websocket"), handshakeHeaders,
                 connectHeaders, new StompSessionHandlerAdapter() { }).get(5, TimeUnit.SECONDS);
     }
@@ -100,6 +112,22 @@ public class TestBrowser {
         StompSession session = connectStomp(heartbeat);
         session.subscribe("/topic/room/" + roomCode, new StompSessionHandlerAdapter() { });
         return session;
+    }
+
+    /**
+     * STOMP 프레임을 손으로 보내는 연결 — CONNECT 에서 하트비트를 heartbeatMs 마다 보내겠다고 약속하고 방을 구독한 뒤
+     * 아무것도 보내지 않는다(TCP 는 열린 채) = 네트워크가 조용히 끊긴 모바일·멈춘 탭.
+     */
+    public WebSocketSession silentStomp(String roomCode, long heartbeatMs) throws Exception {
+        WebSocketHttpHeaders handshakeHeaders = new WebSocketHttpHeaders();
+        handshakeHeaders.add("Cookie", cookies.getCookieStore().getCookies().stream()
+                .map(c -> c.getName() + "=" + c.getValue())
+                .collect(Collectors.joining("; ")));
+        WebSocketSession ws = new StandardWebSocketClient().execute(new AbstractWebSocketHandler() { },
+                handshakeHeaders, URI.create("ws://localhost:" + port + "/ws/websocket")).get(5, TimeUnit.SECONDS);
+        ws.sendMessage(new TextMessage("CONNECT\naccept-version:1.2\nhost:localhost\nheart-beat:" + heartbeatMs + ",0\n\n\0"));
+        ws.sendMessage(new TextMessage("SUBSCRIBE\nid:sub-0\ndestination:/topic/room/" + roomCode + "\n\n\0"));
+        return ws;
     }
 
     private static String csrfFrom(String html) {

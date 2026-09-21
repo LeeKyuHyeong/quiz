@@ -135,7 +135,7 @@ Spring Boot 3.4.1 + Java 17 + JPA + MariaDB 11.8 + Thymeleaf + STOMP/SockJS. `Co
 - **push payload = 폴링 응답 형태.** `ROOM_UPDATE`는 `GameRoomService.buildRoomStatus`(`success` 키가 없어 클라이언트는 `success === false`만 "방 종료"로 봄), `CHAT`은 `MultiGameService.toChatInfo`(GET `/chats` 항목과 동일: `id`·`memberId`·`isHost`·`messageType` `CORRECT_ANSWER`). 시스템 메시지(`addSystemMessage`)도 저장 직후 `CHAT` push(WS 사용자는 채팅 폴링 안 함).
 - 구독·폴링 GET(`/round`·`/chats`)·액션 POST(`/chat`·`/skip-vote`)는 활성 참가자(JOINED/PLAYING)만. `/status`는 참가 전 미리보기라 열려 있음.
 - **참가자 행은 지우지 않고 `LEFT`로만 바꾼다.** 정원(`getCurrentPlayerCount`, `findAvailableRooms`)은 LEFT 제외 — `SIZE(r.participants)`를 쓰면 나간 자리를 못 채운다(`GameRoomCapacityTest`).
-- **나가기 3종:** ① `/leave`(CSRF) — WAITING·PLAYING 모두 실제로 나감, 방장이면 위임, 마지막이면 종료, FINISHED는 무시(재시작 지원). ② `/leave-to-lobby` — FINISHED에서 LEFT. ③ `/unload`(`sendBeacon`, **이 경로만 CSRF 예외**) — `RoomUnloadService`가 `game.multi.unload-grace-ms`(기본 8000) 뒤 적용, 그 사이 대기실·플레이·결과 GET이나 재참가면 취소. 그래서 F5와 페이지 이동은 나가기가 아님. 대기 목록은 인메모리. 방치된 PLAYING 방은 `RoomCleanupBatch`가 2시간 뒤 종료.
+- **나가기 3종:** ① `/leave`(CSRF) — WAITING·PLAYING 모두 실제로 나감, 방장이면 위임, 마지막이면 종료, FINISHED는 무시(재시작 지원). ② `/leave-to-lobby` — FINISHED에서 LEFT. ③ `/unload`(`sendBeacon`, **이 경로만 CSRF 예외**) — `pagehide` 에서만, 그 페이지의 `unloadToken` 을 싣는다. `RoomUnloadService`는 그 참가자의 **최신** 페이지 토큰일 때만 `game.multi.unload-grace-ms`(기본 8000) 뒤 적용하고, 그 사이 대기실·플레이·결과 GET(새 토큰 발급)이나 재참가면 취소. **브라우저는 새 페이지를 받은 뒤 옛 페이지의 pagehide 를 실행하므로 "다음 GET 이 취소한다"만으로는 안 된다**(2026-09-21 운영: 게임 시작 8초 뒤 전원 이탈) — 토큰이 옛 페이지 신호를 거른다. 토큰 없음·모르는 토큰(배포 전 페이지)은 무시. 토큰·대기 목록은 인메모리. 방치된 PLAYING 방은 `RoomCleanupBatch`가 2시간 뒤 종료.
 - `nextRound`·`skipCurrentSong`·`startRound`는 방이 PLAYING일 때만 — FINISHED에서 재호출되면 `finishGame`이 다시 돌아 전적·LP 이중 반영.
 
 ### 알아야 할 서비스 규칙
@@ -207,7 +207,7 @@ Spring Boot 3.4.1 + Java 17 + JPA + MariaDB 11.8 + Thymeleaf + STOMP/SockJS. `Co
 > 전역 `~/.claude/CLAUDE.md`의 검증 규칙(AC → 검증 실행 → 기록)이 이 저장소에 적용될 때의 값. 검증 기록은 `docs/verification/`.
 
 - 유형: 본인 작성·운영 중(전역 onboarding §1 특성 테스트 절차 해당 없음).
-- 명령: 위 Build & Run. 전체 테스트는 H2라 로컬 DB 불필요, 2026-09-16 기준 389건. 로컬 실행만 MariaDB `song` 필요.
+- 명령: 위 Build & Run. 전체 테스트는 H2라 로컬 DB 불필요, 2026-09-21 기준 122 클래스 429건. 로컬 실행만 MariaDB `song` 필요.
 - 사용자 시나리오: 수동 체크리스트(Playwright 스펙은 저장소 미포함). 멀티는 브라우저 2개 + 시크릿 창(참가자 B·비참가자 C).
 - 테스트 계정(dev, `DataInitializer`, prod 미생성): 관리자 `a@a.com`(ADMIN) · 일반 `test1@test.com`~`test6@test.com`(USER). 비밀번호는 코드에만.
 - 외부 연동: Brevo는 `@MockBean`/`@Mock`(`AuthControllerPasswordResetTest`, `MemberServicePasswordTest`), 실제 발송은 운영 반영 후 🙋. YouTube는 Mockito(`YouTubeValidationServiceTest`, `YouTubeVideoCheckBatchTest`). DB는 H2 `MODE=MariaDB`라 MariaDB 전용 SQL은 테스트에서 못 잡는다.

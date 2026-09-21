@@ -29,3 +29,4 @@
 | R-022 | Auth | 로그인 요청은 IP 당 분당 20회, 계정당 연속 5회 실패 시 5분 잠금(IP 무관·동시 요청 포함 정확히 5회). 성공·비밀번호 재설정·시간 경과로 해제. 정지 계정·없는 이메일의 문구는 그대로. `/admin/login-process` 도 같은 잠금 | `LoginAttemptLimitTest` | records/2026-09-20_auth-abuse-defense | 2026-09-20 |
 | R-023 | Auth/Mail | 인증 메일은 같은 주소에 60초에 한 번. 거부된 재요청은 기존 코드·시도 횟수를 지우지 않는다 | `EmailVerificationCooldownTest` | records/2026-09-20_auth-abuse-defense | 2026-09-20 |
 | R-024 | Security | 요청 제한 버킷은 10분 유휴 시 제거. 계속 쓰이는(한도에 걸린) 버킷은 남는다 | `LoginRateLimiterTest` | records/2026-09-20_auth-abuse-defense | 2026-09-20 |
+| R-025 | Multi | 새로고침·대기실→플레이·플레이→결과 이동 뒤에 도착한 옛 페이지의 언로드 신호로 방에서 빠지지 않는다(게임 시작 8초 뒤 전원 이탈 재발 방지). 최신 페이지의 신호만 유예 뒤 나가기, 토큰 없음·모르는 토큰(배포 전 페이지)은 무시 | `MultiGameControllerUnloadTokenTest` + 수동: 두 계정으로 게임 시작 15초 유지·대기실 새로고침 | records/2026-09-21_multi-unload-token | 2026-09-21 |

@@ -11,6 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | CSS 필수 템플릿·예시 코드 | `docs/guides/css-style.md` |
 | 패키지별 클래스 목록·서비스 설명·배치 목록·점수표 | `docs/architecture-reference.md` |
 | 설계 배경(동시성·WebSocket·예외·JPA·인프라·외부 API) | `System.md` |
+| 멀티 참가자 접속 상태(창 닫기 나가기) 설계 초안 | `docs/multi-presence-design.md` |
 | 서버 수동 절차(롤백·재배포·백업/복원·재부팅) | `docs/runbook.md` |
 | 검증 기록·회귀 목록·미해결 항목 | `docs/verification/` (README 인덱스) |
 | 2026-09-16 이전 마무리 점검·수정 이력 | `docs/finish.md` |

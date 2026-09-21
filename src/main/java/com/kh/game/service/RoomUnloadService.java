@@ -127,7 +127,7 @@ public class RoomUnloadService {
     private synchronized void replacePending(String key, String roomCode, Long memberId, long delayMs, Reason reason) {
         Object id = new Object();
         ScheduledFuture<?> future = taskScheduler.schedule(
-                () -> applyLeave(key, id, roomCode, memberId),
+                () -> applyLeave(key, id, reason, roomCode, memberId),
                 Instant.now().plusMillis(Math.max(0, delayMs)));
         Pending previous = pending.put(key, new Pending(future, reason, id));
         if (previous != null) {
@@ -167,7 +167,7 @@ public class RoomUnloadService {
         return current != null && current.id() == id && pending.remove(key, current);
     }
 
-    private void applyLeave(String key, Object id, String roomCode, Long memberId) {
+    private void applyLeave(String key, Object id, Reason reason, String roomCode, Long memberId) {
         // 취소·대체와 경합: 실행 직전에 취소됐거나 새 예약으로 바뀌었으면 아무것도 하지 않는다
         if (!claim(key, id)) {
             return;
@@ -183,6 +183,10 @@ public class RoomUnloadService {
                 gameRoomService.leaveRoom(room, member);
                 Map<String, Object> result = new java.util.HashMap<>();
                 result.put("room", gameRoomService.buildRoomStatus(room));
+                // 로그용 결과 — 종료된 방·재시작 직후에는 leaveRoom 이 무시하므로 "나갔다"고 단정하지 않는다
+                result.put("participant", gameRoomService.getParticipant(room, member)
+                        .map(p -> p.getStatus().name()).orElse("NONE"));
+                result.put("roomStatus", room.getStatus().name());
                 if (room.getStatus() == GameRoom.RoomStatus.PLAYING) {
                     result.put("round", multiGameService.getCurrentRoundInfo(room));
                 }
@@ -199,7 +203,9 @@ public class RoomUnloadService {
             if (roundInfo != null) {
                 gameBroadcastService.broadcastRoundUpdate(roomCode, roundInfo);
             }
-            log.debug("Unload leave applied: roomCode={} memberId={}", roomCode, memberId);
+            // 운영 추적용: 연결 끊김 나가기는 HTTP 요청이 없어 nginx 로그에 남지 않는다. 예약이 실행된 때만 남긴다(예약·취소는 페이지 이동마다 생겨 debug)
+            log.info("Room leave applied: reason={} roomCode={} memberId={} participant={} roomStatus={}",
+                    reason, roomCode, memberId, payloads.get("participant"), payloads.get("roomStatus"));
         } catch (Exception e) {
             log.warn("Unload leave failed: roomCode={} memberId={}", roomCode, memberId, e);
         }

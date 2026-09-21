@@ -38,6 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
+@org.junit.jupiter.api.extension.ExtendWith(org.springframework.boot.test.system.OutputCaptureExtension.class)
 @DisplayName("접속 상태(presence) - 연결이 모두 끊기면 유예 뒤 나간다")
 class RoomPresenceContractTest {
 
@@ -450,5 +451,26 @@ class RoomPresenceContractTest {
         s.disconnect();
 
         assertThat(leftWithin(guest, 3000)).isTrue();
+    }
+
+    // ===== 운영 로그 (2026-09-22) — 끊김으로 나간 것은 HTTP 요청이 없어 nginx 로그에 안 남는다 =====
+
+    @Test
+    @DisplayName("나가기가 실제로 적용되면 이유(DISCONNECT·UNLOAD_SIGNAL)와 함께 INFO 로그를 남긴다")
+    void appliedLeave_isLoggedAtInfoWithReason(org.springframework.boot.test.system.CapturedOutput output) throws Exception {
+        StompSession s = subscribe(browserOf(guest), guest);
+        s.disconnect();
+        assertThat(leftWithin(guest, graceMs * 10)).isTrue();
+
+        String token = roomUnloadService.issuePageToken(room.getRoomCode(), host.getId());
+        roomUnloadService.scheduleLeave(room.getRoomCode(), host.getId(), token);
+        assertThat(leftWithin(host, 3000)).isTrue();
+
+        assertThat(waitUntil(() -> output.getOut().contains(
+                "Room leave applied: reason=UNLOAD_SIGNAL roomCode=" + room.getRoomCode() + " memberId=" + host.getId()), 2000)).isTrue();
+        assertThat(output.getOut())
+                .contains(" INFO ")
+                .contains("Room leave applied: reason=DISCONNECT roomCode=" + room.getRoomCode() + " memberId=" + guest.getId()
+                        + " participant=LEFT roomStatus=WAITING");
     }
 }

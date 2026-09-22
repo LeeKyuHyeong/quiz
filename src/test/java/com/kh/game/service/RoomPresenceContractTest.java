@@ -58,6 +58,8 @@ class RoomPresenceContractTest {
     @Autowired private GameRoomParticipantRepository participantRepository;
     @Autowired private GameRoomChatRepository chatRepository;
     @Autowired private PasswordEncoder passwordEncoder;
+    @Autowired private org.springframework.scheduling.TaskScheduler taskScheduler;
+    @Autowired private org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     private Member host;
     private Member guest;
@@ -283,7 +285,8 @@ class RoomPresenceContractTest {
     @Test
     @DisplayName("종료 중인 프로세스의 끊김은 무시한다 (배포 때 옛 인스턴스가 모두를 내보내지 않게)")
     void disconnectWhileShuttingDown_isIgnored() {
-        RoomPresenceService closing = new RoomPresenceService(roomUnloadService, 50);
+        RoomPresenceService closing = new RoomPresenceService(roomUnloadService, gameRoomRepository,
+                participantRepository, taskScheduler, transactionTemplate, 50, -1);
         closing.subscribed("s-closing", room.getRoomCode(), guest.getId());
         closing.onContextClosed(null);
 

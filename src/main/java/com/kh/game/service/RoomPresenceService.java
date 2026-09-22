@@ -1,21 +1,30 @@
 package com.kh.game.service;
 
+import com.kh.game.entity.GameRoom;
+import com.kh.game.entity.GameRoomParticipant;
+import com.kh.game.repository.GameRoomParticipantRepository;
+import com.kh.game.repository.GameRoomRepository;
 import com.kh.game.security.CustomUserDetails;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 import org.springframework.web.socket.messaging.SessionSubscribeEvent;
 
 import java.security.Principal;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -35,6 +44,12 @@ import java.util.Set;
  * <p>인메모리(단일 인스턴스 운영, 페이지 토큰·대기 목록과 같은 전제). 배포로 프로세스가 바뀌면 비고, 클라이언트가 새 인스턴스에
  * 재연결·재구독하며 다시 채워진다 — 로그인 세션이 DB 에 있어 살아남기 때문이다(Spring Session JDBC, 2026-09-22 O-020. 메모리 세션이면
  * 로그인이 함께 사라져 재구독이 불가능했고 전원이 유령이 됐다). 종료 중인 프로세스의 끊김은 무시한다 — 배포 때 옛 인스턴스가 모두를 내보내지 않도록.
+ *
+ * <p>서버가 내려가 있는 사이 창을 닫은 사람은 신호도 새 인스턴스의 구독도 없다(O-022). 그래서 기동 뒤
+ * {@code game.multi.startup-sweep-delay-ms} 가 지나면 진행 중인 방(WAITING·PLAYING)의 참가자 가운데 연결이 없는 사람의 나가기를
+ * 끊김과 같은 유예로 예약한다({@link #sweepAfterStartup}). 살아 있는 화면은 그 사이 구독·페이지 GET·폴링으로 취소한다.
+ * 지연은 배포 전환(옛 인스턴스 드레인 30초 + 재연결 예산 31초)보다 길어야 한다. 음수면 끄는데, 테스트는 컨텍스트를 스위트 내내
+ * 캐시하므로 끄고 필요한 테스트만 켠다.
  */
 @Slf4j
 @Service
@@ -46,7 +61,12 @@ public class RoomPresenceService {
     static final Duration ABSENT_TTL = Duration.ofHours(6);
 
     private final RoomUnloadService roomUnloadService;
+    private final GameRoomRepository gameRoomRepository;
+    private final GameRoomParticipantRepository participantRepository;
+    private final TaskScheduler taskScheduler;
+    private final TransactionTemplate transactionTemplate;
     private final long disconnectGraceMs;
+    private final long startupSweepDelayMs;
 
     /** "방:회원" → 살아 있는 WebSocket 세션 id. 비어 있으면 그 참가자는 연결이 없다(끊김 기록). */
     private final Map<String, Set<String>> sessionsByKey = new HashMap<>();
@@ -58,9 +78,63 @@ public class RoomPresenceService {
     private volatile boolean shuttingDown;
 
     public RoomPresenceService(RoomUnloadService roomUnloadService,
-                               @Value("${game.multi.disconnect-grace-ms:60000}") long disconnectGraceMs) {
+                               GameRoomRepository gameRoomRepository,
+                               GameRoomParticipantRepository participantRepository,
+                               TaskScheduler taskScheduler,
+                               TransactionTemplate transactionTemplate,
+                               @Value("${game.multi.disconnect-grace-ms:60000}") long disconnectGraceMs,
+                               @Value("${game.multi.startup-sweep-delay-ms:90000}") long startupSweepDelayMs) {
         this.roomUnloadService = roomUnloadService;
+        this.gameRoomRepository = gameRoomRepository;
+        this.participantRepository = participantRepository;
+        this.taskScheduler = taskScheduler;
+        this.transactionTemplate = transactionTemplate;
         this.disconnectGraceMs = disconnectGraceMs;
+        this.startupSweepDelayMs = startupSweepDelayMs;
+    }
+
+    /** 기동 뒤 지연을 두고 연결 없는 참가자를 정리한다 — 그 사이 살아 있는 클라이언트가 재연결·재구독할 시간을 준다. */
+    @EventListener(ApplicationReadyEvent.class)
+    public void onApplicationReady() {
+        if (startupSweepDelayMs < 0) {
+            log.info("Presence startup sweep disabled (game.multi.startup-sweep-delay-ms={})", startupSweepDelayMs);
+            return;
+        }
+        taskScheduler.schedule(this::sweepAfterStartup, Instant.now().plusMillis(startupSweepDelayMs));
+        log.info("Presence startup sweep scheduled: delayMs={} graceMs={}", startupSweepDelayMs, disconnectGraceMs);
+    }
+
+    /**
+     * 진행 중인 방(WAITING·PLAYING)의 참가자 가운데 방 토픽 연결이 없는 사람의 나가기를 끊김 유예로 예약한다.
+     * 이미 예약된 나가기는 그대로 둔다. 종료된 방(결과 화면)은 대상이 아니다 — 거기서 창을 닫은 사람은 재시작 때 되살아날 수 있고,
+     * 그때는 방장이 강퇴로 정리한다.
+     */
+    void sweepAfterStartup() {
+        try {
+            List<String[]> absent = transactionTemplate.execute(status -> {
+                List<String[]> found = new ArrayList<>();
+                for (GameRoom.RoomStatus roomStatus : List.of(GameRoom.RoomStatus.WAITING, GameRoom.RoomStatus.PLAYING)) {
+                    for (GameRoom room : gameRoomRepository.findByStatus(roomStatus)) {
+                        for (GameRoomParticipant participant : participantRepository.findGameParticipants(room)) {
+                            Long memberId = participant.getMember().getId();
+                            if (!isConnected(room.getRoomCode(), memberId)) {
+                                found.add(new String[]{room.getRoomCode(), String.valueOf(memberId)});
+                            }
+                        }
+                    }
+                }
+                return found;
+            });
+            if (absent == null) {
+                return;
+            }
+            for (String[] target : absent) {
+                roomUnloadService.scheduleLeaveOnDisconnect(target[0], Long.valueOf(target[1]), disconnectGraceMs);
+            }
+            log.info("Presence startup sweep: participantsWithoutConnection={} graceMs={}", absent.size(), disconnectGraceMs);
+        } catch (Exception e) {
+            log.warn("Presence startup sweep failed", e);
+        }
     }
 
     @EventListener

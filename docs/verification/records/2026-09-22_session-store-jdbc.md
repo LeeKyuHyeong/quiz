@@ -68,7 +68,7 @@
 | **운영 DDL 선반영** | ✅ 개발자 실행(2026-09-22 오후, `song` 에 두 CREATE TABLE, `SHOW TABLES LIKE 'SPRING_SESSION%'` 2행) → 그 뒤 push |
 | 운영 배포 Smoke | ✅ 외부 GET `/` 200 · `/auth/login` 200 · `/actuator/health` 403(nginx deny) · **`Set-Cookie: SESSION=…`** = 운영에서 JDBC 저장소 활성 (13:23) |
 | 운영 재배포 뒤 로그인 유지 | ✅ 개발자 계정 Lee(#30) 가 방 `UE3ULF` 대기실에 WS 연결된 채로 **run #232(workflow_dispatch, 4m57s — 문서만 바뀐 push 는 `paths-ignore: **.md` 로 배포되지 않아 수동 실행)** 전환: 14:05:29 `Connection closed` → **14:05:33 `Connected to /topic/room/UE3ULF`**(1차), `isLoggedIn:true`, 참가자 그대로, 토스트 없음. (13:56:57 에도 끊김 1회 → 1.5초 재연결 — 배포 전, 원인 미확인) = **운영 O-020·O-021 닫힘** |
-| 운영 세션 만료 WS 닫힘 | 🙋 | 로그아웃(`/auth/security-logout`) 뒤 30초 안에 `docker logs` 에 `WebSocket closed: HTTP session ended` |
+| 운영 세션 만료 WS 닫힘 (가드) | ✅ 개발자: 탭 A 대기실 `R8YFHH` 유지 + **탭 B 에서 로그아웃** → 14:32:42 `WebSocket closed: HTTP session ended … user=<이메일>` → **14:33:42 `Room leave applied: reason=DISCONNECT roomCode=R8YFHH memberId=30 participant=LEFT roomStatus=FINISHED`**(끊긴 뒤 60.0초, 혼자라 방 종료) = O-018 끊김 경로 운영 확인. 같은 탭에서 로그아웃하면 pagehide 가 먼저 WS 를 닫아 가드 로그가 없는 게 정상 |
 | 재시작 중 창을 닫은 사람 | ⬜ 한계 | 서버가 내려간 사이 닫힌 탭은 신호도 구독도 없음 → 정리 배치 몫. O-022 |
 | presence·언로드 토큰은 여전히 메모리 | ⬜ 범위 밖 | 2대 구성(AWS)은 멀티 미대응(09-18) |
 | 세션 클래스 변경 배포 규칙 | 기록 | §2-4, runbook §9 |
@@ -77,3 +77,12 @@
 - 영향 범위: `SessionRegistry` 주입처(`SecurityConfig`·`SessionCheckFilter`·`MemberSessionService`), `HttpSession` 사용처 전수(솔로 게임 4종·관리자), WS 핸드셰이크, 로그아웃 쿠키, 테스트 수동 조립 1곳. 설정 키는 Boot 3.4.1 소스로 확인(`spring.session.timeout`·`spring.session.jdbc.*`)
 - 예외 삼킴 없음. Mock 은 단위 테스트 경계(레지스트리·리포지토리)에만
 - 운영: 첫 배포 순서(DDL → push), 첫 로그아웃 1회, 직렬화 클래스 변경 시 truncate — runbook §9
+
+## 9. 운영 확인 중 발견 — 익명 세션을 "로그인 중" 으로 답하던 회귀 (같은 날 수정, `SessionCheckFilter`)
+위 가드 확인에서 탭 A 가 **로그인 화면으로 가지 않았다.** 탭 A 에서 직접 본 값: `/auth/validate-session` → `{"valid":true}`, `/auth/status` → `isLoggedIn:false`, 쿠키 없음(탭 B 로그아웃이 브라우저 전체 쿠키를 지움).
+- 원인: 탭 A 의 폴링이 로그인 페이지로 튕기며 CSRF 토큰용 **익명 세션이 새로 생겼고**, `SpringSessionBackedSessionRegistry.getSessionInformation` 은 저장소에 있는 세션이면 무엇이든 돌려준다(`resolvePrincipal` 은 principal 없으면 `""`, 소스 확인). 메모리 `SessionRegistryImpl` 은 인증된 세션만 알아서 이 차이가 없었다 → JDBC 전환이 만든 회귀. 영향: 다른 탭 로그아웃 뒤 열린 탭이 로그인 중으로 남음 · 로그인 페이지만 본 방문자가 `wasLoggedIn` 이 돼 나중에 엉뚱한 "로그아웃되었습니다" 토스트.
+- 수정: `SessionCheckFilter` — principal 이 null/"" 이면 NOT_LOGGED_IN.
+- 검증: 계약에 2건 추가(로그인 페이지만 본 방문자 / 다른 탭 로그아웃) → **JDBC 에서 2건 빨강 확인 → 수정 → 메모리 9/9 · JDBC 9/9** ✅. 전체 회귀 §10. 운영 재확인 🙋(탭 B 로그아웃 → 30초 안에 탭 A 가 토스트 뒤 로그인 화면).
+
+## 10. §9 수정 뒤 전체 회귀
+`./mvnw test` **463건 0 실패**(459 + 계약 2건 × 저장소 2). `LoginAttemptLimitTest` 도 이번 실행은 3초 안에 들어 통과(O-023 은 그대로 시간 의존).

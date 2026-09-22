@@ -1,5 +1,7 @@
 package com.kh.game.config;
 
+import com.kh.game.security.WebSocketHttpSessionGuard;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
@@ -10,6 +12,8 @@ import org.springframework.scheduling.TaskScheduler;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+import org.springframework.web.socket.config.annotation.WebSocketTransportRegistration;
+import org.springframework.web.socket.server.support.HttpSessionHandshakeInterceptor;
 
 @Configuration
 @EnableWebSocketMessageBroker
@@ -17,6 +21,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final WebSocketAuthInterceptor webSocketAuthInterceptor;
     private final TaskScheduler messageBrokerTaskScheduler;
+    /** DB 세션 저장소일 때만 있다 — 로그인 세션이 끝난 연결을 닫는다 (메모리 세션은 Tomcat 이 닫는다) */
+    private final ObjectProvider<WebSocketHttpSessionGuard> httpSessionGuard;
     private final long heartbeatServerMs;
     private final long heartbeatClientMs;
 
@@ -31,10 +37,12 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
      */
     public WebSocketConfig(WebSocketAuthInterceptor webSocketAuthInterceptor,
                            @Lazy @Qualifier("messageBrokerTaskScheduler") TaskScheduler messageBrokerTaskScheduler,
+                           ObjectProvider<WebSocketHttpSessionGuard> httpSessionGuard,
                            @Value("${game.multi.ws-heartbeat-server-ms:10000}") long heartbeatServerMs,
                            @Value("${game.multi.ws-heartbeat-client-ms:30000}") long heartbeatClientMs) {
         this.webSocketAuthInterceptor = webSocketAuthInterceptor;
         this.messageBrokerTaskScheduler = messageBrokerTaskScheduler;
+        this.httpSessionGuard = httpSessionGuard;
         this.heartbeatServerMs = heartbeatServerMs;
         this.heartbeatClientMs = heartbeatClientMs;
     }
@@ -49,7 +57,18 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws").withSockJS();
+        // 핸드셰이크의 HTTP 세션 ID 만 WebSocket 세션 속성에 싣는다 (WebSocketHttpSessionGuard 가 세션 생존을 확인하는 열쇠).
+        // 세션 속성 전체를 복사하지 않는다 — 솔로 게임 상태까지 연결마다 복사할 이유가 없다.
+        HttpSessionHandshakeInterceptor httpSessionId = new HttpSessionHandshakeInterceptor();
+        httpSessionId.setCopyAllAttributes(false);
+        httpSessionId.setCopyHttpSessionId(true);
+        httpSessionId.setCreateSession(false);
+        registry.addEndpoint("/ws").addInterceptors(httpSessionId).withSockJS();
+    }
+
+    @Override
+    public void configureWebSocketTransport(WebSocketTransportRegistration registration) {
+        httpSessionGuard.ifAvailable(registration::addDecoratorFactory);
     }
 
     @Override

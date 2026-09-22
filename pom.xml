@@ -81,6 +81,12 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <!-- 로그인 세션을 DB(MariaDB, 테스트는 H2)에 둔다 — 프로세스 교체(배포·재시작)로 전원 로그아웃·방 유령이 되지 않게 (O-020).
+                 dev·test 는 SessionAutoConfiguration 을 제외해 메모리 세션, prod 와 session-jdbc 프로파일만 켠다 -->
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-jdbc</artifactId>
+        </dependency>
+        <dependency>
             <groupId>com.bucket4j</groupId>
             <artifactId>bucket4j_jdk17-core</artifactId>
             <version>8.14.0</version>

@@ -16,13 +16,11 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.session.SessionRegistry;
-import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
-import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 @Configuration
@@ -35,20 +33,8 @@ public class SecurityConfig {
     private final CustomAuthenticationFailureHandler failureHandler;
     private final LoginRateLimiter loginRateLimiter;
     private final LoginAttemptService loginAttemptService;
-
-    @Bean
-    public SessionRegistry sessionRegistry() {
-        return new SessionRegistryImpl();
-    }
-
-    /**
-     * 세션이 시간 초과로 사라질 때 SessionRegistry 에서도 지운다.
-     * 없으면 레지스트리에 죽은 세션이 계속 쌓이고, /auth/validate-session 이 이미 끝난 세션을 유효하다고 답한다.
-     */
-    @Bean
-    public HttpSessionEventPublisher httpSessionEventPublisher() {
-        return new HttpSessionEventPublisher();
-    }
+    /** 세션 저장소에 따라 다르다 (SessionStoreConfig): 메모리면 SessionRegistryImpl, DB 면 저장소를 그대로 읽는 레지스트리 */
+    private final SessionRegistry sessionRegistry;
 
     /**
      * 열린 탭의 주기적 세션 확인(/auth/validate-session)은 세션을 읽지 않는 체인에서 SessionCheckFilter 가 바로 답한다.
@@ -67,7 +53,7 @@ public class SecurityConfig {
                 // 익명 인증 객체를 만들 때도 세션 ID 를 읽으려고 getSession(false) 를 부른다
                 .anonymous(anonymous -> anonymous.disable())
                 .csrf(csrf -> csrf.disable())
-                .addFilterBefore(new SessionCheckFilter(sessionRegistry()), AuthorizationFilter.class);
+                .addFilterBefore(new SessionCheckFilter(sessionRegistry), AuthorizationFilter.class);
 
         return http.build();
     }
@@ -118,13 +104,14 @@ public class SecurityConfig {
                         .logoutUrl("/auth/security-logout")
                         .logoutSuccessUrl("/")
                         .invalidateHttpSession(true)
-                        .deleteCookies("JSESSIONID")
+                        // 메모리 세션은 JSESSIONID, DB 세션 저장소(Spring Session)는 SESSION
+                        .deleteCookies("JSESSIONID", "SESSION")
                         .permitAll()
                 )
                 .sessionManagement(session -> session
                         .maximumSessions(1)
                         .expiredSessionStrategy(new SessionExpiredHandler())
-                        .sessionRegistry(sessionRegistry())
+                        .sessionRegistry(sessionRegistry)
                 )
                 .httpBasic(basic -> basic.disable())
                 .addFilterBefore(new LoginAttemptFilter(loginRateLimiter, loginAttemptService),

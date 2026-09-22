@@ -92,6 +92,12 @@ class SecurityFilterChainTest {
         public com.kh.game.service.LoginAttemptService loginAttemptService() {
             return mock(com.kh.game.service.LoginAttemptService.class);
         }
+
+        // SecurityConfig 는 세션 저장소에 맞는 레지스트리를 주입받는다 (SessionStoreConfig). 여기서는 메모리 것으로 충분하다
+        @Bean
+        public org.springframework.security.core.session.SessionRegistry sessionRegistry() {
+            return new org.springframework.security.core.session.SessionRegistryImpl();
+        }
     }
 
     @BeforeEach

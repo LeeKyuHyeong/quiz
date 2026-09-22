@@ -41,7 +41,6 @@ public class AdminController {
     public String loginProcess(@RequestParam String username,
                                @RequestParam String password,
                                HttpServletRequest request,
-                               HttpSession session,
                                Model model) {
         // 이 폼도 비밀번호를 검사한다 — /auth/login-process 와 같은 제한을 걸지 않으면 잠금을 피해 가는 경로가 된다
         String ipAddress = LoginRateLimiter.resolveClientIp(request);
@@ -65,10 +64,8 @@ public class AdminController {
                 return "admin/login";
             }
 
-            // 세션에 관리자 정보 저장 (하위 호환, Phase 6에서 제거 예정)
-            session.setAttribute("adminMember", member);
-            session.setAttribute("admin", true);
-
+            // 세션에는 아무것도 넣지 않는다. 인가는 Spring Security 의 ROLE_ADMIN 으로만 한다.
+            // (전에는 Member 엔티티를 넣었다 — 비밀번호 해시가 세션에 실리고, 직렬화되지 않아 DB 세션 저장소에서 로그인이 실패한다)
             return "redirect:/admin/song";
 
         } catch (IllegalArgumentException e) {

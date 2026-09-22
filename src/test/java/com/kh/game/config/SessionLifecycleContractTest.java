@@ -19,6 +19,7 @@ import org.springframework.messaging.simp.stomp.StompSession;
 import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
@@ -46,17 +47,29 @@ import static org.assertj.core.api.Assertions.assertThat;
  *   ws-client.js 가 연결 중 주기적으로 /auth/status 를 불러 세션을 유지한다.
  * - 다른 기기에서 로그인하면 먼저 있던 화면은 상태 확인과 fetch 응답으로 그 사실을 알 수 있다.
  *
- * 세션 유휴 한도를 3초로 줄여 운영 60분 상황을 만든다. 세션 저장소를 바꿀 때도 이 계약이 유지돼야 한다.
+ * 세션 유휴 한도를 3초로 줄여 운영 60분 상황을 만든다. 세션 저장소를 바꿀 때도 이 계약이 유지돼야 한다 —
+ * 같은 7건을 DB 세션 저장소(session-jdbc, H2)로도 돌린다: {@link SessionLifecycleJdbcContractTest}.
+ *
+ * 유휴 한도 3초를 주는 길이 저장소마다 다르다 (2026-09-22): 메모리(Tomcat)는 HttpSessionListener 로 초 단위를 직접 넣는다 —
+ * server.servlet.session.timeout 은 Tomcat 에서 분 단위로 올림돼 1분이 된다. DB 저장소는 세션 이벤트가 없어 리스너가 안 불리므로
+ * spring.session.timeout 으로 준다. 둘 다 두면 각 저장소에서 자기 쪽만 듣는다.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
+@TestPropertySource(properties = {
+        "server.servlet.session.timeout=" + SessionLifecycleContractTest.IDLE_LIMIT_SECONDS + "s",
+        "spring.session.timeout=" + SessionLifecycleContractTest.IDLE_LIMIT_SECONDS + "s",
+        // DB 저장소에서 세션이 끝난 WebSocket 을 닫는 검사 주기 (운영 30초). 계약 3번이 만료 후 2초 안에 닫힘을 본다
+        "game.multi.ws-session-check-ms=300"
+})
 @DisplayName("로그인 세션 수명 계약")
 class SessionLifecycleContractTest {
 
     private static final String PASSWORD = "Passw0rd!lifecycle";
-    private static final int IDLE_LIMIT_SECONDS = 3;
+    static final int IDLE_LIMIT_SECONDS = 3;
     private static final Pattern CSRF_META = Pattern.compile("<meta name=\"_csrf\" content=\"([^\"]+)\"");
 
+    /** 메모리 세션(Tomcat)용 유휴 한도 — DB 저장소에서는 불리지 않는다 (위 주석) */
     @TestConfiguration
     static class ShortSessionConfig {
         @Bean
@@ -137,7 +150,8 @@ class SessionLifecycleContractTest {
 
         TimeUnit.SECONDS.sleep(IDLE_LIMIT_SECONDS + 2);
 
-        assertThat(stomp.isConnected()).as("만료가 감지되기 전까지 WebSocket 은 연결돼 있다").isTrue();
+        // 닫히는 시점은 저장소마다 다르다: 메모리(Tomcat)는 다음 HTTP 요청이 만료를 감지할 때, DB 저장소는 WebSocketHttpSessionGuard 가
+        // 주기 검사에서 먼저 닫는다. 계약은 "만료되면 닫힌다" 뿐이라 만료 직후 열려 있음은 확인하지 않는다 (2026-09-22, 개발자 허가)
         assertThat(browser.get("/auth/status")).contains("\"isLoggedIn\":false");
         for (int i = 0; i < 20 && stomp.isConnected(); i++) {
             TimeUnit.MILLISECONDS.sleep(100);

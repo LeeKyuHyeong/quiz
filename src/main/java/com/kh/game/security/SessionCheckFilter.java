@@ -40,7 +40,10 @@ public class SessionCheckFilter extends OncePerRequestFilter {
                 ? sessionRegistry.getSessionInformation(sessionId)
                 : null;
 
-        if (info == null) {
+        // 세션이 있다 ≠ 로그인돼 있다. 로그인 페이지만 봐도 CSRF 토큰 때문에 익명 세션이 생기는데, DB 저장소의 레지스트리
+        // (SpringSessionBackedSessionRegistry)는 그런 세션도 principal "" 로 돌려준다 — 메모리 레지스트리는 인증된 세션만 알아서
+        // 이 차이가 없었다. 안 거르면 다른 탭에서 로그아웃한 뒤 열린 탭이 "로그인 중" 으로 남는다 (2026-09-22 운영 관찰).
+        if (info == null || info.getPrincipal() == null || "".equals(info.getPrincipal())) {
             return "{\"valid\":false,\"reason\":\"NOT_LOGGED_IN\"}";
         }
         if (info.isExpired()) {

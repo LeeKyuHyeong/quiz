@@ -210,6 +210,29 @@ class SessionLifecycleContractTest {
         assertThat(browser.cookies.getCookieStore().getCookies()).isEmpty();
     }
 
+    @Test
+    @DisplayName("로그인 페이지만 본 방문자(세션 쿠키는 있음)의 상태 확인은 NOT_LOGGED_IN 이다 — 세션이 있다 ≠ 로그인돼 있다")
+    void anonymousWithSessionCookie_isNotLoggedIn() throws Exception {
+        Browser browser = new Browser();
+        browser.get("/auth/login");  // CSRF 토큰 때문에 익명 세션이 생긴다
+
+        assertThat(browser.cookies.getCookieStore().getCookies()).as("익명 세션 쿠키").isNotEmpty();
+        assertThat(browser.get("/auth/validate-session")).contains("\"valid\":false").contains("NOT_LOGGED_IN");
+    }
+
+    @Test
+    @DisplayName("다른 탭에서 로그아웃하면(쿠키가 사라지고 폴링이 로그인 페이지를 받아 익명 세션이 생김) 열린 탭의 상태 확인은 NOT_LOGGED_IN 이다")
+    void logoutInAnotherTab_isDetectedByOpenTab() throws Exception {
+        Browser browser = new Browser().login();
+        assertThat(browser.get("/auth/validate-session")).contains("\"valid\":true");
+
+        browser.logout();
+        browser.get("/auth/login");  // 열린 탭의 다음 요청이 로그인 페이지로 튕기며 익명 세션이 생기는 상황 (2026-09-22 운영 관찰)
+
+        assertThat(browser.get("/auth/validate-session")).contains("\"valid\":false").contains("NOT_LOGGED_IN");
+        assertThat(browser.get("/auth/status")).contains("\"isLoggedIn\":false");
+    }
+
     /** 쿠키 저장소를 따로 갖는 HTTP 클라이언트 = 브라우저 한 개 */
     private class Browser {
         final CookieManager cookies = new CookieManager();
@@ -235,6 +258,17 @@ class SessionLifecycleContractTest {
 
         String get(String path) throws Exception {
             return send(path, "*/*").body();
+        }
+
+        /** 다른 탭에서 누른 로그아웃 — 같은 쿠키 저장소이므로 세션 쿠키가 브라우저 전체에서 사라진다 */
+        void logout() throws Exception {
+            Matcher m = CSRF_META.matcher(get("/auth/login"));
+            assertThat(m.find()).as("CSRF 메타 태그").isTrue();
+            HttpResponse<String> res = http.send(HttpRequest.newBuilder(uri("/auth/security-logout"))
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .POST(HttpRequest.BodyPublishers.ofString("_csrf=" + URLEncoder.encode(m.group(1), StandardCharsets.UTF_8)))
+                    .build(), HttpResponse.BodyHandlers.ofString());
+            assertThat(res.statusCode()).as("로그아웃 응답").isEqualTo(302);
         }
 
         HttpResponse<String> send(String path, String accept) throws Exception {

@@ -17,6 +17,8 @@
     <url/>
     <properties>
         <java.version>17</java.version>
+        <!-- Boot 3.4.1 BOM 은 1.20.4 — Docker Engine 29(API 최소 1.44 요구)에서는 2.0.2 이상이어야 컨테이너를 띄운다 (testcontainers-java #11212) -->
+        <testcontainers.version>2.0.5</testcontainers.version>
     </properties>
     <dependencies>
         <dependency>
@@ -90,6 +92,23 @@
             <groupId>com.bucket4j</groupId>
             <artifactId>bucket4j_jdk17-core</artifactId>
             <version>8.14.0</version>
+        </dependency>
+        <dependency>
+            <!-- AWS 시연용 세션 저장소: session-redis 프로파일에서만 켠다 (ElastiCache). 기본·prod·dev·test 는
+                 application.properties 의 spring.autoconfigure.exclude 로 Redis 자동구성을 끈다 — 켜 두면 프로파일과 상관없이
+                 localhost:6379 로 붙으려 하고 /actuator/health 가 DOWN 이 돼 VPS 배포 게이트가 막힌다 -->
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-data-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <dependency>
+            <!-- session-redis 계약 테스트가 실제 Redis 컨테이너로 돈다. Docker 가 없는 PC 에서는 그 테스트만 건너뛴다 (CI 는 Docker 있음) -->
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 

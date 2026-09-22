@@ -24,9 +24,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * 로그인 세션이 끝난 WebSocket 연결을 닫는다 (세션 수명 계약: "만료되면 그 세션에 묶인 WebSocket 도 닫힌다").
  *
  * <p>메모리 세션에서는 Tomcat 이 한다 — HttpSession 이 소멸할 때 그 세션에서 연 WebSocket 을 닫는다(WsSessionListener).
- * DB 세션 저장소({@code session-jdbc})에서는 Tomcat 세션을 쓰지 않으므로 그 연결이 없고, Spring Session JDBC 는
- * 만료 이벤트도 발행하지 않는다. 그래서 핸드셰이크 때 실은 HTTP 세션 ID({@link HttpSessionHandshakeInterceptor})로
- * 주기적으로 저장소를 확인해 세션이 없으면 연결을 닫는다.
+ * 외부 세션 저장소({@code session-jdbc}·{@code session-redis})에서는 Tomcat 세션을 쓰지 않으므로 그 연결이 없고, Spring Session JDBC 는
+ * 만료 이벤트를 발행하지 않으며 Redis 는 키스페이스 이벤트를 켜야만 발행한다(ElastiCache 는 앱이 못 켬). 그래서 핸드셰이크 때 실은
+ * HTTP 세션 ID({@link HttpSessionHandshakeInterceptor})로 주기적으로 저장소를 확인해 세션이 없으면 연결을 닫는다.
  *
  * <p>닫히면 클라이언트(ws-client.js)는 재연결을 시도하고, 로그인이 없으니 구독이 거부돼 폴링으로 넘어가며,
  * common.js 의 상태 확인이 30초 안에 로그인 화면으로 보낸다. 방 참가자였다면 연결이 끊긴 것으로 나가기가 잡힌다(RoomPresenceService).
@@ -35,7 +35,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Slf4j
 @Component
-@Profile("session-jdbc")
+@Profile({"session-jdbc", "session-redis"})
 public class WebSocketHttpSessionGuard implements WebSocketHandlerDecoratorFactory, InitializingBean {
 
     private final SessionRepository<?> sessionRepository;

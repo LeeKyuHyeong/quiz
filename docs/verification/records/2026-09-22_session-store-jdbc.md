@@ -82,7 +82,7 @@
 위 가드 확인에서 탭 A 가 **로그인 화면으로 가지 않았다.** 탭 A 에서 직접 본 값: `/auth/validate-session` → `{"valid":true}`, `/auth/status` → `isLoggedIn:false`, 쿠키 없음(탭 B 로그아웃이 브라우저 전체 쿠키를 지움).
 - 원인: 탭 A 의 폴링이 로그인 페이지로 튕기며 CSRF 토큰용 **익명 세션이 새로 생겼고**, `SpringSessionBackedSessionRegistry.getSessionInformation` 은 저장소에 있는 세션이면 무엇이든 돌려준다(`resolvePrincipal` 은 principal 없으면 `""`, 소스 확인). 메모리 `SessionRegistryImpl` 은 인증된 세션만 알아서 이 차이가 없었다 → JDBC 전환이 만든 회귀. 영향: 다른 탭 로그아웃 뒤 열린 탭이 로그인 중으로 남음 · 로그인 페이지만 본 방문자가 `wasLoggedIn` 이 돼 나중에 엉뚱한 "로그아웃되었습니다" 토스트.
 - 수정: `SessionCheckFilter` — principal 이 null/"" 이면 NOT_LOGGED_IN.
-- 검증: 계약에 2건 추가(로그인 페이지만 본 방문자 / 다른 탭 로그아웃) → **JDBC 에서 2건 빨강 확인 → 수정 → 메모리 9/9 · JDBC 9/9** ✅. 전체 회귀 §10. 운영 재확인 🙋(탭 B 로그아웃 → 30초 안에 탭 A 가 토스트 뒤 로그인 화면).
+- 검증: 계약에 2건 추가(로그인 페이지만 본 방문자 / 다른 탭 로그아웃) → **JDBC 에서 2건 빨강 확인 → 수정 → 메모리 9/9 · JDBC 9/9** ✅. 전체 회귀 §10. 배포 run #233 `93d96b0` Success(15:0x). 운영 Smoke ✅: 로그인 페이지만 본 익명 세션(curl, 쿠키 있음)의 `validate-session` → `{"valid":false,"reason":"NOT_LOGGED_IN"}`. 브라우저 흐름 재확인 🙋(탭 B 로그아웃 → 30초 안에 탭 A 가 토스트 뒤 로그인 화면).
 
 ## 10. §9 수정 뒤 전체 회귀
 `./mvnw test` **463건 0 실패**(459 + 계약 2건 × 저장소 2). `LoginAttemptLimitTest` 도 이번 실행은 3초 안에 들어 통과(O-023 은 그대로 시간 의존).

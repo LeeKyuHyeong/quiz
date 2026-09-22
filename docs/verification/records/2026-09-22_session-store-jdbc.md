@@ -57,15 +57,15 @@
 | 0 | 기동 후 쿠키 | ✅ `Set-Cookie: SESSION=…; HttpOnly; SameSite=Lax` (JSESSIONID 아님 = JDBC 활성) |
 | 1 | 재시작 1회차 (12:51:13 종료 → 12:51:50 기동, 37초) | ✅ 두 탭 `isLoggedIn:true`, 대기실 유지, 참가자 2명, 세션 무효 토스트 없음, `Room leave applied` 없음 · ❌ **WS 는 `attempt 1/5` 뒤 멈춤, 폴백도 없음 → O-021 확정** |
 | 2 | O-021 수정 후 재시작 2회차 (13:00:21 종료 → 13:00:42 기동, 21초) | ✅ 두 탭 `Connection attempt failed`×3 → **5차에 `Connected to /topic/room/RNDL5T`**, `attempts:0`·`subscription` 있음, 로그인·참가자 유지, 나가기 로그 없음 |
-| 3 | DB | 🙋 §7 조회 |
+| 3 | DB (개발자 조회) | ✅ `RNDL5T` WAITING, member 1·8 **JOINED** — 두 탭이 실제로 대기실에 있는 정상 참가(아침 재현의 같은 결과가 이번엔 유령이 아님). `SPRING_SESSION` 행 조회는 받지 못함(⬜) |
 
 관찰: 재시도 예산 1+2+4+8+16 = 31초. 운영 blue/green 은 다운타임 없이 전환되므로 1차에서 붙지만, 31초 넘게 내려가면 폴링 폴백(끊김 나가기는 폴링 GET 이 취소하므로 유령은 안 됨, 푸시만 없음).
 
 ## 7. 남은 것
 | 항목 | 상태 | 절차 |
 |---|---|---|
-| dev DB 증거 | 🙋 | `SELECT SESSION_ID, PRINCIPAL_NAME, FROM_UNIXTIME(LAST_ACCESS_TIME/1000) FROM SPRING_SESSION;` → 2행(a@a.com, 트루본짱 이메일). 참가자: `RNDL5T` member 1·8 JOINED·WAITING(정상 참가자) |
-| **운영 DDL 선반영** | 🙋 **push 전 필수** | VPS `docker exec -i quiz-db mariadb -u… song < (schema.sql 끝 두 CREATE TABLE)` → `SHOW TABLES LIKE 'SPRING_SESSION%';` 2행 → 그 뒤 push |
+| dev DB 증거 | 참가자 ✅ · `SPRING_SESSION` 행 ⬜(미조회) | §6-3 |
+| **운영 DDL 선반영** | ✅ 개발자 실행(2026-09-22 오후, `song` 에 두 CREATE TABLE, `SHOW TABLES LIKE 'SPRING_SESSION%'` 2행) → 그 뒤 push |
 | 운영 배포·첫 로그아웃 1회 | 🙋 | 전환 뒤 로그인 → `SPRING_SESSION` 1행 → 아무 커밋 push 로 재배포 → **로그인 유지·대기실 유지** 확인(= 운영 O-020 닫힘) |
 | 운영 세션 만료 WS 닫힘 | 🙋 | 로그아웃(`/auth/security-logout`) 뒤 30초 안에 `docker logs` 에 `WebSocket closed: HTTP session ended` |
 | 재시작 중 창을 닫은 사람 | ⬜ 한계 | 서버가 내려간 사이 닫힌 탭은 신호도 구독도 없음 → 정리 배치 몫. O-022 |

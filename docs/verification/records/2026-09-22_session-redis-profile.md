@@ -2,7 +2,7 @@
 - 일자: 2026-09-22 밤 (집 PC)
 - 유형: 기능 추가 (P1 — VPS 운영에는 안 켜지지만 같은 배포본에 실리므로 prod 무영향이 P0 조건)
 - 브랜치: `main` (로컬 커밋, 푸시는 개발자 확인 후 — 코드 변경이라 main 푸시 = VPS 재배포)
-- 판정: **수용 가능(로컬)** — 자동 481건 0 실패(Redis 계약 9·격리 4 포함), 로컬 실브라우저 재시작 유지 ✅, prod 경로(`dev,session-jdbc`) 기동·Redis 무접촉 ✅. 운영(VPS)은 푸시 뒤 Smoke 🙋, AWS 실기동은 다음 단계
+- 판정: **수용 가능** — 자동 481건 0 실패(Redis 계약 9·격리 4 포함), 로컬 실브라우저 재시작 유지 ✅, prod 경로(`dev,session-jdbc`) 기동·Redis 무접촉 ✅, **운영 배포 run 35740318687 Success(23:32:46, CI 에서 Redis 계약 9/9 실제 실행·481/481) + 외부 Smoke ✅**(§6). 운영 로그의 Redis 문자열 0건만 🙋. AWS 실기동은 다음 단계(본인: 내일)
 - 배경: SM 지원 결정 3(b) "AWS 프리티어에 quiz 를 EC2+RDS 로 올려 보기"(career jd-map 09-18) + 09-22 결정 "VPS 는 Spring Session JDBC, Redis 는 AWS 시연 프로파일만"(records/2026-09-22_session-store-jdbc §1). VPS 를 AWS 로 옮기는 게 아니다 — 새 계정 Free plan 은 크레딧 $100~200·최대 6개월이고 그 뒤는 월 $30~60, VPS 는 월 3만원(본인 09-22).
 
 ## 1. 결정 (개발자 2026-09-22 밤)
@@ -57,7 +57,7 @@
 ## 6. 남은 것
 | 항목 | 상태 | 절차 |
 |---|---|---|
-| main 푸시 → VPS 재배포 Smoke | 🙋 푸시 뒤 | 외부 `GET /` 200 · `/auth/login` `Set-Cookie: SESSION` · 로그인 유지 · `docker logs` 에 Redis/Lettuce 문자열 0건 |
+| main 푸시 → VPS 재배포 Smoke | ✅ 푸시 `4f4ab8b` 23:26 → run 35740318687 build(CI Docker 에서 `SessionLifecycleRedisContractTest` 9/9, 전체 481/481)·deploy Success 23:32:46 → 23:33:03 외부 `GET /` **200**, `/auth/login` **`Set-Cookie: SESSION`**(JDBC 그대로), `/actuator/health` 403(nginx deny 그대로) | 🙋 남은 것: `docker logs $(docker ps -q --filter name=app-) 2>&1 \| grep -ci "redis\|lettuce"` → 0 기대 |
 | AWS 실기동 (EC2 + RDS + ElastiCache, `session-redis`) | ⬜ 다음 단계 | 별도 기록. ElastiCache TLS 면 `REDIS_SSL=true`, 인증 토큰이면 `REDIS_PASSWORD` |
 | 저장소가 죽을 때 헬스 500 (503 DOWN 아님) | ⬜ O-024 | `/actuator/**` 를 세션 없는 체인으로 — 범위 밖 |
 | 회사 PC 에서 Redis 테스트는 Skipped | 기록 | Docker 없음. CI 가 실행하므로 push 전 확인은 CI 결과로 |

@@ -11,7 +11,7 @@
 
 | 일자 | 기록 | 유형 | 우선순위 | 판정 |
 |---|---|---|---|---|
-| 2026-09-22 | [AWS 시연용 세션 저장소 프로파일 `session-redis`](records/2026-09-22_session-redis-profile.md) | 기능 추가 | P1 (prod 무영향은 P0) | 수용 가능(로컬) — 481 ✅ · 재시작 유지 ✅ · VPS Smoke 는 푸시 뒤 🙋 |
+| 2026-09-22 | [AWS 시연용 세션 저장소 프로파일 `session-redis`](records/2026-09-22_session-redis-profile.md) | 기능 추가 | P1 (prod 무영향은 P0) | 수용 가능 — 481 ✅(CI 도 Redis 포함) · 재시작 유지 ✅ · 운영 배포 run 35740318687 Smoke ✅ |
 | 2026-09-22 | [O-018·O-019·O-022 운영 확인 — 창 전체 닫기·휴대폰·인앱·bfcache·기동 뒤 정리](records/2026-09-22_o018-o019-prod-checks.md) | 운영 확인 | P1 | O-018·O-019 CLOSED, R-025 게임 항목·게임 중 배포 집에서 ✅ (§6) |
 | 2026-09-22 | [O-022 — 서버가 내려간 사이 창을 닫은 참가자를 기동 뒤 정리](records/2026-09-22_startup-sweep.md) | 버그 | P1 | 수용 가능 |
 | 2026-09-22 | [O-023 — 요청 제한 테스트에 시계 주입](records/2026-09-22_rate-limit-clock.md) | 테스트 | P2 | 수용 가능 |

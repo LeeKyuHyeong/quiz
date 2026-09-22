@@ -6,12 +6,16 @@ import com.kh.game.entity.MemberLoginHistory;
 import com.kh.game.repository.EmailVerificationRepository;
 import com.kh.game.repository.MemberLoginHistoryRepository;
 import com.kh.game.repository.MemberRepository;
+import io.github.bucket4j.TimeMeter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -21,6 +25,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,6 +33,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -40,12 +46,46 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 실제 로그인 요청(/auth/login-process)에는 요청 제한도 실패 횟수 제한도 없었다 (2026-09-19 발견).
  * 요청 제한은 화면이 먼저 부르는 /auth/check-login 에만 걸려 있어, 로그인 요청을 직접 보내면 비밀번호를 무제한 대입할 수 있었다.
  * IP 제한은 IP 를 바꾸면 뚫리므로, 계정 기준 연속 실패 제한을 함께 둔다.
+ *
+ * 요청 제한기의 시계는 이 테스트가 돌린다 — 실제 시계면 느린 PC 에서 로그인 20회가 3초를 넘길 때 보충된 토큰으로
+ * 21번째가 통과해 결과가 기계 속도에 좌우됐다(2026-09-22 O-023, 회사 PC 3.28·3.42초).
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @DisplayName("로그인 요청 제한 — IP 당 분당 20회, 계정당 연속 5회 실패 시 5분 잠금")
 class LoginAttemptLimitTest {
+
+    /** 손으로 돌리는 시계. 테스트가 advance 하기 전엔 멈춰 있어 버킷이 보충되지 않는다. */
+    static final class ManualClock implements TimeMeter {
+        private final AtomicLong nanos = new AtomicLong(TimeUnit.HOURS.toNanos(1));
+
+        @Override
+        public long currentTimeNanos() {
+            return nanos.get();
+        }
+
+        @Override
+        public boolean isWallClockBased() {
+            return false;
+        }
+
+        void advance(Duration duration) {
+            nanos.addAndGet(duration.toNanos());
+        }
+    }
+
+    static final ManualClock CLOCK = new ManualClock();
+
+    @TestConfiguration
+    static class ManualClockConfig {
+        /** 운영 빈(@Component, 실제 시계) 대신 이 시계를 보는 제한기를 필터·컨트롤러에 넣는다 */
+        @Bean
+        @Primary
+        LoginRateLimiter manualClockLoginRateLimiter() {
+            return new LoginRateLimiter(CLOCK);
+        }
+    }
 
     private static final String PASSWORD = "Passw0rd!limit";
     private static final String WRONG = "wrong-password";
@@ -114,7 +154,7 @@ class LoginAttemptLimitTest {
     }
 
     @Test
-    @DisplayName("같은 IP 의 로그인 요청은 분당 20회까지만 받고, 그 뒤는 429 와 안내 문구를 돌려준다")
+    @DisplayName("같은 IP 의 로그인 요청은 분당 20회까지만 받고, 그 뒤는 429 와 안내 문구를 돌려준다 — 1분이 지나면 다시 받는다")
     void loginRequests_areRateLimitedPerIp() throws Exception {
         String ip = "203.0.113.21";
         for (int i = 0; i < 20; i++) {
@@ -124,6 +164,14 @@ class LoginAttemptLimitTest {
                 .andExpect(status().isTooManyRequests())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value(containsString("요청이 너무 잦습니다")));
+
+        // 보충은 greedy(분당 20 = 3초마다 1개): 2초 뒤엔 아직 0개, 4초 뒤엔 1개
+        CLOCK.advance(Duration.ofSeconds(2));
+        login("nobody-still@test.com", WRONG, ip).andExpect(status().isTooManyRequests());
+
+        CLOCK.advance(Duration.ofSeconds(2));
+        login("nobody-again@test.com", WRONG, ip).andExpect(status().isOk());
+        login("nobody-again2@test.com", WRONG, ip).andExpect(status().isTooManyRequests());
     }
 
     @Test

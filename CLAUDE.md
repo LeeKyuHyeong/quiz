@@ -157,7 +157,7 @@ Spring Boot 3.4.1 + Java 17 + JPA + MariaDB 11.8 + Thymeleaf + STOMP/SockJS. `Co
 - **Profile:** 기본값 없음. 로컬 `-Dspring-boot.run.profiles=dev`, 운영은 compose `SPRING_PROFILES_ACTIVE=prod`.
 - **dev:** 8082, MariaDB `localhost:3306/song`, `ddl-auto=validate`. **prod:** 환경변수 자격증명, Docker 볼륨. **test:** H2 `MODE=MariaDB`, `create-drop`.
 - **Schema:** `src/main/resources/sql/schema.sql`이 단일 출처(dev·prod `validate`, Flyway 없음). **엔티티 변경 시 schema.sql 수정 + 로컬·운영 DB에 직접 ALTER**해야 기동한다.
-- **Admin:** `Member.role=ADMIN`, `/admin/**` → `hasRole("ADMIN")`. 세션 유휴 60분(열린 탭의 상태 확인은 연장하지 않음, 멀티 WS 연결 중에는 keepalive), 1계정 1세션.
+- **Admin:** `Member.role=ADMIN`, `/admin/**` → `hasRole("ADMIN")`. 세션 유휴 60분(열린 탭의 상태 확인은 연장하지 않음, 멀티 WS 연결 중에는 keepalive), 1계정 1세션. **세션 저장소(2026-09-22, O-020):** prod 는 Spring Session JDBC(`spring.profiles.group.prod=session-jdbc`, 쿠키 `SESSION`, `SPRING_SESSION` 2테이블) — 배포·재시작에도 로그인·방 참가 유지. dev·test 는 `SessionAutoConfiguration` 제외 = 메모리(로컬 확인은 `dev,session-jdbc`). `SessionRegistry` 는 저장소를 따른다(`SessionStoreConfig`) — 메모리 것을 그대로 두면 재시작 뒤 상태 확인이 NOT_LOGGED_IN. DB 저장소는 세션 이벤트가 없어 `WebSocketHttpSessionGuard` 가 30초마다 세션 없는 WS 를 닫는다. **배포 규칙:** 세션 테이블 없이 push 금지(헬스는 UP 인데 첫 요청부터 500) · 세션에 실리는 클래스(`CustomUserDetails` 등)를 바꾸는 배포는 `SPRING_SESSION` truncate(전원 로그아웃 1회) · 세션에 엔티티를 넣지 않는다(직렬화·비밀번호 해시). runbook §9.
 - **File uploads:** `uploads/songs/` 50MB — MP3 지원 제거 후 데드 코드. `Song.file_path`·`GameRoom.password`와 함께 스키마 변경 동반이라 보류(`docs/finish.md` 7, open-issues O-005).
 - **Docker memory:** App 640M ×2(blue/green, 평시 한 벌, JVM `MaxRAMPercentage=50`), DB 256M.
 

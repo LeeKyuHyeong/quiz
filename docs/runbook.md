@@ -231,3 +231,13 @@ docker exec "quiz-app-$ACTIVE" date     # KST
 | 메일 인증 코드·임시 비밀번호가 안 감 (401) | Brevo 키 미활성화·만료 / Authorised IPs 미등록 | `docker compose logs app-<색> \| grep '\[Mail\]'` 의 응답 본문: `Key not found`→키, `unrecognised IP address`→IP |
 | 멀티플레이가 폴링으로만 동작, 브라우저 콘솔에 `[WS] Connection error` | nginx `game.conf`에 `location /ws/` Upgrade 헤더 전달이 빠짐 (2026-09-14 이전 상태) | §1의 `--http1.1` curl → 101 이어야 함. 400 `Can "Upgrade" only to "WebSocket"` 이면 `infra/nginx/game.conf`의 `/ws/` 블록을 서버에 복원 |
 | 기동 직후 첫 요청이 10~30초 걸림 | `SecureRandom` 엔트로피 부족 (`SessionIdGeneratorBase` WARN) | `docker compose logs app-<색> \| grep SecureRandom`. `JAVA_TOOL_OPTIONS`에 `-Djava.security.egd=file:/dev/./urandom` |
+
+## 9. 세션 테이블 (Spring Session JDBC, 2026-09-22)
+
+로그인 세션은 `quiz-db` 의 `SPRING_SESSION`·`SPRING_SESSION_ATTRIBUTES` 에 있다 (prod = `session-jdbc` 프로파일). 배포·재시작에도 로그인이 유지된다.
+
+- **첫 도입 배포 전(한 번):** `sql/schema.sql` 끝의 두 `CREATE TABLE IF NOT EXISTS` 를 운영 DB 에 먼저 실행하고 `SHOW TABLES LIKE 'SPRING_SESSION%';` 가 2행인지 본 뒤 push 한다. 테이블 없이 새 색이 뜨면 헬스는 UP 인데 세션을 만드는 첫 요청부터 전부 500 이라 전환이 그대로 진행된다.
+- **첫 도입 배포 직후:** 쿠키가 `JSESSIONID`→`SESSION` 으로 바뀌어 모든 사용자가 한 번 로그아웃된다(마지막 1회).
+- **세션에 실리는 클래스를 바꾸는 배포**(`CustomUserDetails` 필드, 솔로 게임 세션 속성 타입 등): JDK 직렬화라 기존 행을 못 읽어 그 사용자는 쿠키를 지울 때까지 오류. 전환 직전 `TRUNCATE SPRING_SESSION_ATTRIBUTES; TRUNCATE SPRING_SESSION;` (= 전원 로그아웃 1회).
+- 만료 행은 앱이 매분 지운다(`spring.session.jdbc.cleanup-cron`). 세션이 끝난 WebSocket 은 앱 로그 `WebSocket closed: HTTP session ended` 로 확인.
+- 확인: `SELECT SESSION_ID, PRINCIPAL_NAME, FROM_UNIXTIME(LAST_ACCESS_TIME/1000) la FROM SPRING_SESSION ORDER BY la DESC;`

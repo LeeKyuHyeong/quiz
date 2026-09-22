@@ -1,7 +1,7 @@
 # 로그인 세션 저장소를 DB 로 (Spring Session JDBC) — 배포·재시작에도 로그인·방 참가 유지 (O-020) + 재연결 멈춤 수정 (O-021)
 - 일자: 2026-09-22 (회사 PC, 로컬 dev 8082 + 3306 MariaDB `song`)
 - 유형: 버그 수정 (P0 — 배포마다 전원 로그아웃·방 참가자 전원 유령) + 부수 결함 수정 (P1)
-- 브랜치: `main` 로컬 커밋 `95da209`(세션 저장소) · `2e37cb9`(재연결) — **미푸시** (푸시 = 운영 배포. 운영 DDL 선반영이 먼저다, §7)
+- 브랜치: `main` `95da209`(세션 저장소) · `2e37cb9`(재연결) · 문서 3건 — 운영 DDL 선반영(개발자) 뒤 2026-09-22 13:1x push `fc32b8a`, **배포 run #231 `35686194914` build 3m35s·deploy 1m45s Success**
 - 판정: **조건부** — 자동 계약 14/14 · 전체 회귀 458/459(1건은 이 PC 의 시간 경합, §5) · 로컬 실브라우저 재시작 2회 ✅. 운영 배포·첫 로그아웃·2대 구성은 🙋
 - 원인 기록: records/2026-09-22_o020-restart-session-loss (같은 날 오전). 설계 배경: `multi-presence-design.md` §6 표 6·7행 정정
 
@@ -66,7 +66,8 @@
 |---|---|---|
 | dev DB 증거 | 참가자 ✅ · `SPRING_SESSION` 행 ⬜(미조회) | §6-3 |
 | **운영 DDL 선반영** | ✅ 개발자 실행(2026-09-22 오후, `song` 에 두 CREATE TABLE, `SHOW TABLES LIKE 'SPRING_SESSION%'` 2행) → 그 뒤 push |
-| 운영 배포·첫 로그아웃 1회 | 🙋 | 전환 뒤 로그인 → `SPRING_SESSION` 1행 → 아무 커밋 push 로 재배포 → **로그인 유지·대기실 유지** 확인(= 운영 O-020 닫힘) |
+| 운영 배포 Smoke | ✅ 외부 GET `/` 200 · `/auth/login` 200 · `/actuator/health` 403(nginx deny) · **`Set-Cookie: SESSION=…`** = 운영에서 JDBC 저장소 활성 (13:23) |
+| 운영 재배포 뒤 로그인 유지 | 🙋 | 로그인 → `SPRING_SESSION` 1행 → 이 문서 커밋 push 로 재배포 → **로그인 유지·대기실 유지** 확인(= 운영 O-020 닫힘) |
 | 운영 세션 만료 WS 닫힘 | 🙋 | 로그아웃(`/auth/security-logout`) 뒤 30초 안에 `docker logs` 에 `WebSocket closed: HTTP session ended` |
 | 재시작 중 창을 닫은 사람 | ⬜ 한계 | 서버가 내려간 사이 닫힌 탭은 신호도 구독도 없음 → 정리 배치 몫. O-022 |
 | presence·언로드 토큰은 여전히 메모리 | ⬜ 범위 밖 | 2대 구성(AWS)은 멀티 미대응(09-18) |

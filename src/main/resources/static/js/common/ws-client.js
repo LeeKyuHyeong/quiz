@@ -18,6 +18,7 @@ const GameWebSocket = {
     keepAliveMs: 5 * 60 * 1000, // 서버 세션 유휴 한도(60분)보다 충분히 짧게
     fallbackCallback: null,
     fallbackActivated: false,
+    closing: false,             // disconnect() 로 닫는 중 — onclose 가 재연결을 걸지 않게
 
     /**
      * WebSocket 연결 및 방 토픽 구독
@@ -31,6 +32,7 @@ const GameWebSocket = {
         this.fallbackCallback = fallbackFn || null;
         this.reconnectAttempts = 0;
         this.fallbackActivated = false;
+        this.closing = false;
         this._clearTimers();
 
         this._doConnect();
@@ -109,13 +111,18 @@ const GameWebSocket = {
                 this._handleDisconnect();
             });
 
-            // SockJS 연결 종료 감지
+            // SockJS 연결 종료 감지. 여기서 stomp.js 가 걸어 둔 onclose 를 덮어쓰므로 그쪽 오류 콜백은 닫힘으로는 오지 않는다 —
+            // 연결된 뒤 끊김과 CONNECTED 전 실패(서버가 내려가 있는 동안의 재시도, 배포 전환) 둘 다 여기서 처리해야 한다.
+            // 전에는 connected 일 때만 처리해 재시도 1회가 실패하면 재연결도 폴링 폴백도 없이 멈췄다 (O-021, 2026-09-22).
+            // _handleDisconnect 는 재연결이 예약돼 있거나 폴백으로 넘어갔으면 무시하므로 오류 콜백과 겹쳐도 한 번만 센다.
             socket.onclose = () => {
-                if (this.connected) {
-                    this.connected = false;
-                    console.warn('[WS] Connection closed');
-                    this._handleDisconnect();
+                if (this.closing) {
+                    return;  // disconnect() 로 우리가 닫은 것 — 재연결하지 않는다
                 }
+                const wasConnected = this.connected;
+                this.connected = false;
+                console.warn(wasConnected ? '[WS] Connection closed' : '[WS] Connection attempt failed');
+                this._handleDisconnect();
             };
         } catch (e) {
             console.error('[WS] Failed to create connection:', e);
@@ -172,6 +179,7 @@ const GameWebSocket = {
     },
 
     disconnect() {
+        this.closing = true;
         this._clearTimers();
         if (this.subscription) {
             this.subscription.unsubscribe();

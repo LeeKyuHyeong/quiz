@@ -2,7 +2,7 @@
 - 일자: 2026-09-22 (회사 PC)
 - 유형: 버그 수정 (설계 한계 → 기동 뒤 정리)
 - 대상: `RoomPresenceService` 기동 정리(startup sweep), 테스트 2 클래스 5건
-- 판정: **조건부** — 자동 계약 5건·전체 회귀 ✅, 운영 확인은 다음 배포에서 🙋
+- 판정: **수용 가능** — 자동 계약 5건·전체 회귀 ✅, 운영 run #234 에서 예약 → 정리 → 나가기 로그 확인(§2 AC6)
 
 ## 1. 요청·결정·가정
 - 요청: 09-22 남긴 열린 것(O-022·O-023·O-018·O-019)을 닫을 수 있게 진행 (개발자).
@@ -19,7 +19,7 @@
 | 3 | [연쇄] 폴링으로 살아 있는 화면(연결 끊김 취소)은 남는다 | ✅ `sweep_thenPollingCancel_keepsParticipant` |
 | 4 | [경계] 종료된 방(결과 화면)은 대상이 아니다 | ✅ `sweep_ignoresFinishedRooms` |
 | 5 | [경계] 지연이 음수면 기동 이벤트가 정리를 예약하지 않는다(테스트 프로필 기본) | ✅ `negativeDelay_disablesSweep` |
-| 6 | [운영] 배포 전환 중 대기실에 있던 사람은 남고, 그 사이 창을 닫은 사람은 기동 150초 안에 나간다 | 🙋 다음 배포 |
+| 6 | [운영] 배포 전환 중 대기실에 있던 사람은 남고, 그 사이 창을 닫은 사람은 기동 150초 안에 나간다 | ✅ run #234: 16:30:45 예약 → 16:32:15 `participantsWithoutConnection=1` → 16:33:15 `DISCONNECT` 나가기(기존 유령, records/2026-09-22_o018-o019-prod-checks §1). "남는다" 쪽은 이 배포에 살아 있는 사람이 없어 관찰 대상 없음 |
 
 ## 3. 변경
 - `RoomPresenceService`: `GameRoomRepository`·`GameRoomParticipantRepository`·`TaskScheduler`·`TransactionTemplate` 주입, `@EventListener(ApplicationReadyEvent)` 가 `startup-sweep-delay-ms` 뒤 `sweepAfterStartup()` 예약. 정리는 `findByStatus(WAITING|PLAYING)` × `findGameParticipants` 에서 `isConnected` 가 아닌 참가자를 `scheduleLeaveOnDisconnect(…, disconnectGraceMs)`(이미 예약된 나가기는 유지). INFO `Presence startup sweep scheduled: delayMs= graceMs=` / `Presence startup sweep: participantsWithoutConnection= graceMs=` / 꺼짐 `Presence startup sweep disabled`.

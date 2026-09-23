@@ -11,6 +11,7 @@
 
 | 일자 | 기록 | 유형 | 우선순위 | 판정 |
 |---|---|---|---|---|
+| 2026-09-23 | [AWS 시연 — EC2 2대 + ALB + RDS + ElastiCache 실기동 (`session-redis`)](records/2026-09-23_aws-demo.md) | 인프라 | P1 | 수용 가능 — 세션 외부화 양방향 실측 ✅ · RDS TLS 강제 충돌 해소 · 시연 범위는 로그인 세션 한정 |
 | 2026-09-22 | [AWS 시연용 세션 저장소 프로파일 `session-redis`](records/2026-09-22_session-redis-profile.md) | 기능 추가 | P1 (prod 무영향은 P0) | 수용 가능 — 481 ✅(CI 도 Redis 포함) · 재시작 유지 ✅ · 운영 배포 run 35740318687 Smoke ✅ |
 | 2026-09-22 | [O-018·O-019·O-022 운영 확인 — 창 전체 닫기·휴대폰·인앱·bfcache·기동 뒤 정리](records/2026-09-22_o018-o019-prod-checks.md) | 운영 확인 | P1 | O-018·O-019 CLOSED, R-025 게임 항목·게임 중 배포 집에서 ✅ (§6) |
 | 2026-09-22 | [O-022 — 서버가 내려간 사이 창을 닫은 참가자를 기동 뒤 정리](records/2026-09-22_startup-sweep.md) | 버그 | P1 | 수용 가능 |

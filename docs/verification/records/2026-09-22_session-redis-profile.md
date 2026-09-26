@@ -42,7 +42,7 @@
 | `SessionLifecycleJdbcContractTest` 9건 (prod 경로 회귀) | ✅ 9/9 |
 | `SessionLifecycleRedisContractTest` 9건 (Testcontainers `redis:7-alpine`, 컨테이너 기동 0.36초) — 유휴 만료·상태 확인 비연장·**WS 만으로 비유지 + 만료 시 WS 닫힘(가드)**·keepalive 유지·중복 로그인 감지·401 JSON·익명 무쿠키·익명 쿠키 NOT_LOGGED_IN·다른 탭 로그아웃 | ✅ 9/9 (36.4초) — `configure-action=none` 그대로, 키스페이스 이벤트 없이 |
 | `SessionStoreProfileTest$Redis` 2건 | ✅ 2/2 — indexed 저장소·가드 ✅ / 헬스: Redis 살아 있음 200 `UP` → 컨테이너 정지 → **500**(503 DOWN 이 아님 — §3 발견 2, O-024). 계약은 "UP 을 돌려주지 않는다" 로 두고 통과 |
-| 전체 회귀 `./mvnw test` (집 PC, Docker 있음) | ✅ **481건 0 실패 0 Skipped**, 63 파일, 3분 32초 (468 + 신규 13: Redis 계약 9 + 격리 4) |
+| 전체 회귀 `./mvnw test` (집 PC, Docker 있음) | ✅ **481건 0 실패 0 Skipped**, 3분 32초 (468 + 신규 13: Redis 계약 9 + 격리 4). **테스트 클래스 62** — `src/test/java` 의 `.java` 파일은 63 이지만 그중 `support/TestBrowser.java` 는 `@Test` 0개인 헬퍼라 surefire 항목이 없다(2026-09-27 정정; 이전에 적혀 있던 '63 파일' 은 파일 수였다) |
 
 ## 5. 로컬 실브라우저 (`dev,session-redis`, 로컬 `quiz-redis` 컨테이너 `redis:7-alpine`, MariaDB 3306 `song`)
 | # | 확인 | 결과 |

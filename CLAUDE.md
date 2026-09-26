@@ -208,7 +208,7 @@ Spring Boot 3.4.1 + Java 17 + JPA + MariaDB 11.8 + Thymeleaf + STOMP/SockJS. `Co
 > 전역 `~/.claude/CLAUDE.md`의 검증 규칙(AC → 검증 실행 → 기록)이 이 저장소에 적용될 때의 값. 검증 기록은 `docs/verification/`.
 
 - 유형: 본인 작성·운영 중(전역 onboarding §1 특성 테스트 절차 해당 없음).
-- 명령: 위 Build & Run. 전체 테스트는 H2라 로컬 DB 불필요, 2026-09-22 밤 기준 63 파일 481건(Docker 있을 때; 없으면 Redis 13건 Skipped). 로컬 실행만 MariaDB `song` 필요. **Redis 계약 테스트(`SessionLifecycleRedisContractTest`·`SessionStoreProfileTest$Redis`)는 Testcontainers 2.0.5 로 실제 Redis 컨테이너를 띄운다 — Docker 없는 PC(회사)는 그 클래스만 Skipped, CI·집 PC 는 실행. Docker Engine 29 는 Testcontainers 2.0.2+ 여야 붙는다(1.x 는 API 1.32 로 400).**
+- 명령: 위 Build & Run. 전체 테스트는 H2라 로컬 DB 불필요, 2026-09-22 밤 기준 **테스트 클래스 62개·481건**(Docker 있을 때; 없으면 Redis 13건 Skipped). `src/test/java` 의 `.java` 파일은 63 이지만 `support/TestBrowser.java` 는 `@Test` 0개인 헬퍼다 — 클래스 수를 셀 때 빼고, 파일 수와 혼동하지 말 것. 로컬 실행만 MariaDB `song` 필요. **Redis 계약 테스트(`SessionLifecycleRedisContractTest`·`SessionStoreProfileTest$Redis`)는 Testcontainers 2.0.5 로 실제 Redis 컨테이너를 띄운다 — Docker 없는 PC(회사)는 그 클래스만 Skipped, CI·집 PC 는 실행. Docker Engine 29 는 Testcontainers 2.0.2+ 여야 붙는다(1.x 는 API 1.32 로 400).**
 - 사용자 시나리오: 수동 체크리스트(Playwright 스펙은 저장소 미포함). 멀티는 브라우저 2개 + 시크릿 창(참가자 B·비참가자 C).
 - 테스트 계정(dev, `DataInitializer`, prod 미생성): 관리자 `a@a.com`(ADMIN) · 일반 `test1@test.com`~`test6@test.com`(USER). 비밀번호는 코드에만.
 - 외부 연동: Brevo는 `@MockBean`/`@Mock`(`AuthControllerPasswordResetTest`, `MemberServicePasswordTest`), 실제 발송은 운영 반영 후 🙋. YouTube는 Mockito(`YouTubeValidationServiceTest`, `YouTubeVideoCheckBatchTest`). DB는 H2 `MODE=MariaDB`라 MariaDB 전용 SQL은 테스트에서 못 잡는다.

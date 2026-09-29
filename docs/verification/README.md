@@ -11,6 +11,7 @@
 
 | 일자 | 기록 | 유형 | 우선순위 | 판정 |
 |---|---|---|---|---|
+| 2026-09-29 | [파티 퀴즈 P-2 Part ① — `PartyItem` 엔티티 + TSV 가져오기](records/2026-09-29_party-item-import.md) | 신규 | P1 | 수용 가능 — 493 ✅(481 + 12) · dev `validate` ✅ · 로컬 DB 적재는 O-027(Part ④ 뒤) |
 | 2026-09-29 | [파티 퀴즈 착수 — 집 PC 기준선 테스트 + `party_item` 테이블](records/2026-09-29_party-item-ddl.md) | 신규 (DB 구조) | P2 | 수용 가능 — 481 ✅(0 Skipped) · 로컬 DB 생성 ✅ · dev 기동 ✅ · 엔티티 대조는 O-026 |
 | 2026-09-29 | [12-26 팀전 파티 퀴즈 — 소스 분석·개발 계획 초안](records/2026-09-29_party-quiz-plan.md) | 문서 | P3 (구현은 P1) | 수용 가능 (문서만) — 결정 대기 §7, 코드 변경 없음 |
 | 2026-09-23 | [AWS 시연 — EC2 2대 + ALB + RDS + ElastiCache 실기동 (`session-redis`)](records/2026-09-23_aws-demo.md) | 인프라 | P1 | 수용 가능 — 세션 외부화 양방향 실측 ✅ · RDS TLS 강제 충돌 해소 · 시연 범위는 로그인 세션 한정 |

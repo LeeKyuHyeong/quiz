@@ -594,6 +594,36 @@ CREATE TABLE `menu_config` (
   PRIMARY KEY (`menu_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `party_item`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `party_item` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `category` varchar(20) NOT NULL COMMENT 'SCREEN/ANIME/GAME/PERSON/QUIZ/SOUND/SPEED',
+  `sub_category` varchar(50) DEFAULT NULL COMMENT '중분류',
+  `presentation` varchar(10) NOT NULL COMMENT 'AUDIO/VIDEO/IMAGE/TEXT',
+  `answer` varchar(255) NOT NULL COMMENT '정답',
+  `answer_aliases` varchar(500) DEFAULT NULL COMMENT '인정 답안(쉼표 구분)',
+  `detail` varchar(255) DEFAULT NULL COMMENT '보조 정답·정보(캐릭터명·곡명·연도)',
+  `youtube_video_id` varchar(20) DEFAULT NULL COMMENT 'AUDIO/VIDEO 필수',
+  `start_time` int(11) DEFAULT NULL COMMENT '시작 시간(초)',
+  `play_duration` int(11) DEFAULT NULL COMMENT '재생 시간(초)',
+  `image_path` varchar(255) DEFAULT NULL COMMENT 'IMAGE 파일명(UUID). 파일은 저장소 밖 폴더',
+  `question_text` varchar(500) DEFAULT NULL COMMENT 'TEXT 문제(초성·이모지·설명)',
+  `hint1` varchar(255) DEFAULT NULL COMMENT 'GAME 전용 단계 힌트',
+  `hint2` varchar(255) DEFAULT NULL,
+  `hint3` varchar(255) DEFAULT NULL,
+  `source_note` varchar(255) DEFAULT NULL COMMENT '출처(채널명), 정답 공개 때 표시',
+  `difficulty` int(11) DEFAULT NULL COMMENT '난이도',
+  `is_youtube_valid` tinyint(1) DEFAULT 1,
+  `youtube_checked_at` datetime(6) DEFAULT NULL,
+  `use_yn` varchar(1) NOT NULL DEFAULT 'Y',
+  `created_at` datetime(6) DEFAULT NULL,
+  `updated_at` datetime(6) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_party_item_cat` (`category`,`sub_category`,`use_yn`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='파티 퀴즈 문제 - party 브랜치·로컬 DB 전용, 운영 DB 에 없음';
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `ranking_history`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;

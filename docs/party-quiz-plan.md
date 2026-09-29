@@ -117,13 +117,15 @@ CREATE TABLE party_item (
   question_text VARCHAR(500) NULL COMMENT 'TEXT 문제(초성·이모지·설명)',
   hint1 VARCHAR(255) NULL, hint2 VARCHAR(255) NULL, hint3 VARCHAR(255) NULL COMMENT 'GAME 전용 단계 힌트',
   source_note VARCHAR(255) NULL COMMENT '출처(채널명), 정답 공개 때 표시',
-  difficulty TINYINT NULL,
-  is_youtube_valid TINYINT(1) DEFAULT 1, youtube_checked_at DATETIME NULL,
-  use_yn CHAR(1) DEFAULT 'Y',
-  created_at DATETIME, updated_at DATETIME,
+  difficulty INT NULL,
+  is_youtube_valid TINYINT(1) DEFAULT 1, youtube_checked_at DATETIME(6) NULL,
+  use_yn VARCHAR(1) NOT NULL DEFAULT 'Y',
+  created_at DATETIME(6), updated_at DATETIME(6),
   PRIMARY KEY (id), KEY idx_party_item_cat (category, sub_category, use_yn)
 );
 ```
+
+2026-09-29 저녁 확정: `difficulty` 는 INT, `use_yn` 은 VARCHAR(1) — `validate` 가 자바 `Integer`·`String` 에 INTEGER·VARCHAR 를 기대하고 기존 `song` 도 같은 타입이다. 실제 적용본은 `schema.sql`.
 
 ### 2-3. 로컬 실행 환경 (노트북) — 노래 데이터는 운영에서 가져와야 한다
 

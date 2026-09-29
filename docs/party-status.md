@@ -9,7 +9,7 @@
 | 파일 | 역할 | 줄 |
 |---|---|---|
 | `docs/party-quiz-plan.md` | 마스터 계획서. §0 결정표 · §1 대분류 · §2 격리·DDL · §4 화면·패턴 · §7 검증 · §11 **착수 체크리스트** | 350 |
-| `docs/party-content/README.md` + TSV 7개 | 문제 초안, 열 정의, **MC 판정 규칙 표**, 선정 기준 | 50 + 346행 |
+| `docs/party-content/README.md` + TSV 7개 | 문제 초안, 열 정의, **MC 판정 규칙 표**, 선정 기준 | 50 + 347행 |
 | `docs/party-mockup/index.html` | 콘솔·보드·플레이어·스피드 콘솔·스피드 보드 5화면 목업(상태 버튼) | 476 |
 | `docs/verification/records/2026-09-29_party-quiz-plan.md` | 검증 기록(문서만, 코드 0) · O-025 | 61 |
 

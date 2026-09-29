@@ -1,4 +1,4 @@
-# 12-26 파티 퀴즈 — 한 장 현황 (2026-09-29 기준)
+# 12-26 파티 퀴즈 — 한 장 현황 (2026-09-30 00:55 기준, 집 PC)
 
 > 진입점. 근거·배경은 `party-quiz-plan.md`, 문제 목록은 `party-content/`, 화면은 `party-mockup/index.html`. **`party` 브랜치**에만 커밋한다(main 에 올리면 `.tsv`·`.html` 이 CI 필터 밖이라 배포가 돈다).
 
@@ -12,6 +12,48 @@
 | `docs/party-content/README.md` + TSV 7개 | 문제 초안, 열 정의, **MC 판정 규칙 표**, 선정 기준 | 50 + 347행 |
 | `docs/party-mockup/index.html` | 콘솔·보드·플레이어·스피드 콘솔·스피드 보드 5화면 목업(상태 버튼) | 476 |
 | `docs/verification/records/2026-09-29_party-quiz-plan.md` | 검증 기록(문서만, 코드 0) · O-025 | 61 |
+| `src/main/java/com/kh/game/party/` | 파티 코드 전부(16개 파일). 기존 자바 파일은 수정 없음 | |
+| `src/test/java/com/kh/game/party/` | `PartyItemImportTest` 12 · `PartyGameServiceTest` 26 | |
+| `docs/verification/records/2026-09-29_party-item-ddl.md` · `…_party-item-import.md` · `2026-09-30_party-game-service.md` | 착수·Part ①·Part ② 검증 기록 | |
+
+## 개발 진행 (P-2 서버를 Part 4개로 나눔)
+| Part | 내용 | 상태 | 증거 |
+|---|---|---|---|
+| 착수 | 기준선 테스트, `party_item` 테이블(`schema.sql` + 집 PC 로컬 DB) | **완료** `9fd29b1` | 481 통과 · dev 기동 |
+| ① | `PartyItem` 엔티티·리포지토리 + TSV 가져오기(`PartyItemImportService`) | **완료** `5f54ec6` | 12건 · 실제 TSV 7개 거부 0 · dev `validate` 통과 |
+| ② | 본게임 규칙 `PartyGameService`(출제·판정·점수·힌트·재생 명령·보드 노출·이력·스냅샷 복구) | **완료**(이 커밋) | 26건 · 전체 519 통과 |
+| ③ | 스피드퀴즈 `PartySpeedQuizService` | **AC 초안 제시, 답 대기** — 아래 "이어서 할 일" | |
+| ④ | 컨트롤러 3개(`/admin/party/**`) + 이미지 업로드 + 권한 테스트 | 미착수 | |
+| P-3 | 화면(console → board → player → speed), `youtube-player.js` 옵션 | 미착수 | |
+
+전체 테스트 수: **519**(기존 481 + 12 + 26), 0 Skipped(Docker 켠 집 PC). Docker 없는 회사 PC 는 Redis 13건이 Skipped 로 나오는 것이 정상.
+
+## 이어서 할 일 — Part ③ 시작 전에 답할 것
+AC 초안은 plan §1-4·§8 을 그대로 옮긴 것(설정 · 턴 · 되돌리기 · 결과 · 노출 · 복구). 남은 질문:
+1. **재대결**: 동점일 때 다시 하려면 결과를 비워야 하는데, 앞서 나온 제시어가 다시 나올 수 있다. 추천 = 결과만 비우고 **나온 제시어 기록은 유지**하는 [재대결]과, 전부 비우는 [초기화]를 따로 둔다.
+2. **시간 판정 여유**: 브라우저·서버 시계 차이로 0초 직전의 [정답]이 거부될 수 있다. 기본값 = 서버가 1초 여유.
+3. AC 에서 고칠 것(기본값 = 초안 그대로).
+
+답이 정해지면 Part ③ → ④ → P-3 순서. Part ④ 가 끝나야 O-027(실제 TSV 를 로컬 DB 에 적재)·O-028(실제 곡으로 출제, 스냅샷 파일 생성)을 닫을 수 있다.
+
+## 구현하면서 정한 것 (plan 과 다르거나 plan 에 없던 것)
+- `party_item`: `difficulty INT`, `use_yn VARCHAR(1)`, 날짜 `DATETIME(6)`(plan §2 DDL 도 정정함). 난이도 하/중/상 = 1/2/3.
+- 제시 값은 AUDIO/IMAGE/TEXT 3종만 받는다(VIDEO 는 안 씀).
+- 가져오기: URL 없는 AUDIO·파일명 없는 IMAGE 도 저장(출제에서만 제외). 대분류 + 정답이 같으면 덮어쓰기, 이때 `use_yn` 은 건드리지 않음. `비고`·`추천자`·`제목스포` 는 저장 안 함. URL 칸에 값이 있는데 영상 ID 를 못 뽑으면 그 행 거부.
+- 본게임 단계에 **READY**(뽑았지만 아직 안 띄움) 추가. 보드에는 WAIT 로 보인다. 라운드 번호는 [띄우기] 때 오르고, 띄우기 전에 다시 뽑으면 앞 문제는 소모되지 않는다.
+- 판정 정정은 점수 ± 만(되돌리기 없음). 점수 1점 고정. 노래는 RETRO·비인기곡 포함.
+- 재생 명령은 문제가 떠 있을 때와 정답 공개 뒤에만. 스냅샷 저장 실패는 진행을 막지 않고 ERROR 로그.
+- 설정 `party.state-file`(dev 만 `../party-images/party-state.json`, 비어 있으면 메모리).
+
+## PC 별 주의
+| | 집 PC | 회사 PC |
+|---|---|---|
+| 역할 | 빌드·테스트·기동 | 분석·문서(기동 안 함) |
+| 로컬 DB | **MySQL 8.0.46**(MariaDB 아님, O-027). `party_item` 생성됨 | DB 없음. 기동하려면 `schema.sql` 의 `party_item` CREATE 를 먼저 실행 |
+| Docker | 있음 → 0 Skipped | 없음 → Redis 13건 Skipped |
+| 출력 스타일 | `.claude/settings.local.json` 의 `"outputStyle": "Learning"` 을 지움(09-29) | 같은 줄이 있으면 Claude 가 코드 일부를 비워 두고 구현을 넘긴다 → 같은 줄을 지운다(이 파일은 git 미추적) |
+
+회사 PC 에서 시작할 때: `git fetch` → `git switch party` → `git pull`. 이 문서 → "이어서 할 일" 순서로 보면 된다.
 
 ## 확정된 것 (바뀌면 §0 표를 고친다)
 - 대분류: SONG(기존 `song` 읽기만, 5년 묶음) · SCREEN(장면 캡처 1장) · ANIME · GAME(게임 5개, 정답은 캐릭터·유닛) · PERSON(사진만) · QUIZ(초성·이모지) · SOUND(TV 프로그램 시그널·CM송) + 몸풀기 SPEED(스피드퀴즈, 팀별 제한 시간).
@@ -42,8 +84,8 @@
 3. TV 프로그램 △ 6개·조건부 3개 듣고 결정. 게임 대사 원문 확인. 인물 결정 2건.
 
 ## 다음 단계
-- 콘텐츠 검토: screen·anime·game 확정, **person 결정 2건**이 남음. 판정 공통 규칙("정식 이름?")은 README 표.
-- 집 PC(plan §11-3): 파일 이동 → `party` 브랜치 → 로컬 DB `party_item` CREATE → P-2 서버 + 테스트 → P-3 화면(목업 순서) → TSV 등록. 일정은 plan §9(리허설 1 = 11월 첫째 주, 코드 동결 12/8).
+- 콘텐츠 검토: screen·anime·game 확정, **person 결정 2건**이 남음. 판정 공통 규칙("정식 이름?")은 README 표. `anime.tsv` 12행(로보카 폴리)은 IMAGE 인데 이미지파일명이 비어 있다.
+- 개발: 위 "개발 진행" 표. plan §11-3 의 앞 세 항목(파일 이동 · `party` 브랜치 · `party_item` CREATE)은 끝났다. 일정은 plan §9(리허설 1 = 11월 첫째 주, 코드 동결 12/8).
 
 ## 검증 상태
-문서·TSV 만. 빌드·테스트·기동 **미실행**(회사 PC 분석 전용). 소스 확인은 읽기 근거뿐 — 첫 실행 검증은 집 PC `./mvnw test`.
+집 PC 에서 실행 확인: `./mvnw test` 519 통과 · dev 기동 · 엔티티 `validate`. **화면·경로가 없어 실제 데이터로는 아직 못 돌렸다**(O-027·O-028, Part ④ 뒤). 열린 항목은 `docs/verification/open-issues.md` 의 O-025·O-027·O-028.

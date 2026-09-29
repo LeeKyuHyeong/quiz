@@ -1,0 +1,81 @@
+대분류	중분류	제시	정답	인정답안	보조	YouTube URL	시작초	길이	이미지파일명	문제텍스트	힌트1	힌트2	힌트3	출처	제목스포	난이도	추천자	비고
+SPEED	동물	TEXT	코끼리													하		
+SPEED	동물	TEXT	기린													하		
+SPEED	동물	TEXT	펭귄													하		
+SPEED	동물	TEXT	캥거루													하		
+SPEED	동물	TEXT	카멜레온													중		[몸으로 어려움]
+SPEED	동물	TEXT	오징어													하		
+SPEED	동물	TEXT	두더지													중		
+SPEED	동물	TEXT	하마													하		
+SPEED	동물	TEXT	판다													하		
+SPEED	동물	TEXT	나무늘보													중		
+SPEED	물건	TEXT	선풍기													하		
+SPEED	물건	TEXT	우산													하		
+SPEED	물건	TEXT	청소기													하		
+SPEED	물건	TEXT	헬멧													하		
+SPEED	물건	TEXT	젓가락													하		
+SPEED	물건	TEXT	돋보기													중		
+SPEED	물건	TEXT	손톱깎이													중		
+SPEED	물건	TEXT	텀블러													중		[몸으로 어려움]
+SPEED	물건	TEXT	셀카봉													중		
+SPEED	물건	TEXT	리모컨													하		
+SPEED	직업	TEXT	소방관													하		
+SPEED	직업	TEXT	요리사													하		
+SPEED	직업	TEXT	승무원													중		
+SPEED	직업	TEXT	치과의사													중		
+SPEED	직업	TEXT	택배기사													하		
+SPEED	직업	TEXT	헤어디자이너	미용사												중		
+SPEED	직업	TEXT	프로게이머													중		[몸으로 어려움]
+SPEED	직업	TEXT	아나운서													중		[몸으로 어려움]
+SPEED	직업	TEXT	농부													하		
+SPEED	직업	TEXT	경찰													하		
+SPEED	동작	TEXT	재채기													하		
+SPEED	동작	TEXT	줄넘기													하		[임산부 출제자 제외 — 몸으로 모드]
+SPEED	동작	TEXT	세수													하		
+SPEED	동작	TEXT	팔굽혀펴기	푸시업												하		[임산부 출제자 제외 — 몸으로 모드]
+SPEED	동작	TEXT	낚시													하		
+SPEED	동작	TEXT	스키													중		
+SPEED	동작	TEXT	양치질													하		
+SPEED	동작	TEXT	헤드뱅잉													중		[임산부 출제자 제외 — 몸으로 모드]
+SPEED	동작	TEXT	셀카													하		
+SPEED	동작	TEXT	하품													하		
+SPEED	음식	TEXT	떡볶이													하		
+SPEED	음식	TEXT	삼겹살													하		
+SPEED	음식	TEXT	치킨													하		
+SPEED	음식	TEXT	냉면													중		
+SPEED	음식	TEXT	김밥													하		
+SPEED	음식	TEXT	순대													중		
+SPEED	음식	TEXT	라면													하		
+SPEED	음식	TEXT	수박													하		
+SPEED	음식	TEXT	붕어빵													중		
+SPEED	음식	TEXT	짜장면	자장면												하		
+SPEED	캐릭터	TEXT	배트맨													하		
+SPEED	캐릭터	TEXT	아이언맨													하		
+SPEED	캐릭터	TEXT	펭수													하		
+SPEED	캐릭터	TEXT	피카츄													하		
+SPEED	캐릭터	TEXT	미니언즈													하		
+SPEED	캐릭터	TEXT	슈렉													중		
+SPEED	캐릭터	TEXT	스파이더맨													하		
+SPEED	캐릭터	TEXT	스폰지밥													하		
+SPEED	캐릭터	TEXT	헬로키티													하		
+SPEED	캐릭터	TEXT	피노키오													하		
+SPEED	유명인	TEXT	박명수													하		
+SPEED	유명인	TEXT	이경규													하		
+SPEED	유명인	TEXT	박찬호													중		
+SPEED	유명인	TEXT	신동엽													하		
+SPEED	유명인	TEXT	김종국													하		
+SPEED	유명인	TEXT	박나래													하		
+SPEED	유명인	TEXT	송강호													중		
+SPEED	유명인	TEXT	봉준호													중		
+SPEED	유명인	TEXT	이승기													하		
+SPEED	유명인	TEXT	장윤정													중		
+SPEED	스포츠	TEXT	농구													하		
+SPEED	스포츠	TEXT	야구													하		
+SPEED	스포츠	TEXT	볼링													하		
+SPEED	스포츠	TEXT	태권도													하		
+SPEED	스포츠	TEXT	골프													하		
+SPEED	스포츠	TEXT	수영													하		
+SPEED	스포츠	TEXT	씨름													중		
+SPEED	스포츠	TEXT	컬링													중		
+SPEED	스포츠	TEXT	배드민턴													하		
+SPEED	스포츠	TEXT	양궁													중		

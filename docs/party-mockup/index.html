@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>파티 퀴즈 화면 목업</title>
+<style>
+:root{
+  --primary:#6366f1;--primary-dark:#4f46e5;--primary-light:#e0e7ff;
+  --success:#22c55e;--success-light:#dcfce7;--danger:#ef4444;--danger-light:#fee2e2;
+  --warning:#f59e0b;--warning-light:#fef3c7;--info:#3b82f6;
+  --bg-base:#f8fafc;--bg-surface:#fff;--bg-elevated:#f1f5f9;--bg-muted:#e2e8f0;
+  --text-primary:#1e293b;--text-secondary:#64748b;--text-muted:#6b7280;--text-inverse:#fff;
+  --border-color:#e2e8f0;--border-strong:#cbd5e1;
+  --overlay-medium:rgba(0,0,0,.16);--shadow:0 1px 3px rgba(0,0,0,.1);
+  --team-a:#3b82f6;--team-a-light:#dbeafe;--team-b:#ec4899;--team-b-light:#fce7f3;
+  --tv-bg:#0f172a;--tv-surface:#1e293b;--tv-text:#f8fafc;--tv-muted:#94a3b8;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;background:var(--bg-base);color:var(--text-primary);line-height:1.4}
+button{font:inherit;cursor:pointer}
+.top{position:sticky;top:0;z-index:100;background:var(--bg-surface);border-bottom:1px solid var(--border-color);padding:.6rem 1rem;display:flex;gap:.4rem;flex-wrap:wrap;align-items:center}
+.top .title{font-weight:700;margin-right:.5rem}
+.tab{border:1px solid var(--border-strong);background:var(--bg-surface);border-radius:.5rem;padding:.4rem .8rem}
+.tab.active{background:var(--primary);color:var(--text-inverse);border-color:var(--primary)}
+.screen{display:none;padding:1rem;max-width:1200px;margin:0 auto}
+.screen.active{display:block}
+.desc{font-size:.85rem;color:var(--text-secondary);margin:0 0 .6rem}
+.states{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:.8rem;align-items:center}
+.states .lbl{font-size:.8rem;color:var(--text-muted);margin-right:.25rem}
+.st{border:1px solid var(--border-strong);background:var(--bg-surface);border-radius:999px;padding:.25rem .7rem;font-size:.85rem}
+.st.active{background:var(--text-primary);color:var(--text-inverse);border-color:var(--text-primary)}
+[hidden]{display:none!important}
+
+/* 공통 카드/버튼 */
+.card{background:var(--bg-surface);border:1px solid var(--border-color);border-radius:.75rem;padding:1rem;box-shadow:var(--shadow)}
+.card h3{margin:0 0 .6rem;font-size:.95rem;color:var(--text-secondary);font-weight:600}
+.btn{border:1px solid var(--border-strong);background:var(--bg-surface);border-radius:.5rem;padding:.55rem .9rem;font-weight:600}
+.btn.primary{background:var(--primary);border-color:var(--primary);color:var(--text-inverse)}
+.btn.a{background:var(--team-a);border-color:var(--team-a);color:var(--text-inverse)}
+.btn.b{background:var(--team-b);border-color:var(--team-b);color:var(--text-inverse)}
+.btn.ghost-a{background:var(--team-a-light);border-color:var(--team-a);color:var(--team-a)}
+.btn.ghost-b{background:var(--team-b-light);border-color:var(--team-b);color:var(--team-b)}
+.btn.warn{background:var(--warning-light);border-color:var(--warning);color:#b45309}
+.btn.danger{background:var(--danger-light);border-color:var(--danger);color:#991b1b}
+.btn.big{padding:.9rem 1.2rem;font-size:1.05rem}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.chip{display:inline-block;border-radius:999px;padding:.2rem .6rem;font-size:.8rem;background:var(--bg-elevated);color:var(--text-secondary)}
+.chip.on{background:var(--primary-light);color:var(--primary-dark);font-weight:600}
+.chip.a{background:var(--team-a-light);color:var(--team-a)}
+.chip.b{background:var(--team-b-light);color:var(--team-b)}
+.muted{color:var(--text-muted);font-size:.85rem}
+
+/* 콘솔 */
+.console{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:1rem}
+.console-head{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap}
+.score{display:flex;gap:.6rem;align-items:center}
+.score .team{border-radius:.6rem;padding:.4rem .9rem;color:var(--text-inverse);font-weight:700;min-width:5.5rem;text-align:center}
+.score .team.a{background:var(--team-a)}.score .team.b{background:var(--team-b)}
+.score .team small{display:block;font-weight:400;font-size:.7rem;opacity:.9}
+.score .team b{font-size:1.4rem}
+.pm{display:inline-flex;flex-direction:column;gap:.15rem}
+.pm button{border:1px solid var(--border-strong);background:var(--bg-surface);border-radius:.3rem;width:1.6rem;height:1.2rem;font-size:.7rem;line-height:1;padding:0}
+.cat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem}
+.cat{border:1px solid var(--border-strong);background:var(--bg-surface);border-radius:.5rem;padding:.55rem .4rem;text-align:center}
+.cat small{display:block;color:var(--text-muted);font-size:.72rem}
+.cat.on{border-color:var(--primary);background:var(--primary-light);color:var(--primary-dark)}
+.answer-card{background:var(--warning-light);border:1px solid var(--warning);border-radius:.6rem;padding:.8rem 1rem}
+.answer-card .ans{font-size:1.5rem;font-weight:800}
+.answer-card dl{display:grid;grid-template-columns:5.5rem 1fr;gap:.2rem .6rem;margin:.5rem 0 0;font-size:.88rem}
+.answer-card dt{color:#92400e}.answer-card dd{margin:0}
+.rule{margin-top:.5rem;font-size:.82rem;color:#92400e;border-top:1px dashed var(--warning);padding-top:.4rem}
+.player{width:100%;max-width:30rem;aspect-ratio:16/9;background:#000;border-radius:.5rem;display:grid;place-items:center;color:var(--tv-muted);font-size:.85rem;position:relative}
+.player .yt{position:absolute;inset:0;display:grid;place-items:center}
+.player .play{width:4rem;height:2.8rem;background:var(--danger);border-radius:.6rem;display:grid;place-items:center;color:#fff;font-size:1.3rem}
+.player .bar{position:absolute;left:0;right:0;bottom:0;height:.3rem;background:rgba(255,255,255,.2)}
+.player .bar i{display:block;height:100%;background:var(--danger);width:35%}
+.img-preview{width:100%;max-width:30rem;aspect-ratio:16/9;border-radius:.5rem;background:repeating-linear-gradient(45deg,var(--bg-muted) 0 10px,var(--bg-elevated) 10px 20px);display:grid;place-items:center;color:var(--text-muted);font-size:.85rem}
+.timer{font-variant-numeric:tabular-nums;font-size:1.6rem;font-weight:700}
+.hint-list{display:grid;gap:.3rem;margin-top:.5rem}
+.hint{display:flex;gap:.5rem;align-items:center;font-size:.9rem}
+.hint .k{width:3.2rem;color:var(--text-muted)}
+.hint .v{flex:1;padding:.3rem .5rem;border-radius:.4rem;background:var(--bg-elevated)}
+.hint.open .v{background:var(--primary-light);color:var(--primary-dark);font-weight:600}
+.hist{list-style:none;margin:0;padding:0;font-size:.85rem}
+.hist li{display:flex;justify-content:space-between;padding:.35rem 0;border-bottom:1px solid var(--border-color)}
+.status-line{background:var(--bg-elevated);border-radius:.5rem;padding:.5rem .8rem;font-size:.9rem}
+.status-line b.a{color:var(--team-a)}.status-line b.b{color:var(--team-b)}
+
+/* TV 보드 */
+.tv{width:100%;aspect-ratio:16/9;background:var(--tv-bg);color:var(--tv-text);border-radius:.75rem;padding:3% 4%;position:relative;container-type:inline-size;overflow:hidden;display:flex;flex-direction:column}
+.tv .hdr{display:flex;justify-content:space-between;align-items:center;font-size:2.2cqw}
+.tv .hdr .cat{border:1px solid rgba(255,255,255,.2);background:var(--tv-surface);color:var(--tv-text);padding:.4cqw 1.6cqw;font-size:2.2cqw}
+.tv .hdr .cat small{color:var(--tv-muted);font-size:1.6cqw}
+.tv .tscore{display:flex;gap:1.5cqw;align-items:center}
+.tv .tscore .t{padding:.6cqw 2cqw;border-radius:1cqw;font-weight:700;font-size:2.4cqw;color:#fff;transition:opacity .3s}
+.tv .tscore .t.a{background:var(--team-a)}.tv .tscore .t.b{background:var(--team-b)}
+.tv .tscore .t.dim{opacity:.3}
+.tv .tscore .t b{font-size:3.4cqw;margin-left:1cqw}
+.tv .body{flex:1;display:grid;place-items:center;text-align:center;position:relative}
+.tv .wait{font-size:6cqw;font-weight:800;letter-spacing:.1em}
+.tv .wait small{display:block;font-size:2.2cqw;color:var(--tv-muted);font-weight:400;margin-top:1cqw;letter-spacing:0}
+.tv .tvimg{width:82%;aspect-ratio:16/9;border-radius:1cqw;background:repeating-linear-gradient(45deg,#334155 0 14px,#1e293b 14px 28px);display:grid;place-items:center;color:var(--tv-muted);font-size:2.4cqw}
+.tv .tvplayer{width:52%;aspect-ratio:16/9;background:#000;border-radius:1cqw;display:grid;place-items:center;position:relative}
+.tv .tvplayer .play{width:8cqw;height:5.6cqw;background:var(--danger);border-radius:1.2cqw;display:grid;place-items:center;font-size:3cqw}
+.tv .qtext{font-size:7cqw;font-weight:800;letter-spacing:.15em}
+.tv .qsub{font-size:2.4cqw;color:var(--tv-muted);margin-top:1cqw}
+.tv .listen{font-size:5cqw;font-weight:800}
+.tv .listen small{display:block;font-size:2.2cqw;color:var(--tv-muted);font-weight:400;margin-top:1cqw}
+.tv .turn{margin-top:2cqw;font-size:2.6cqw;padding:.8cqw 2.4cqw;border-radius:999px;background:var(--tv-surface);display:inline-block}
+.tv .turn.a{color:#93c5fd}.tv .turn.b{color:#f9a8d4}
+.tv .hints{margin-top:2.4cqw;display:grid;gap:.8cqw;width:70%}
+.tv .hints div{background:var(--tv-surface);border-radius:.8cqw;padding:.8cqw 1.6cqw;font-size:2.4cqw;text-align:left}
+.tv .hints div.locked{color:var(--tv-muted);opacity:.5}
+.tv .reveal .lab{font-size:2.2cqw;color:var(--tv-muted);letter-spacing:.2em}
+.tv .reveal .ans{font-size:8cqw;font-weight:900;margin:.5cqw 0}
+.tv .reveal .det{font-size:2.6cqw;color:var(--tv-muted)}
+.tv .reveal .who{margin-top:2.4cqw;font-size:3.2cqw;font-weight:700;padding:1cqw 3cqw;border-radius:999px;display:inline-block;color:#fff}
+.tv .reveal .who.a{background:var(--team-a)}.tv .reveal .who.b{background:var(--team-b)}.tv .reveal .who.none{background:var(--tv-surface);color:var(--tv-muted)}
+.tv .board2{display:grid;grid-template-columns:1fr auto 1fr;gap:4cqw;align-items:center;width:80%}
+.tv .board2 .bt{border-radius:2cqw;padding:3cqw;color:#fff;font-weight:700;font-size:3cqw}
+.tv .board2 .bt.a{background:var(--team-a)}.tv .board2 .bt.b{background:var(--team-b)}
+.tv .board2 .bt b{display:block;font-size:12cqw;line-height:1}
+.tv .board2 .vs{font-size:4cqw;color:var(--tv-muted);font-weight:800}
+.tv .ftr{display:flex;justify-content:space-between;font-size:1.8cqw;color:var(--tv-muted)}
+.tv .ftimer{font-size:3cqw;font-weight:700;color:var(--tv-text);font-variant-numeric:tabular-nums}
+.tv .ftimer.warn{color:#fbbf24}
+.tv .stime{font-size:14cqw;font-weight:900;line-height:1;font-variant-numeric:tabular-nums}
+.tv .stime.warn{color:#fbbf24}
+.tv .sword{font-size:11cqw;font-weight:900;letter-spacing:.1em;margin-top:1cqw}
+.tv .scount{display:flex;gap:6cqw;justify-content:center;margin-top:2cqw;font-size:2.6cqw;color:var(--tv-muted)}
+.tv .scount b{display:block;font-size:6cqw;color:var(--tv-text);line-height:1.1}
+.tv .flash{position:absolute;inset:0;display:grid;place-items:center;background:rgba(99,102,241,.92);font-size:9cqw;font-weight:900;border-radius:1cqw}
+.tv .final{font-size:3cqw;margin-top:3cqw;padding:1.2cqw 3cqw;border-radius:999px;background:var(--tv-surface);display:inline-block}
+
+/* 플레이어 창 */
+.pw{max-width:34rem}
+
+/* 스피드 콘솔 */
+.speed{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:1rem}
+.field{display:grid;gap:.25rem;margin-bottom:.7rem;font-size:.9rem}
+.field label{color:var(--text-secondary);font-size:.8rem}
+.field input[type=number],.field select{font:inherit;padding:.45rem .6rem;border:1px solid var(--border-strong);border-radius:.4rem;width:100%;max-width:10rem}
+.topics{display:flex;gap:.35rem;flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--border-strong);border-radius:.5rem;overflow:hidden}
+.seg span{padding:.4rem .8rem;font-size:.85rem}
+.seg span.on{background:var(--primary);color:var(--text-inverse)}
+.bigtimer{font-size:3.4rem;font-weight:800;text-align:center;font-variant-numeric:tabular-nums;line-height:1}
+.bigtimer.warn{color:var(--warning)}
+.word{font-size:2.4rem;font-weight:800;text-align:center;padding:.8rem;background:var(--bg-elevated);border-radius:.6rem;margin:.6rem 0}
+.counts{display:flex;gap:1.5rem;justify-content:center;font-size:.9rem;color:var(--text-secondary)}
+.counts b{display:block;font-size:1.6rem;color:var(--text-primary);text-align:center}
+.wlist{list-style:none;margin:.6rem 0 0;padding:0;font-size:.85rem;display:flex;gap:.3rem;flex-wrap:wrap}
+.wlist li{padding:.2rem .55rem;border-radius:999px;background:var(--success-light);color:#166534}
+.wlist li.pass{background:var(--bg-muted);color:var(--text-muted);text-decoration:line-through}
+
+@media (max-width:768px){.console,.speed{grid-template-columns:1fr}.cat-grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <span class="title">파티 퀴즈 화면 목업</span>
+  <button class="tab active" data-tab="console">1 · 콘솔(노트북)</button>
+  <button class="tab" data-tab="board">2 · 보드(TV)</button>
+  <button class="tab" data-tab="player">3 · 플레이어 창</button>
+  <button class="tab" data-tab="sconsole">4 · 스피드 콘솔</button>
+  <button class="tab" data-tab="sboard">5 · 스피드 보드(TV)</button>
+</div>
+
+<!-- 1. 콘솔 -->
+<section class="screen active" id="console" data-state="pick">
+  <p class="desc"><b>/admin/party/console</b> — MC만 보는 화면. 정답 카드는 항목을 뽑는 순간 보이고, 참가자에게는 [보드에 띄우기] 뒤에야 나간다. 아래 상태 버튼으로 한 라운드 흐름을 따라가 보세요(계획서 §4-2 패턴 B/C).</p>
+  <div class="states">
+    <span class="lbl">상태:</span>
+    <button class="st active" data-set="pick">① 대분류 선택</button>
+    <button class="st" data-set="ready">② 뽑힘(정답 카드)</button>
+    <button class="st" data-set="playing">③ 재생 중</button>
+    <button class="st" data-set="paused">④ "정답!" → 일시정지</button>
+    <button class="st" data-set="wrong">⑤ 남팀 오답 → 여팀 기회</button>
+    <button class="st" data-set="hint">⑥ 힌트 2개 열림(GAME)</button>
+    <button class="st" data-set="reveal">⑦ 정답 공개</button>
+  </div>
+  <div class="states">
+    <span class="lbl">예시 항목:</span>
+    <button class="st active" data-item="game">GAME · 롤 · 가렌 (재생형+힌트)</button>
+    <button class="st" data-item="person">PERSON · 사진 (정지형)</button>
+  </div>
+
+  <div class="console">
+    <div style="display:grid;gap:1rem">
+      <div class="card console-head">
+        <div><span class="chip on">라운드 7</span> <span class="muted">이번 게임 출제 6 · 남은 GAME 53</span></div>
+        <div class="score">
+          <div class="team a"><small>남팀</small><b>3</b></div>
+          <div class="pm"><button>+</button><button>−</button></div>
+          <div class="team b"><small>여팀</small><b>4</b></div>
+          <div class="pm"><button>+</button><button>−</button></div>
+        </div>
+      </div>
+
+      <div class="card" data-show="pick">
+        <h3>대분류 → 중분류 (남은 문제 수)</h3>
+        <div class="cat-grid">
+          <div class="cat">SONG<small>노래 · 1,980</small></div>
+          <div class="cat">SCREEN<small>드라마·영화 · 41</small></div>
+          <div class="cat">ANIME<small>애니 · 40</small></div>
+          <div class="cat on">GAME<small>게임 · 53</small></div>
+          <div class="cat">PERSON<small>인물 · 30</small></div>
+          <div class="cat">QUIZ<small>초성·이모지 · 25</small></div>
+          <div class="cat">SOUND<small>시그널·CM · 28</small></div>
+          <div class="cat" style="opacity:.4">SPEED<small>본게임 밖</small></div>
+        </div>
+        <div class="row" style="margin-top:.7rem">
+          <span class="chip">전체 53</span><span class="chip on">리그 오브 레전드 11</span><span class="chip">로스트아크 10</span><span class="chip">메이플스토리 12</span><span class="chip">스타크래프트 12</span><span class="chip">오버워치 8</span>
+        </div>
+        <div class="row" style="margin-top:.8rem"><button class="btn primary big">랜덤 뽑기</button><span class="muted">SONG이면 여기에 연도 묶음(1990 이전 / 1990~1994 / … / 2025~ / 전체)</span></div>
+      </div>
+
+      <div class="card" data-show="ready playing paused wrong hint reveal">
+        <h3>정답 카드 — MC만 (참가자에게 보이기 전에 뜸)</h3>
+        <div class="answer-card" data-item-show="game">
+          <div class="row"><span class="chip on">GAME</span><span class="chip">리그 오브 레전드</span><span class="chip">AUDIO · 패턴 C</span><span class="chip">난이도 하</span></div>
+          <div class="ans">가렌</div>
+          <dl>
+            <dt>인정 답안</dt><dd>데마시아의 힘, 가렌 크라운가드</dd>
+            <dt>보조</dt><dd>탑 · 전사 · 데마시아</dd>
+            <dt>출처</dt><dd>리그 오브 레전드 공식 채널 (챔피언 스포트라이트)</dd>
+            <dt>클립</dt><dd>0:12 부터 6초</dd>
+          </dl>
+          <div class="rule">판정 규칙 · GAME: 게임명은 이미 보이므로 <b>캐릭터 이름</b>을 말해야 정답. 줄임말 인정.</div>
+        </div>
+        <div class="answer-card" data-item-show="person">
+          <div class="row"><span class="chip on">PERSON</span><span class="chip">공통</span><span class="chip">IMAGE · 패턴 A</span><span class="chip">난이도 중</span></div>
+          <div class="ans">유재석</div>
+          <dl>
+            <dt>인정 답안</dt><dd>유느님, 메뚜기</dd>
+            <dt>보조</dt><dd>방송인 · 2000년대 초 사진</dd>
+            <dt>출처</dt><dd>MBC 무한도전 (캡처)</dd>
+          </dl>
+          <div class="rule">판정 규칙 · PERSON: 예명·본명·별명 모두 인정.</div>
+        </div>
+        <div class="row" style="margin-top:.7rem" data-show="ready"><button class="btn primary big">보드에 띄우기</button><button class="btn">다시 뽑기</button><span class="muted">띄우기 전까지 TV는 "대기"</span></div>
+      </div>
+
+      <div class="card" data-show="playing paused wrong hint reveal">
+        <h3>제시</h3>
+        <div data-item-show="game">
+          <div class="player">
+            <div class="yt"><div class="play">▶</div></div>
+            <div class="bar"><i></i></div>
+            <span style="position:absolute;top:.4rem;left:.6rem;font-size:.75rem">YouTube 플레이어 480×270 (보이는 상태, 정책 준수)</span>
+          </div>
+          <div class="row" style="margin-top:.6rem">
+            <span class="timer" data-show="playing">0:04</span><span class="timer" data-show="paused wrong hint">0:06 ⏸</span><span class="timer" data-show="reveal">—</span>
+            <button class="btn" data-show="playing">⏸ 일시정지</button>
+            <button class="btn primary" data-show="paused wrong hint">▶ 재생</button>
+            <button class="btn" data-show="playing paused wrong hint">⏮ 처음부터</button>
+            <span class="muted">재생 담당: <b>이 창</b> · 플레이어 창</span>
+          </div>
+          <div class="hint-list">
+            <div class="hint"><span class="k">힌트 1</span><span class="v">탑 · 전사</span><button class="btn" data-show="playing paused wrong">열기</button></div>
+            <div class="hint"><span class="k">힌트 2</span><span class="v">회전하는 대검 · 데마시아</span><button class="btn" data-show="playing paused wrong" disabled>열기</button></div>
+            <div class="hint"><span class="k">힌트 3</span><span class="v">초성 ㄱㄹ</span><button class="btn" data-show="hint">열기</button></div>
+          </div>
+        </div>
+        <div data-item-show="person">
+          <div class="img-preview">사진 미리보기 (노트북 폴더의 파일 · TV엔 크게)</div>
+          <div class="row" style="margin-top:.6rem"><span class="timer">0:12</span><span class="muted">타이머는 표시만 · 강제 종료 없음</span></div>
+        </div>
+      </div>
+
+      <div class="card" data-show="playing paused wrong hint">
+        <h3>판정</h3>
+        <div class="status-line" data-show="playing">재생 중 — "정답!" 외치면 [일시정지]</div>
+        <div class="status-line" data-show="paused">일시정지 — 외친 팀의 답을 듣고 판정</div>
+        <div class="status-line" data-show="wrong hint"><b class="a">남팀 오답</b> → <b class="b">여팀 기회</b> (보드에 표시됨 · 점수 무관)</div>
+        <div class="row" style="margin-top:.7rem">
+          <button class="btn a big">남팀 정답</button>
+          <button class="btn b big">여팀 정답</button>
+          <button class="btn big">못 맞힘</button>
+        </div>
+        <div class="row" style="margin-top:.5rem" data-item-show="game">
+          <button class="btn ghost-a">남팀 오답</button>
+          <button class="btn ghost-b">여팀 오답</button>
+          <span class="muted">재생형만 · 보드 배지 흐리게</span>
+        </div>
+      </div>
+
+      <div class="card" data-show="reveal">
+        <h3>정답 공개됨</h3>
+        <div class="status-line">보드: <b>가렌</b> · 탑 · 전사 · 출처 표시 · <b class="b">여팀 +1</b></div>
+        <div class="row" style="margin-top:.7rem"><button class="btn primary big">다음 라운드 →</button><button class="btn">점수 정정</button><button class="btn danger">게임 종료(결과 JSON)</button></div>
+      </div>
+    </div>
+
+    <div style="display:grid;gap:1rem;align-content:start">
+      <div class="card">
+        <h3>보드 상태</h3>
+        <div class="status-line"><span data-show="pick ready">대기 화면</span><span data-show="playing paused">문제 표시 · 재생</span><span data-show="wrong hint">문제 표시 · 남팀 오답 배지</span><span data-show="reveal">정답 공개</span> <span class="muted">· 1초 전 동기화</span></div>
+        <div class="row" style="margin-top:.6rem"><button class="btn">점수판 보이기</button><button class="btn">대기 화면</button></div>
+      </div>
+      <div class="card">
+        <h3>이력</h3>
+        <ul class="hist">
+          <li><span>6 · SOUND · 예능 시그널 · 무한도전</span><span class="chip a">남</span></li>
+          <li><span>5 · PERSON · 배우·아이돌 · 카리나</span><span class="chip b">여</span></li>
+          <li><span>4 · SONG · 2010~2014 · 강남스타일</span><span class="chip b">여</span></li>
+          <li><span>3 · SCREEN · 액션·범죄·스릴러 · 범죄도시</span><span class="chip a">남</span></li>
+          <li><span>2 · QUIZ · 초성 과자 · 꼬깔콘</span><span class="chip">못 맞힘</span></li>
+          <li><span>1 · ANIME · 국내 · 검정고무신</span><span class="chip b">여</span></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>설정</h3>
+        <div class="muted">팀 이름 남팀 / 여팀 · 타이머 30초 · 재생 담당 이 창 · <button class="btn" style="padding:.2rem .5rem;font-size:.8rem">새 게임</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. 보드 -->
+<section class="screen" id="board" data-state="wait">
+  <p class="desc"><b>/admin/party/board</b> — TV에 F11 전체화면. 서버 상태를 1초마다 폴링해 그린다. 정답은 [정답 공개] 뒤에만 나온다. 16:9 비율 그대로 축소한 모습.</p>
+  <div class="states">
+    <span class="lbl">상태:</span>
+    <button class="st active" data-set="wait">대기</button>
+    <button class="st" data-set="image">문제 · IMAGE(사진)</button>
+    <button class="st" data-set="audio">문제 · AUDIO 재생</button>
+    <button class="st" data-set="wrong">남팀 오답 → 여팀 기회</button>
+    <button class="st" data-set="hint">GAME 힌트 2개</button>
+    <button class="st" data-set="text">문제 · TEXT(초성)</button>
+    <button class="st" data-set="reveal">정답 공개</button>
+    <button class="st" data-set="scores">점수판</button>
+  </div>
+  <div class="tv">
+    <div class="hdr">
+      <div class="cat"><span data-show="wait">라운드 7</span><span data-show="image">PERSON <small>· 공통</small></span><span data-show="audio wrong hint reveal">GAME <small>· 리그 오브 레전드</small></span><span data-show="text">QUIZ <small>· 초성 · 과자</small></span><span data-show="scores">점수판</span></div>
+      <div class="tscore"><div class="t a" data-dim="wrong hint">남팀 <b>3</b></div><div class="t b">여팀 <b>4</b></div></div>
+    </div>
+    <div class="body">
+      <div data-show="wait" class="wait">준비 중<small>다음 문제를 기다리는 중 · MC가 대분류를 고르고 있어요</small></div>
+      <div data-show="image" class="tvimg">사진 크게 (노트북 폴더 파일) — 파일 자체는 git·서버에 없음</div>
+      <div data-show="audio wrong hint" style="display:grid;place-items:center;gap:1cqw">
+        <div class="listen">🎧 듣고 맞히세요<small>챔피언 이름을 말하면 정답</small></div>
+        <div class="tvplayer"><div class="play">▶</div><span style="position:absolute;bottom:.8cqw;right:1.2cqw;font-size:1.4cqw;color:var(--tv-muted)">YouTube 480×270 · 보이는 상태</span></div>
+        <div class="turn a" data-show="wrong hint">남팀 오답 → <b>여팀 기회</b></div>
+        <div class="hints" data-show="hint"><div>힌트 1 · 탑 · 전사</div><div>힌트 2 · 회전하는 대검 · 데마시아</div><div class="locked">힌트 3 · 🔒</div></div>
+      </div>
+      <div data-show="text"><div class="qtext">ㄲㄲㅋ</div><div class="qsub">과자 이름</div></div>
+      <div data-show="reveal" class="reveal"><div class="lab">정답</div><div class="ans">가렌</div><div class="det">탑 · 전사 · 데마시아 &nbsp;|&nbsp; 출처: 리그 오브 레전드 공식 채널</div><div class="who b">여팀 +1</div></div>
+      <div data-show="scores" class="board2"><div class="bt a">남팀<b>3</b></div><div class="vs">VS</div><div class="bt b">여팀<b>4</b></div></div>
+    </div>
+    <div class="ftr">
+      <span data-show="wait">🔊 소리는 노트북 → HDMI → TV</span><span data-show="image audio wrong hint text">먼저 손 든 팀만 · 오답이면 상대 팀 기회</span><span data-show="reveal scores">다음 대분류는 MC가</span>
+      <span class="ftimer" data-show="image audio text">0:12</span><span class="ftimer warn" data-show="wrong hint">0:24</span>
+    </div>
+  </div>
+</section>
+
+<!-- 3. 플레이어 창 -->
+<section class="screen" id="player" data-state="idle">
+  <p class="desc"><b>/admin/party/player</b> — 휴대폰을 콘솔로 쓸 때만 노트북에 여는 창. 서버의 재생 명령(순번 포함)을 1초 폴링으로 따라가 노트북 스피커(→TV)로 소리를 낸다. 기본 구성(노트북 콘솔)에서는 콘솔 안에 플레이어가 있어 이 창이 필요 없다.</p>
+  <div class="states"><span class="lbl">상태:</span><button class="st active" data-set="idle">대기</button><button class="st" data-set="play">명령 #12 PLAY</button><button class="st" data-set="pause">명령 #13 PAUSE</button></div>
+  <div class="card pw">
+    <h3>플레이어 창</h3>
+    <div class="player">
+      <div class="yt"><div class="play" data-show="idle pause">▶</div><div class="play" data-show="play" style="background:var(--success)">⏸</div></div>
+      <div class="bar"><i data-show="play" style="width:40%"></i><i data-show="pause" style="width:52%"></i></div>
+    </div>
+    <div class="status-line" style="margin-top:.7rem">
+      <span data-show="idle">첫 화면 클릭으로 활성화됨 · 명령 대기</span>
+      <span data-show="play">명령 #12 <b>PLAY</b> · GAME · 가렌 · 0:12부터 6초</span>
+      <span data-show="pause">명령 #13 <b>PAUSE</b> · 0:06 에서 멈춤</span>
+    </div>
+    <div class="muted" style="margin-top:.5rem">이 창은 버튼이 없다. 콘솔(휴대폰)의 [재생]·[일시정지]·[처음부터]가 서버에 명령 순번을 올리고, 이 창이 새 순번을 보면 그대로 따라간다. 지연 최대 1초.</div>
+  </div>
+</section>
+
+<!-- 4. 스피드 콘솔 -->
+<section class="screen" id="sconsole" data-state="setup">
+  <p class="desc"><b>/admin/party/speed</b> — 본게임 전 몸풀기. 팀별 제한 시간을 다르게 둘 수 있고(임산부 배려), 시간이 끝나면 제시어가 멈추고 [정답]·[패스]가 잠긴다. 승자가 본게임 첫 대분류 선택권.</p>
+  <div class="states"><span class="lbl">상태:</span><button class="st active" data-set="setup">설정</button><button class="st" data-set="run">남팀 진행 중</button><button class="st" data-set="over">시간 종료</button><button class="st" data-set="result">두 팀 결과</button></div>
+  <div class="speed">
+    <div class="card">
+      <h3>설정</h3>
+      <div class="field"><label>주제 (복수 선택)</label><div class="topics"><span class="chip on">동물</span><span class="chip on">물건</span><span class="chip">직업</span><span class="chip on">동작</span><span class="chip">음식</span><span class="chip on">캐릭터</span><span class="chip">유명인</span><span class="chip">스포츠</span><span class="chip">전체</span></div></div>
+      <div class="row">
+        <div class="field"><label>남팀 제한 시간(초)</label><input type="number" value="90"></div>
+        <div class="field"><label>여팀 제한 시간(초)</label><input type="number" value="120"></div>
+      </div>
+      <div class="field"><label>설명 방식</label><div class="seg"><span class="on">말로</span><span>몸으로</span></div></div>
+      <div class="field"><label>제시어 표시</label><div class="seg"><span class="on">보드(TV) — 맞히는 6명은 등 돌림</span><span>콘솔에만</span></div></div>
+      <div class="muted">몸으로 모드면 비고의 [몸으로 어려움]·[임산부 출제자 제외] 제시어는 MC가 [패스]로 넘긴다(패스 무제한).</div>
+    </div>
+    <div class="card">
+      <h3>턴</h3>
+      <div data-show="setup"><div class="row"><span class="chip a">남팀</span><span class="chip">여팀</span><button class="btn primary big">▶ 남팀 시작 (90초)</button></div><div class="muted" style="margin-top:.5rem">시작을 누르면 타이머와 첫 제시어가 보드에 뜬다.</div></div>
+      <div data-show="run over">
+        <div class="row" style="justify-content:space-between"><span class="chip a">남팀 · 말로</span><span class="muted">서버도 시작 시각을 알아 새로고침해도 남은 시간 복구</span></div>
+        <div class="bigtimer" data-show="run">0:37</div>
+        <div class="bigtimer warn" data-show="over">0:00</div>
+        <div class="word">코끼리</div>
+        <div class="row" style="justify-content:center">
+          <button class="btn primary big" data-show="run">정답</button><button class="btn big" data-show="run">패스</button>
+          <button class="btn primary big" data-show="over" disabled>정답</button><button class="btn big" data-show="over" disabled>패스</button>
+          <button class="btn warn">되돌리기</button>
+        </div>
+        <div class="status-line" data-show="over" style="margin-top:.6rem">시간 종료 — 제시어 멈춤, 정답·패스 잠김. [되돌리기]만 가능. <button class="btn" style="padding:.2rem .6rem">여팀 턴으로 →</button></div>
+        <div class="counts" style="margin-top:.8rem"><div>정답<b>7</b></div><div>패스<b>2</b></div><div>출제<b>9</b></div></div>
+        <ul class="wlist"><li>기린</li><li>선풍기</li><li class="pass">카멜레온</li><li>재채기</li><li>피카츄</li><li>우산</li><li class="pass">텀블러</li><li>펭귄</li><li>엘사</li></ul>
+      </div>
+      <div data-show="result">
+        <div class="row" style="justify-content:center;gap:2rem">
+          <div style="text-align:center"><span class="chip a">남팀 · 90초</span><div class="bigtimer">7</div><div class="muted">패스 2</div></div>
+          <div style="font-size:1.4rem;color:var(--text-muted);font-weight:800">VS</div>
+          <div style="text-align:center"><span class="chip b">여팀 · 120초</span><div class="bigtimer">9</div><div class="muted">패스 1</div></div>
+        </div>
+        <div class="status-line" style="margin-top:.8rem;text-align:center">첫 대분류 선택권: <b style="color:var(--team-b)">여팀</b> &nbsp;·&nbsp; 동점이면 MC 재량(30초 재대결)</div>
+        <div class="row" style="justify-content:center;margin-top:.7rem"><button class="btn primary">본게임 콘솔로 →</button><button class="btn">다시</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 5. 스피드 보드 -->
+<section class="screen" id="sboard" data-state="wait">
+  <p class="desc"><b>/admin/party/speed/board</b> — 출제자는 TV를 보고 설명, 맞히는 6명은 등을 돌린다. 제시어가 바뀔 때마다 "다음 출제자!"가 잠깐 뜬다.</p>
+  <div class="states"><span class="lbl">상태:</span><button class="st active" data-set="wait">대기</button><button class="st" data-set="run">진행 중</button><button class="st" data-set="next">다음 출제자!</button><button class="st" data-set="over">시간 종료</button><button class="st" data-set="result">결과</button></div>
+  <div class="tv">
+    <div class="hdr">
+      <div class="cat">스피드퀴즈 <small data-show="run next over">· 남팀 · 말로 설명</small></div>
+      <div class="tscore" data-show="run next over"><div class="t a">정답 <b>7</b></div></div>
+    </div>
+    <div class="body">
+      <div data-show="wait" class="wait">스피드퀴즈<small>남팀 90초 · 여팀 120초 · 정답 수로 승부 · 승자가 첫 대분류 선택</small></div>
+      <div data-show="run next"><div class="stime">0:37</div><div class="sword">코끼리</div><div class="scount"><div>정답<b>7</b></div><div>패스<b>2</b></div></div></div>
+      <div data-show="next" class="flash">다음 출제자!</div>
+      <div data-show="over"><div class="stime warn">0:00</div><div class="sword" style="color:var(--tv-muted);font-size:5cqw">시간 종료</div><div class="scount"><div>정답<b>7</b></div><div>패스<b>2</b></div></div></div>
+      <div data-show="result"><div class="board2"><div class="bt a">남팀 · 90초<b>7</b></div><div class="vs">VS</div><div class="bt b">여팀 · 120초<b>9</b></div></div><div class="final">첫 대분류 선택권 → <b style="color:#f9a8d4">여팀</b></div></div>
+    </div>
+    <div class="ftr"><span data-show="run next over">맞히는 6명은 TV에 등 돌리기</span><span data-show="wait result">&nbsp;</span><span data-show="run next over">패스 무제한</span></div>
+  </div>
+</section>
+
+<script>
+(function(){
+  const tabs=document.querySelectorAll('.tab');
+  tabs.forEach(t=>t.addEventListener('click',()=>{
+    tabs.forEach(x=>x.classList.toggle('active',x===t));
+    document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id===t.dataset.tab));
+  }));
+  function apply(screen){
+    const st=screen.dataset.state, item=screen.dataset.item||'game';
+    screen.querySelectorAll('[data-show]').forEach(el=>{el.hidden=!el.dataset.show.split(' ').includes(st);});
+    screen.querySelectorAll('[data-item-show]').forEach(el=>{el.hidden=el.dataset.itemShow!==item;});
+    screen.querySelectorAll('[data-dim]').forEach(el=>{el.classList.toggle('dim',el.dataset.dim.split(' ').includes(st));});
+    screen.querySelectorAll('.st[data-set]').forEach(b=>b.classList.toggle('active',b.dataset.set===st));
+    screen.querySelectorAll('.st[data-item]').forEach(b=>b.classList.toggle('active',b.dataset.item===item));
+    screen.querySelectorAll('.hint').forEach((h,i)=>{
+      const opened = st==='hint' ? 2 : (st==='reveal' ? 3 : 0);
+      h.classList.toggle('open', i<opened);
+      const v=h.querySelector('.v'); if(!v.dataset.raw) v.dataset.raw=v.textContent;
+      v.textContent = i<opened ? v.dataset.raw : '🔒 아직 안 열림';
+    });
+  }
+  document.querySelectorAll('.screen').forEach(screen=>{
+    screen.querySelectorAll('.st[data-set]').forEach(b=>b.addEventListener('click',()=>{screen.dataset.state=b.dataset.set;apply(screen);}));
+    screen.querySelectorAll('.st[data-item]').forEach(b=>b.addEventListener('click',()=>{screen.dataset.item=b.dataset.item;apply(screen);}));
+    apply(screen);
+  });
+})();
+</script>
+</body>
+</html>

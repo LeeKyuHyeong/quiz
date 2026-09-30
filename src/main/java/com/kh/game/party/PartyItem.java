@@ -11,7 +11,9 @@ import java.time.LocalDateTime;
  * 파티 퀴즈 문제. party 브랜치·로컬 DB 전용 — 운영 DB 에는 테이블이 없다.
  */
 @Entity
-@Table(name = "party_item")
+@Table(name = "party_item", uniqueConstraints = {
+    @UniqueConstraint(name = "uk_party_item_category_answer", columnNames = {"category", "answer"})
+})
 @Getter
 @Setter
 @NoArgsConstructor

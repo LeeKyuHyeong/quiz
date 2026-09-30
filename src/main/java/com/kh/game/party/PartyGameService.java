@@ -6,7 +6,10 @@ import com.kh.game.repository.SongAnswerRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.UriUtils;
 
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -35,26 +38,41 @@ public class PartyGameService {
     private final PartySongRepository partySongRepository;
     private final SongAnswerRepository songAnswerRepository;
     private final PartyGameHolder holder;
+    private final PartyImageStore imageStore;
     private final Random random = new Random();
+
+    /**
+     * 콘솔의 조작 하나를 적용한다. 화면이 본 버전이 지금과 다르면 적용하지 않는다 —
+     * 같은 버튼을 두 번 누른 요청, 다른 창에서 먼저 바꾼 뒤 도착한 요청을 거른다.
+     */
+    public synchronized PartyConsoleView apply(long expectedVersion, Runnable action) {
+        if (holder.get().getVersion() != expectedVersion) {
+            throw new PartyStaleException();
+        }
+        action.run();
+        return consoleView();
+    }
 
     // ---------- 출제 ----------
 
     public synchronized void pick(PartyCategory category, String subCategory) {
         if (category == PartyCategory.SPEED) {
-            throw new PartyGameException("스피드퀴즈 제시어는 본게임에서 낼 수 없습니다");
+            throw new PartyInputException("스피드퀴즈 제시어는 본게임에서 낼 수 없습니다");
         }
         PartyGameState state = holder.get();
         requirePickable(state);
-        releaseUnshown(state);
+        Long held = heldItemId(state);
 
-        List<PartyItem> candidates = partyItemRepository.findPlayable().stream()
+        List<PartyItem> candidates = playableItems().stream()
                 .filter(item -> item.getCategory() == category)
                 .filter(item -> isAll(subCategory) || subCategory.equals(item.getSubCategory()))
-                .filter(item -> !state.getUsedItemIds().contains(item.getId()))
+                .filter(item -> !state.getUsedItemIds().contains(item.getId()) || item.getId().equals(held))
                 .toList();
         if (candidates.isEmpty()) {
             throw new PartyGameException("남은 문제가 없습니다");
         }
+        // 뽑을 것이 있다는 게 확인된 뒤에만 들고 있던 문제를 돌려놓는다 — 실패한 다시 뽑기가 그 문제를 안 쓴 것으로 만들지 않게
+        releaseUnshown(state);
         PartyItem item = candidates.get(random.nextInt(candidates.size()));
 
         state.getUsedItemIds().add(item.getId());
@@ -65,16 +83,17 @@ public class PartyGameService {
         PartySongBand band = isAll(bandLabel) ? null : PartySongBand.ofLabel(bandLabel);
         PartyGameState state = holder.get();
         requirePickable(state);
-        releaseUnshown(state);
+        Long held = heldSongId(state);
 
         List<Long> candidates = partySongRepository.findPlayable().stream()
                 .filter(song -> band == null || band.contains(song.getReleaseYear()))
                 .map(PartySongRepository.SongYear::getId)
-                .filter(id -> !state.getUsedSongIds().contains(id))
+                .filter(id -> !state.getUsedSongIds().contains(id) || id.equals(held))
                 .toList();
         if (candidates.isEmpty()) {
             throw new PartyGameException("남은 문제가 없습니다");
         }
+        releaseUnshown(state);
         Long songId = candidates.get(random.nextInt(candidates.size()));
         Song song = partySongRepository.findById(songId).orElseThrow();
 
@@ -105,17 +124,27 @@ public class PartyGameService {
                 result.put(category.name(), counts);
             }
         }
-        for (PartyItem item : partyItemRepository.findPlayable()) {
-            if (state.getUsedItemIds().contains(item.getId())) {
-                continue;
-            }
+        for (PartyItem item : playableItems()) {
+            // 다 쓴 중분류도 0 으로 남긴다 — 게임 도중 콘솔의 중분류 버튼이 사라지지 않게
+            int unused = state.getUsedItemIds().contains(item.getId()) ? 0 : 1;
             Map<String, Integer> counts = result.get(item.getCategory().name());
-            counts.merge(ALL, 1, Integer::sum);
+            counts.merge(ALL, unused, Integer::sum);
             if (item.getSubCategory() != null) {
-                counts.merge(item.getSubCategory(), 1, Integer::sum);
+                counts.merge(item.getSubCategory(), unused, Integer::sum);
             }
         }
         return result;
+    }
+
+    /**
+     * 낼 수 있는 본게임 문제. 사진 문제는 파일명만으로는 부족하고 파일이 폴더에 실제로 있어야 한다 —
+     * TSV 에는 수집 전부터 파일명이 적혀 있다.
+     */
+    public List<PartyItem> playableItems() {
+        return partyItemRepository.findPlayable().stream()
+                .filter(item -> item.getPresentation() != PartyPresentation.IMAGE
+                        || imageStore.exists(item.getImagePath()))
+                .toList();
     }
 
     public synchronized void show() {
@@ -218,10 +247,11 @@ public class PartyGameService {
         commit(state);
     }
 
+    /** 점수판에서 대기로. 잘못 누른 종료도 여기로 되돌린다 — 점수·이력·낸 문제는 그대로다. */
     public synchronized void backToWait() {
         PartyGameState state = holder.get();
-        if (state.getPhase() != PartyPhase.SCORES) {
-            throw new PartyGameException("점수판이 떠 있지 않습니다");
+        if (state.getPhase() != PartyPhase.SCORES && state.getPhase() != PartyPhase.END) {
+            throw new PartyGameException("점수판이나 종료 화면이 떠 있지 않습니다");
         }
         state.setPhase(PartyPhase.WAIT);
         commit(state);
@@ -240,8 +270,36 @@ public class PartyGameService {
                 state.getScores().get(PartyTeam.A), state.getScores().get(PartyTeam.B));
     }
 
+    /** 전부 비우고 새로 시작한다. */
     public synchronized void newGame() {
+        newGame(false);
+    }
+
+    /**
+     * 새 판. keepUsed 면 점수·이력만 비우고 이미 낸 문제 기록은 남긴다 —
+     * 같은 날 2판·3판에서 앞 판 문제가 다시 나오지 않게.
+     */
+    public synchronized void newGame(boolean keepUsed) {
+        PartyGameState previous = holder.get();
         holder.reset();
+        if (keepUsed) {
+            PartyGameState state = holder.get();
+            state.getUsedItemIds().addAll(previous.getUsedItemIds());
+            state.getUsedSongIds().addAll(previous.getUsedSongIds());
+            commit(state);
+        }
+    }
+
+    /**
+     * 띄운 문제를 정답 공개 없이 거둔다 — 영상이 죽었거나 사진이 깨졌을 때.
+     * 라운드 번호는 되돌리고 이력에 남기지 않는다. 그 문제는 다시 나오지 않는다.
+     */
+    public synchronized void cancelShow() {
+        PartyGameState state = requireShowing();
+        state.setRound(state.getRound() - 1);
+        clearQuestion(state);
+        state.setPhase(PartyPhase.WAIT);
+        commit(state);
     }
 
     // ---------- 조회 ----------
@@ -256,11 +314,7 @@ public class PartyGameService {
         List<String> hints = List.of();
         PartyBoardView.Reveal reveal = null;
         if (onBoard) {
-            item = new PartyBoardView.Item(question.getCategory(), question.getSubCategory(),
-                    question.getPresentation().name(), question.getVideoId(), question.getStartTime(),
-                    question.getDuration(),
-                    question.getImagePath() == null ? null : IMAGE_URL_PREFIX + question.getImagePath(),
-                    question.getQuestionText());
+            item = toItem(question);
             hints = List.copyOf(question.getHints().subList(0, state.getHintsOpened()));
         }
         if (onBoard && phase == PartyPhase.REVEAL) {
@@ -279,7 +333,18 @@ public class PartyGameService {
                 state.getRound(), teamNames, scores, item, hints,
                 onBoard ? name(state.getWrongTeam()) : null, reveal,
                 new PartyBoardView.Player(state.getPlayerSeq(), onBoard ? state.getPlayerCmd() : null),
-                onBoard ? state.getTimerStartedAt() : null);
+                onBoard ? state.getTimerStartedAt() : null,
+                onBoard && state.getTimerStartedAt() != null
+                        ? (int) Duration.between(state.getTimerStartedAt(), LocalDateTime.now()).toSeconds() : null);
+    }
+
+    private static PartyBoardView.Item toItem(PartyGameState.Question question) {
+        return new PartyBoardView.Item(question.getCategory(), question.getSubCategory(),
+                question.getPresentation().name(), question.getVideoId(), question.getStartTime(),
+                question.getDuration(),
+                question.getImagePath() == null ? null
+                        : IMAGE_URL_PREFIX + UriUtils.encodePathSegment(question.getImagePath(), StandardCharsets.UTF_8),
+                question.getQuestionText());
     }
 
     public synchronized PartyConsoleView consoleView() {
@@ -289,8 +354,9 @@ public class PartyGameService {
                 : new PartyConsoleView.Card(question.getCategory(), question.getSubCategory(),
                 question.getPresentation().name(), question.getAnswer(), question.getAliases(),
                 question.getDetail(), question.getSource(), List.copyOf(question.getHints()),
-                state.getHintsOpened());
-        return new PartyConsoleView(state.getPhase().name(), boardView(), card, remaining(),
+                state.getHintsOpened(), question.getDifficulty());
+        return new PartyConsoleView(state.getPhase().name(), boardView(), card,
+                question == null ? null : toItem(question),
                 List.copyOf(state.getHistory()));
     }
 
@@ -319,6 +385,17 @@ public class PartyGameService {
             throw new PartyGameException("문제가 떠 있지 않습니다");
         }
         return state;
+    }
+
+    /** 뽑기만 하고 아직 띄우지 않은 문제의 id. 없으면 null. */
+    private static Long heldItemId(PartyGameState state) {
+        return state.getPhase() == PartyPhase.READY && state.getQuestion() != null
+                ? state.getQuestion().getItemId() : null;
+    }
+
+    private static Long heldSongId(PartyGameState state) {
+        return state.getPhase() == PartyPhase.READY && state.getQuestion() != null
+                ? state.getQuestion().getSongId() : null;
     }
 
     /** 뽑기만 하고 띄우지 않은 문제는 다시 나올 수 있게 돌려놓는다. */
@@ -380,6 +457,7 @@ public class PartyGameService {
         question.setDuration(item.getPlayDuration());
         question.setImagePath(item.getImagePath());
         question.setQuestionText(item.getQuestionText());
+        question.setDifficulty(item.getDifficulty());
         question.setHints(new ArrayList<>(Stream.of(item.getHint1(), item.getHint2(), item.getHint3())
                 .filter(Objects::nonNull).toList()));
         return question;

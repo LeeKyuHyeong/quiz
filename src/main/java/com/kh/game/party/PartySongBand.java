@@ -32,7 +32,7 @@ public record PartySongBand(String label, Integer from, Integer to) {
 
     public static PartySongBand ofLabel(String label) {
         return ALL.stream().filter(band -> band.label().equals(label)).findFirst()
-                .orElseThrow(() -> new PartyGameException("노래 묶음을 알 수 없습니다: '" + label + "'"));
+                .orElseThrow(() -> new PartyInputException("노래 묶음을 알 수 없습니다: '" + label + "'"));
     }
 
     public boolean contains(Integer year) {

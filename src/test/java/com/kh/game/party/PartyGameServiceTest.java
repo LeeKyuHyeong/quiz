@@ -52,6 +52,8 @@ class PartyGameServiceTest {
 
     @TempDir
     Path tempDir;
+    @TempDir
+    Path imageDir;
 
     @BeforeEach
     void setUp() {
@@ -233,6 +235,38 @@ class PartyGameServiceTest {
 
         assertThatThrownBy(() -> service.pick(PartyCategory.QUIZ, "초성 · 과자"))
                 .isInstanceOf(PartyGameException.class);
+    }
+
+    @Test
+    @DisplayName("[R-038] 다시 뽑기가 실패해도 들고 있던 문제는 쓴 것으로 남는다 (같은 문제가 두 번 나오지 않게)")
+    void failedRepickKeepsHeldQuestionUsed() {
+        text("초성 · 과자", "포카칩");
+        service.pick(PartyCategory.QUIZ, "초성 · 과자");
+
+        assertThatThrownBy(() -> service.pick(PartyCategory.PERSON, PartyGameService.ALL))
+                .isInstanceOf(PartyGameException.class);
+        assertThatThrownBy(() -> service.pickSong(PartyGameService.ALL)).isInstanceOf(PartyGameException.class);
+
+        assertThat(service.consoleView().phase()).isEqualTo("READY");
+        assertThat(service.consoleView().card().answer()).isEqualTo("포카칩");
+        assertThat(service.remaining().get("QUIZ")).containsEntry("초성 · 과자", 0);
+        service.show();
+        service.miss();
+        assertThatThrownBy(() -> service.pick(PartyCategory.QUIZ, "초성 · 과자"))
+                .isInstanceOf(PartyGameException.class);
+    }
+
+    @Test
+    @DisplayName("[R-038] 노래도 같다: 다시 뽑기가 실패하면 들고 있던 곡은 쓴 것으로 남는다")
+    void failedRepickKeepsHeldSongUsed() {
+        song("구십사", 1994);
+        service.pickSong("1990~1994");
+
+        assertThatThrownBy(() -> service.pickSong("2025~")).isInstanceOf(PartyGameException.class);
+
+        service.show();
+        service.miss();
+        assertThatThrownBy(() -> service.pickSong(PartyGameService.ALL)).isInstanceOf(PartyGameException.class);
     }
 
     // ---------- 노래 ----------
@@ -512,6 +546,179 @@ class PartyGameServiceTest {
         assertThat(service.boardView().version()).isEqualTo(v2);
     }
 
+    @Test
+    @DisplayName("[R-034] 새 게임 뒤에도 보드 버전은 줄지 않는다 (보드가 같은 버전을 건너뛰지 않게)")
+    void versionNeverGoesBackOnNewGame() {
+        text("초성 · 과자", "포카칩");
+        showQuiz("초성 · 과자");
+        service.correct(PartyTeam.A);
+        long before = service.boardView().version();
+
+        service.newGame();
+
+        assertThat(service.boardView().version()).isGreaterThan(before);
+    }
+
+    // ---------- 사진 파일 ----------
+
+    @Test
+    @DisplayName("[R-036] 사진 문제는 파일이 폴더에 실제로 있어야 낼 수 있다 (파일명만으로는 안 된다)")
+    void imageNeedsRealFile() throws IOException {
+        save(item(PartyCategory.PERSON, "공통", PartyPresentation.IMAGE, "유재석"));
+        PartyGameService game = serviceOn(tempDir.resolve("party-state.json"));
+
+        assertThat(game.remaining().get("PERSON")).containsEntry(PartyGameService.ALL, 0);
+        assertThatThrownBy(() -> game.pick(PartyCategory.PERSON, "공통")).isInstanceOf(PartyGameException.class);
+
+        Files.writeString(imageDir.resolve("유재석.jpg"), "사진 자리");
+
+        assertThat(game.remaining().get("PERSON")).containsEntry("공통", 1);
+        game.pick(PartyCategory.PERSON, "공통");
+        game.show();
+        assertThat(java.net.URLDecoder.decode(game.boardView().item().imageUrl(), java.nio.charset.StandardCharsets.UTF_8))
+                .isEqualTo("/admin/party/images/유재석.jpg");
+        assertThat(game.boardView().item().imageUrl()).isEqualTo("/admin/party/images/%EC%9C%A0%EC%9E%AC%EC%84%9D.jpg");
+    }
+
+    @Test
+    @DisplayName("[권한] 사진 폴더 밖을 가리키는 파일명은 없는 파일로 본다")
+    void imageNameCannotEscapeFolder() throws IOException {
+        Files.writeString(tempDir.resolve("outside.jpg"), "폴더 밖");
+        Path inside = Files.createDirectories(tempDir.resolve("images"));
+        Files.writeString(inside.resolve("ok.jpg"), "폴더 안");
+        PartyImageStore store = new PartyImageStore(inside.toString());
+
+        assertThat(store.exists("ok.jpg")).isTrue();
+        assertThat(store.exists("../outside.jpg")).isFalse();
+        assertThat(store.exists("..\\outside.jpg")).isFalse();
+        assertThat(store.exists(tempDir.resolve("outside.jpg").toString())).isFalse();
+        assertThat(store.exists("")).isFalse();
+        assertThat(store.exists(null)).isFalse();
+        assertThat(new PartyImageStore("").exists("ok.jpg")).isFalse();
+    }
+
+    @Test
+    @DisplayName("[R-042] 윈도우에서 못 쓰는 글자가 든 파일명은 없는 사진일 뿐, 다른 문제까지 막지 않는다")
+    void reservedCharacterInImageNameDoesNotBreakEverything() {
+        PartyItem bad = item(PartyCategory.PERSON, "공통", PartyPresentation.IMAGE, "포스터");
+        bad.setImagePath("poster?.jpg");
+        save(bad);
+        text("초성 · 과자", "포카칩");
+        PartyGameService game = serviceOn(tempDir.resolve("party-state.json"));
+
+        assertThat(game.remaining().get("PERSON")).containsEntry(PartyGameService.ALL, 0);
+        assertThat(game.remaining().get("QUIZ")).containsEntry(PartyGameService.ALL, 1);
+        game.pick(PartyCategory.QUIZ, "초성 · 과자");
+        assertThat(game.consoleView().card().answer()).isEqualTo("포카칩");
+    }
+
+    // ---------- 버전 확인 ----------
+
+    @Test
+    @DisplayName("[R-037] 같은 버튼을 두 번 누르면 두 번째는 적용되지 않는다 (화면이 본 버전과 다름)")
+    void staleActionIsRejected() {
+        long seen = service.boardView().version();
+
+        service.apply(seen, () -> service.adjustScore(PartyTeam.A, 1));
+        assertThatThrownBy(() -> service.apply(seen, () -> service.adjustScore(PartyTeam.A, 1)))
+                .isInstanceOf(PartyStaleException.class);
+
+        assertThat(service.boardView().scores()).containsEntry("A", 1);
+        long now = service.boardView().version();
+        PartyConsoleView after = service.apply(now, () -> service.adjustScore(PartyTeam.A, 1));
+        assertThat(after.board().scores()).containsEntry("A", 2);
+    }
+
+    @Test
+    @DisplayName("[예외] 값이 틀린 것과 단계가 틀린 것을 구분한다")
+    void inputErrorsAreDistinct() {
+        assertThatThrownBy(() -> service.pickSong("없는 묶음")).isInstanceOf(PartyInputException.class);
+        assertThatThrownBy(() -> service.pick(PartyCategory.SPEED, null)).isInstanceOf(PartyInputException.class);
+        assertThatThrownBy(() -> service.miss())
+                .isInstanceOf(PartyGameException.class).isNotInstanceOf(PartyInputException.class);
+        assertThatThrownBy(() -> service.pick(PartyCategory.QUIZ, "없는 중분류"))
+                .isInstanceOf(PartyGameException.class).isNotInstanceOf(PartyInputException.class);
+    }
+
+    // ---------- 띄우기 전 확인 · 거두기 · 다음 판 ----------
+
+    @Test
+    @DisplayName("[R-047] 콘솔은 뽑은 순간부터 영상·시작초를 받는다 — 띄우기 전에 재생해 볼 수 있게. 보드에는 없다")
+    void consoleGetsMediaBeforeShow() throws Exception {
+        PartyItem garen = garen();
+        garen.setDifficulty(3);
+        save(garen);
+
+        service.pick(PartyCategory.GAME, "리그 오브 레전드");
+
+        PartyConsoleView console = service.consoleView();
+        assertThat(console.phase()).isEqualTo("READY");
+        assertThat(console.item().videoId()).isEqualTo("abcdefghijk");
+        assertThat(console.item().startTime()).isEqualTo(12);
+        assertThat(console.item().duration()).isEqualTo(6);
+        assertThat(console.card().difficulty()).isEqualTo(3);
+        assertThat(service.boardView().item()).isNull();
+        assertThat(objectMapper.writeValueAsString(service.boardView())).doesNotContain("abcdefghijk");
+    }
+
+    @Test
+    @DisplayName("[R-047] 띄운 문제를 정답 공개 없이 거둘 수 있다 — 라운드·이력에 남지 않고 다시 나오지도 않는다")
+    void cancelShowWithoutReveal() throws Exception {
+        text("초성 · 과자", "포카칩");
+        showQuiz("초성 · 과자");
+        assertThat(service.boardView().round()).isEqualTo(1);
+
+        service.cancelShow();
+
+        PartyBoardView board = service.boardView();
+        assertThat(board.phase()).isEqualTo("WAIT");
+        assertThat(board.round()).isZero();
+        assertThat(board.reveal()).isNull();
+        assertThat(objectMapper.writeValueAsString(board)).doesNotContain("포카칩");
+        assertThat(service.consoleView().history()).isEmpty();
+        assertThatThrownBy(() -> service.pick(PartyCategory.QUIZ, "초성 · 과자"))
+                .isInstanceOf(PartyGameException.class);
+        assertThatThrownBy(() -> service.cancelShow()).isInstanceOf(PartyGameException.class);
+    }
+
+    @Test
+    @DisplayName("[R-048] 다음 판은 점수·이력만 비우고, 앞 판에 낸 문제와 곡은 다시 나오지 않는다")
+    void nextGameKeepsUsedQuestions() {
+        text("초성 · 과자", "포카칩");
+        text("초성 · 과자", "홈런볼");
+        song("구십사", 1994);
+        showQuiz("초성 · 과자");
+        service.correct(PartyTeam.A);
+        String first = service.consoleView().history().get(0).getAnswer();
+        service.pickSong(PartyGameService.ALL);
+        service.show();
+        service.miss();
+
+        service.newGame(true);
+
+        assertThat(service.boardView().scores()).containsEntry("A", 0);
+        assertThat(service.boardView().round()).isZero();
+        assertThat(service.consoleView().history()).isEmpty();
+        assertThat(service.remaining().get("QUIZ")).containsEntry("초성 · 과자", 1);
+        service.pick(PartyCategory.QUIZ, "초성 · 과자");
+        assertThat(service.consoleView().card().answer()).isNotEqualTo(first);
+        assertThatThrownBy(() -> service.pickSong(PartyGameService.ALL)).isInstanceOf(PartyGameException.class);
+
+        service.newGame(false);
+        assertThat(service.remaining().get("QUIZ")).containsEntry("초성 · 과자", 2);
+    }
+
+    @Test
+    @DisplayName("[정상] 타이머 경과 시간은 서버가 잰다 (문제가 떠 있을 때만)")
+    void timerElapsedComesFromServer() {
+        text("초성 · 과자", "포카칩");
+        assertThat(service.boardView().timerElapsedSeconds()).isNull();
+
+        showQuiz("초성 · 과자");
+
+        assertThat(service.boardView().timerElapsedSeconds()).isBetween(0, 2);
+    }
+
     // ---------- 점수판·종료 ----------
 
     @Test
@@ -531,6 +738,24 @@ class PartyGameServiceTest {
 
         service.newGame();
         assertThat(service.boardView().phase()).isEqualTo("WAIT");
+    }
+
+    @Test
+    @DisplayName("[R-040] 잘못 누른 종료는 되돌릴 수 있다 — 점수·이력·낸 문제가 그대로 이어진다")
+    void endCanBeUndone() {
+        text("초성 · 과자", "포카칩");
+        text("초성 · 과자", "홈런볼");
+        showQuiz("초성 · 과자");
+        service.correct(PartyTeam.A);
+        service.end();
+
+        service.backToWait();
+
+        assertThat(service.boardView().phase()).isEqualTo("WAIT");
+        assertThat(service.boardView().scores()).containsEntry("A", 1);
+        assertThat(service.consoleView().history()).hasSize(1);
+        service.pick(PartyCategory.QUIZ, "초성 · 과자");
+        assertThat(service.consoleView().card().answer()).isIn("포카칩", "홈런볼");
     }
 
     // ---------- 이력·복구 ----------
@@ -558,7 +783,7 @@ class PartyGameServiceTest {
 
     private PartyGameService serviceOn(Path file) {
         return new PartyGameService(partyItemRepository, partySongRepository, songAnswerRepository,
-                new PartyGameHolder(objectMapper, file.toString()));
+                new PartyGameHolder(objectMapper, file.toString()), new PartyImageStore(imageDir.toString()));
     }
 
     @Test
@@ -584,7 +809,7 @@ class PartyGameServiceTest {
         assertThat(second.boardView().round()).isEqualTo(2);
         assertThat(second.boardView().scores()).containsEntry("B", 1);
         assertThat(second.boardView().wrongTeam()).isEqualTo("A");
-        assertThat(second.boardView().version()).isEqualTo(first.boardView().version());
+        assertThat(second.boardView().version()).isGreaterThan(first.boardView().version());
         assertThat(second.consoleView().card().answer()).isEqualTo(secondAnswer).isNotEqualTo(firstAnswer);
         assertThat(second.consoleView().history()).hasSize(1);
 
@@ -612,6 +837,88 @@ class PartyGameServiceTest {
         assertThat(game.consoleView().history()).isEmpty();
         game.pick(PartyCategory.QUIZ, "초성 · 과자");
         assertThat(game.consoleView().card().answer()).isEqualTo("포카칩");
+    }
+
+    @Test
+    @DisplayName("[R-040] 새 게임은 지우기 전의 상태를 .bak 으로 남긴다 (잘못 누른 새 게임 복구용)")
+    void newGameKeepsBackup() throws IOException {
+        text("초성 · 과자", "포카칩");
+        Path file = tempDir.resolve("party-state.json");
+        PartyGameService game = serviceOn(file);
+        game.pick(PartyCategory.QUIZ, "초성 · 과자");
+        game.show();
+        game.correct(PartyTeam.B);
+
+        game.newGame();
+        game.adjustScore(PartyTeam.A, 1);
+        game.newGame();
+
+        java.util.List<Path> backups;
+        try (java.util.stream.Stream<Path> files = Files.list(tempDir)) {
+            backups = files.filter(p -> p.getFileName().toString().startsWith("party-state.json.bak-"))
+                    .sorted().toList();
+        }
+        assertThat(file).doesNotExist();
+        assertThat(backups).as("두 번째 새 게임이 첫 백업을 덮어쓰지 않는다").hasSize(2);
+        Files.move(backups.get(0), file);
+        assertThat(serviceOn(file).boardView().scores()).containsEntry("B", 1);
+    }
+
+    @Test
+    @DisplayName("[R-041] 저장 도중 꺼져서 본 파일이 없고 .tmp 만 남았으면 .tmp 로 이어간다")
+    void fallsBackToTempSnapshot() throws IOException {
+        text("초성 · 과자", "포카칩");
+        Path file = tempDir.resolve("party-state.json");
+        PartyGameService game = serviceOn(file);
+        game.pick(PartyCategory.QUIZ, "초성 · 과자");
+        game.show();
+        game.correct(PartyTeam.A);
+        Files.move(file, tempDir.resolve("party-state.json.tmp"));
+
+        PartyGameService restarted = serviceOn(file);
+
+        assertThat(restarted.boardView().scores()).containsEntry("A", 1);
+        assertThat(restarted.boardView().round()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("[R-046] 바꿔치기가 실패해 .tmp 가 본 파일보다 새것이면 .tmp 로 이어간다 (마지막 조작을 잃지 않는다)")
+    void restoresNewerTempSnapshot() throws IOException {
+        text("초성 · 과자", "포카칩");
+        Path file = tempDir.resolve("party-state.json");
+        PartyGameService game = serviceOn(file);
+        game.adjustScore(PartyTeam.A, 1);
+        Path older = tempDir.resolve("older.json");
+        Files.copy(file, older);
+        game.adjustScore(PartyTeam.A, 1);
+        // 두 번째 저장의 바꿔치기가 실패한 상황: 본 파일은 앞 상태, .tmp 는 새 상태
+        Files.move(file, tempDir.resolve("party-state.json.tmp"));
+        Files.move(older, file);
+
+        PartyGameService restarted = serviceOn(file);
+
+        assertThat(restarted.boardView().scores()).containsEntry("A", 2);
+        assertThat(restarted.boardView().version()).isGreaterThan(game.boardView().version());
+    }
+
+    @Test
+    @DisplayName("[R-041] 읽을 수 없는 저장 파일은 덮어쓰지 않고 옆에 남긴다")
+    void unreadableSnapshotIsKeptAside() throws IOException {
+        text("초성 · 과자", "포카칩");
+        Path file = tempDir.resolve("party-state.json");
+        String broken = "{\"phase\":\"SHOW\",\"scores\":";
+        Files.writeString(file, broken);
+
+        PartyGameService game = serviceOn(file);
+        game.pick(PartyCategory.QUIZ, "초성 · 과자");
+
+        try (java.util.stream.Stream<Path> files = Files.list(tempDir)) {
+            java.util.List<Path> kept = files
+                    .filter(p -> p.getFileName().toString().startsWith("party-state.json.bad-")).toList();
+            assertThat(kept).hasSize(1);
+            assertThat(Files.readString(kept.get(0))).isEqualTo(broken);
+        }
+        assertThat(Files.readString(file)).contains("READY");
     }
 
     @Test

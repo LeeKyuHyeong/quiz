@@ -7,8 +7,11 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -19,7 +22,7 @@ import java.util.Set;
 @Setter
 @NoArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class PartySpeedState {
+public class PartySpeedState implements PartyVersioned {
 
     private long version;
     private Setup setup = new Setup();
@@ -31,6 +34,8 @@ public class PartySpeedState {
     private Word currentWord;
     /** 되돌릴 수 있는 직전 정답·패스. 되돌리면 비운다(연속 되돌리기 없음). */
     private LastAction lastAction;
+    /** 이번 턴에 지나간 제시어와 정답·패스 여부(콘솔 표시용). 턴을 시작하면 비운다. */
+    private List<LastAction> turnLog = new ArrayList<>();
 
     static Map<PartyTeam, TeamResult> emptyResults() {
         Map<PartyTeam, TeamResult> results = new EnumMap<>(PartyTeam.class);
@@ -45,8 +50,8 @@ public class PartySpeedState {
     @NoArgsConstructor
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Setup {
-        /** null 이면 전체 주제. */
-        private String topic;
+        /** 고른 주제들. 비어 있으면 전체 주제. */
+        private Set<String> topics = new LinkedHashSet<>();
         private Map<PartyTeam, Integer> limitSeconds = defaultLimits();
         private PartySpeedMode mode = PartySpeedMode.TALK;
         /** false 면 제시어를 콘솔에만 보인다. */

@@ -22,7 +22,7 @@ import java.util.Set;
 @Setter
 @NoArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class PartyGameState {
+public class PartyGameState implements PartyVersioned {
 
     private long version;
     private PartyPhase phase = PartyPhase.WAIT;
@@ -77,6 +77,7 @@ public class PartyGameState {
         private Integer duration;
         private String imagePath;
         private String questionText;
+        private Integer difficulty;
         private List<String> hints = new ArrayList<>();
     }
 

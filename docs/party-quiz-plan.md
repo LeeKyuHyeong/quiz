@@ -319,6 +319,8 @@ CREATE TABLE party_item (
 | 테마 변수(`--bg-*`, `--text-*`, `--team-*` 는 신규) | ✅ | `common.css :root`, `.game-page` 는 510행 |
 
 ### 11-2. 구현 전 남아 있던 결정 → 기본값 확정 (바꾸려면 말해 주면 됨)
+
+> **2026-09-30 구현 뒤 달라진 것**: 아래 1·2 의 경로·JSON 은 초안이다. 실제 계약은 `party-status.md` 의 "서버 계약"이 기준 — 조작마다 `version` 필수, 단계 READY, `/cancel`, `/new` 의 `keepUsed`, `/remaining`·`/speed/topics` 분리, 스피드 `/rematch`.
 1. **상태 API 는 하나**: `GET /admin/party/state` 를 보드·플레이어 창·콘솔이 함께 폴링. 응답에 **정답은 REVEAL 단계 전엔 절대 안 실린다**(보드가 TV 에 있으므로). 콘솔만 `GET /admin/party/console/state` 로 정답 카드까지 받는다.
    ```json
    {"version":41,"phase":"SHOW","round":7,"teamNames":{"A":"남팀","B":"여팀"},"scores":{"A":3,"B":4},

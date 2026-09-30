@@ -621,6 +621,7 @@ CREATE TABLE `party_item` (
   `created_at` datetime(6) DEFAULT NULL,
   `updated_at` datetime(6) DEFAULT NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_party_item_category_answer` (`category`,`answer`),
   KEY `idx_party_item_cat` (`category`,`sub_category`,`use_yn`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='파티 퀴즈 문제 - party 브랜치·로컬 DB 전용, 운영 DB 에 없음';
 /*!40101 SET character_set_client = @saved_cs_client */;

@@ -6,14 +6,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * 파티 문제 TSV(docs/party-content, 19열) 가져오기.
- * 잘못된 행은 건너뛰고 줄 번호와 이유를 돌려준다. 대분류 + 정답이 같은 행은 덮어쓴다.
+ * 잘못된 행은 건너뛰고 줄 번호와 이유를 돌려준다. 대분류 + 정답이 같은 행은 덮어쓰되,
+ * 빈 칸은 기존 값을 지우지 않는다 — 화면에서 맞춘 시작초·URL 이 다시 올릴 때 사라지지 않게.
  */
 @Slf4j
 @Service
@@ -22,6 +25,7 @@ public class PartyItemImportService {
 
     private static final int COLUMN_COUNT = 19;
     private static final String FIRST_HEADER = "대분류";
+    private static final String BOM = String.valueOf((char) 0xFEFF);
     private static final Map<String, Integer> DIFFICULTY = Map.of("하", 1, "중", 2, "상", 3);
     private static final Pattern VIDEO_ID = Pattern.compile("^[a-zA-Z0-9_-]{11}$");
     private static final Pattern VIDEO_URL = Pattern.compile(
@@ -36,7 +40,7 @@ public class PartyItemImportService {
 
     @Transactional
     public PartyImportResult importTsv(String content) {
-        String[] lines = content.replace("﻿", "").split("\r?\n", -1);
+        String[] lines = content.replace(BOM, "").split("\r?\n", -1);
         List<PartyImportResult.RowError> errors = new ArrayList<>();
 
         String[] header = lines[0].split("\t", -1);
@@ -47,13 +51,15 @@ public class PartyItemImportService {
 
         int created = 0;
         int updated = 0;
+        // 이 파일에서 이미 쓴 행. 같은 대분류·정답이 또 나오면 앞 줄을 조용히 덮어쓰지 않고 거부한다
+        Set<Long> writtenIds = new HashSet<>();
         for (int i = 1; i < lines.length; i++) {
             if (lines[i].isBlank()) {
                 continue;
             }
             int lineNo = i + 1;
             try {
-                if (apply(lines[i].split("\t", -1))) {
+                if (apply(lines[i].split("\t", -1), writtenIds)) {
                     created++;
                 } else {
                     updated++;
@@ -66,8 +72,13 @@ public class PartyItemImportService {
         return new PartyImportResult(created, updated, errors);
     }
 
-    /** @return 새로 만들었으면 true, 기존 행을 덮어썼으면 false */
-    private boolean apply(String[] cells) {
+    /**
+     * 한 행을 적용한다. 값 검증을 전부 끝낸 뒤에야 기존 행을 건드린다 —
+     * 거부된 행이 기존 문제를 절반만 바꿔 놓는 일이 없게.
+     *
+     * @return 새로 만들었으면 true, 기존 행을 덮어썼으면 false
+     */
+    private boolean apply(String[] cells, Set<Long> writtenIds) {
         if (cells.length != COLUMN_COUNT) {
             throw new InvalidRowException("열 수가 " + cells.length + "개입니다(19개여야 함)");
         }
@@ -86,9 +97,17 @@ public class PartyItemImportService {
             throw new InvalidRowException(missing);
         }
 
+        String subCategory = limited(cells[SUB_CATEGORY], 50, "중분류");
+        String aliases = limited(cells[ALIASES], 500, "인정답안");
+        String detail = limited(cells[DETAIL], 255, "보조");
         String videoId = parseVideoId(cells[YOUTUBE_URL]);
         Integer startTime = parseSeconds(cells[START_TIME], "시작초");
         Integer playDuration = parseSeconds(cells[PLAY_DURATION], "길이");
+        String imagePath = parseImageName(cells[IMAGE]);
+        String hint1 = limited(cells[HINT1], 255, "힌트1");
+        String hint2 = limited(cells[HINT2], 255, "힌트2");
+        String hint3 = limited(cells[HINT3], 255, "힌트3");
+        String source = limited(cells[SOURCE], 255, "출처");
         Integer difficulty = parseDifficulty(cells[DIFFICULTY_COL]);
 
         PartyItem item = partyItemRepository.findByCategoryAndAnswer(category, answer).orElse(null);
@@ -96,23 +115,31 @@ public class PartyItemImportService {
         if (isNew) {
             item = new PartyItem();
             item.setCategory(category);
-            item.setAnswer(answer);
+        } else if (writtenIds.contains(item.getId())) {
+            throw new InvalidRowException("이 파일의 앞 줄에 같은 대분류·정답이 있습니다: '" + answer + "'");
         }
-        item.setSubCategory(limited(cells[SUB_CATEGORY], 50, "중분류"));
+        // 운영 DB 는 대소문자·끝 공백을 같은 값으로 찾는다 — 표기를 고친 TSV 가 반영되게 늘 다시 쓴다
+        item.setAnswer(answer);
         item.setPresentation(presentation);
-        item.setAnswerAliases(limited(cells[ALIASES], 500, "인정답안"));
-        item.setDetail(limited(cells[DETAIL], 255, "보조"));
-        item.setYoutubeVideoId(videoId);
-        item.setStartTime(startTime);
-        item.setPlayDuration(playDuration);
-        item.setImagePath(limited(cells[IMAGE], 255, "이미지파일명"));
-        item.setQuestionText(questionText);
-        item.setHint1(limited(cells[HINT1], 255, "힌트1"));
-        item.setHint2(limited(cells[HINT2], 255, "힌트2"));
-        item.setHint3(limited(cells[HINT3], 255, "힌트3"));
-        item.setSourceNote(limited(cells[SOURCE], 255, "출처"));
-        item.setDifficulty(difficulty);
-        partyItemRepository.save(item);
+        ifPresent(subCategory, item::setSubCategory);
+        ifPresent(aliases, item::setAnswerAliases);
+        ifPresent(detail, item::setDetail);
+        if (videoId != null && !videoId.equals(item.getYoutubeVideoId())) {
+            // 영상이 바뀌었으니 앞 영상의 재생 불가 표시는 의미가 없다
+            item.setYoutubeVideoId(videoId);
+            item.setIsYoutubeValid(true);
+            item.setYoutubeCheckedAt(null);
+        }
+        ifPresent(startTime, item::setStartTime);
+        ifPresent(playDuration, item::setPlayDuration);
+        ifPresent(imagePath, item::setImagePath);
+        ifPresent(questionText, item::setQuestionText);
+        ifPresent(hint1, item::setHint1);
+        ifPresent(hint2, item::setHint2);
+        ifPresent(hint3, item::setHint3);
+        ifPresent(source, item::setSourceNote);
+        ifPresent(difficulty, item::setDifficulty);
+        writtenIds.add(partyItemRepository.save(item).getId());
         return isNew;
     }
 
@@ -154,6 +181,14 @@ public class PartyItemImportService {
         return matcher.group(1);
     }
 
+    private static String parseImageName(String value) {
+        String name = limited(value, 255, "이미지파일명");
+        if (name != null && !PartyImageStore.isSafeName(name)) {
+            throw new InvalidRowException("이미지파일명에 쓸 수 없는 글자가 있습니다(경로·윈도우 금지 글자): '" + name + "'");
+        }
+        return name;
+    }
+
     private static Integer parseSeconds(String value, String column) {
         if (value.isEmpty()) {
             return null;
@@ -173,6 +208,12 @@ public class PartyItemImportService {
             throw new InvalidRowException("난이도는 하/중/상 이어야 합니다: '" + value + "'");
         }
         return difficulty;
+    }
+
+    private static <V> void ifPresent(V value, java.util.function.Consumer<V> setter) {
+        if (value != null) {
+            setter.accept(value);
+        }
     }
 
     /** 빈 값은 null 로, 열 크기를 넘으면 거부. */

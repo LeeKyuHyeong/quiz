@@ -51,6 +51,10 @@ class PartySpeedQuizServiceTest {
             now = now.plusSeconds(seconds);
         }
 
+        void advanceMillis(long millis) {
+            now = now.plusMillis(millis);
+        }
+
         @Override
         public ZoneId getZone() {
             return ZoneId.of("Asia/Seoul");
@@ -75,7 +79,7 @@ class PartySpeedQuizServiceTest {
 
     private PartySpeedQuizService serviceOn(Path stateFile) {
         return new PartySpeedQuizService(partyItemRepository,
-                new PartySpeedHolder(objectMapper, stateFile.toString()), clock);
+                new PartySpeedHolder(objectMapper, stateFile.toString()), clock, java.time.Duration.ZERO);
     }
 
     private void words(String topic, String... answers) {
@@ -100,7 +104,7 @@ class PartySpeedQuizServiceTest {
     void defaultSetup() {
         PartySpeedState.Setup setup = service.consoleView().setup();
 
-        assertThat(setup.getTopic()).isNull();
+        assertThat(setup.getTopics()).isEmpty();
         assertThat(setup.getLimitSeconds()).containsEntry(PartyTeam.A, 90).containsEntry(PartyTeam.B, 90);
         assertThat(setup.getMode()).isEqualTo(PartySpeedMode.TALK);
         assertThat(setup.isWordOnBoard()).isTrue();
@@ -113,7 +117,7 @@ class PartySpeedQuizServiceTest {
         words("동물", "코끼리", "기린");
         words("직업", "소방관");
 
-        service.configure("동물", 60, 120, PartySpeedMode.BODY, true);
+        service.configure(Set.of("동물"), 60, 120, PartySpeedMode.BODY, true);
         service.start(PartyTeam.B);
 
         PartySpeedBoardView board = service.boardView();
@@ -123,7 +127,7 @@ class PartySpeedQuizServiceTest {
         assertThat(board.remainingSeconds()).isEqualTo(120);
         assertThat(board.mode()).isEqualTo("BODY");
         assertThat(board.word()).isIn("코끼리", "기린");
-        assertThat(service.consoleView().topics()).containsEntry("동물", 1).containsEntry("직업", 1)
+        assertThat(service.topics()).containsEntry("동물", 1).containsEntry("직업", 1)
                 .containsEntry(PartySpeedQuizService.ALL, 2);
     }
 
@@ -132,15 +136,15 @@ class PartySpeedQuizServiceTest {
     void rejectsBadSetup() {
         words("동물", "코끼리", "기린");
 
-        assertThatThrownBy(() -> service.configure(null, 0, 90, PartySpeedMode.TALK, true))
+        assertThatThrownBy(() -> service.configure(Set.of(), 0, 90, PartySpeedMode.TALK, true))
                 .isInstanceOf(PartyGameException.class);
-        assertThatThrownBy(() -> service.configure(null, 90, -5, PartySpeedMode.TALK, true))
+        assertThatThrownBy(() -> service.configure(Set.of(), 90, -5, PartySpeedMode.TALK, true))
                 .isInstanceOf(PartyGameException.class);
-        assertThatThrownBy(() -> service.configure("없는 주제", 90, 90, PartySpeedMode.TALK, true))
+        assertThatThrownBy(() -> service.configure(Set.of("없는 주제"), 90, 90, PartySpeedMode.TALK, true))
                 .isInstanceOf(PartyGameException.class);
 
         service.start(PartyTeam.A);
-        assertThatThrownBy(() -> service.configure(null, 30, 30, PartySpeedMode.TALK, true))
+        assertThatThrownBy(() -> service.configure(Set.of(), 30, 30, PartySpeedMode.TALK, true))
                 .isInstanceOf(PartyGameException.class);
         assertThat(service.consoleView().setup().getLimitSeconds()).containsEntry(PartyTeam.A, 90);
     }
@@ -212,7 +216,7 @@ class PartySpeedQuizServiceTest {
     @DisplayName("[경계] 제한 시간 +1초까지의 정답은 받고, 그 뒤는 거부된다")
     void timeLimitWithGrace() {
         words("동물", "코끼리", "기린", "사자", "호랑이", "하마");
-        service.configure(null, 60, 60, PartySpeedMode.TALK, true);
+        service.configure(Set.of(), 60, 60, PartySpeedMode.TALK, true);
         service.start(PartyTeam.A);
 
         clock.advance(59);
@@ -259,6 +263,164 @@ class PartySpeedQuizServiceTest {
         assertThat(service.boardView().turnTeam()).isEqualTo("B");
         assertThat(service.boardView().results().get("A").done()).isTrue();
         assertThat(service.boardView().results().get("A").correct()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("[R-044] 고른 주제의 제시어가 떨어지면 다른 주제로 이어가고 턴은 끝나지 않는다")
+    void continuesWithOtherTopicsWhenTopicRunsOut() {
+        words("동물", "코끼리", "기린");
+        words("직업", "소방관", "요리사");
+        service.configure(Set.of("동물"), 90, 90, PartySpeedMode.TALK, true);
+        service.start(PartyTeam.A);
+        assertThat(currentWord()).isIn("코끼리", "기린");
+        service.correct();
+        assertThat(currentWord()).isIn("코끼리", "기린");
+
+        service.correct();
+
+        assertThat(currentWord()).isIn("소방관", "요리사");
+        assertThat(service.boardView().phase()).isEqualTo("RUN");
+        service.finish();
+        service.start(PartyTeam.B);
+        assertThat(currentWord()).isIn("소방관", "요리사");
+    }
+
+    @Test
+    @DisplayName("[R-045] 제한 시간이 되면 바로 끝난 턴이다 — 1초 기다리지 않고 상대 팀을 시작할 수 있다")
+    void turnIsOverExactlyAtLimit() {
+        words("동물", "코끼리", "기린", "사자", "호랑이");
+        service.configure(Set.of(), 60, 60, PartySpeedMode.TALK, true);
+        service.start(PartyTeam.A);
+        clock.advance(60);
+        assertThat(service.boardView().phase()).isEqualTo("OVER");
+
+        service.start(PartyTeam.B);
+
+        assertThat(service.boardView().turnTeam()).isEqualTo("B");
+        assertThat(service.boardView().results().get("A").done()).isTrue();
+    }
+
+    @Test
+    @DisplayName("[R-045] 시간이 끝난 뒤 여유 1초 안의 정답은 세되, 보이지 않는 새 제시어를 뽑지 않는다")
+    void graceAnswerDoesNotDrawNewWord() {
+        words("동물", "코끼리", "기린", "사자", "호랑이");
+        service.configure(Set.of(), 60, 60, PartySpeedMode.TALK, true);
+        service.start(PartyTeam.A);
+        clock.advance(60);
+        int unusedBefore = service.topics().get(PartySpeedQuizService.ALL);
+
+        service.correct();
+
+        assertThat(service.boardView().results().get("A").correct()).isEqualTo(1);
+        assertThat(service.boardView().results().get("A").done()).isTrue();
+        assertThat(service.topics().get(PartySpeedQuizService.ALL)).isEqualTo(unusedBefore);
+        assertThatThrownBy(() -> service.correct()).isInstanceOf(PartyGameException.class);
+    }
+
+    @Test
+    @DisplayName("[R-037] 0.3초 안에 다시 누른 정답·패스는 세지 않는다 (사람의 더블클릭)")
+    void tooFastSecondAnswerIsIgnored() {
+        words("동물", "코끼리", "기린", "사자", "호랑이");
+        PartySpeedQuizService guarded = new PartySpeedQuizService(partyItemRepository,
+                new PartySpeedHolder(objectMapper, ""), clock, java.time.Duration.ofMillis(300));
+        guarded.start(PartyTeam.A);
+        String first = guarded.consoleView().word();
+
+        guarded.correct();
+        String second = guarded.consoleView().word();
+        clock.advanceMillis(150);
+        assertThatThrownBy(guarded::correct).isInstanceOf(PartyGameException.class);
+        assertThatThrownBy(guarded::pass).isInstanceOf(PartyGameException.class);
+
+        assertThat(guarded.boardView().results().get("A").correct()).isEqualTo(1);
+        assertThat(guarded.boardView().results().get("A").pass()).isZero();
+        assertThat(guarded.consoleView().word()).isEqualTo(second).isNotEqualTo(first);
+
+        clock.advanceMillis(150);
+        guarded.pass();
+        assertThat(guarded.boardView().results().get("A").pass()).isEqualTo(1);
+
+        // 되돌린 직후에는 바로 다시 누를 수 있다
+        guarded.undo();
+        guarded.correct();
+        assertThat(guarded.boardView().results().get("A").correct()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("[R-049] 주제를 여러 개 고르면 그 주제들에서만 나온다 (두 팀이 같은 조건으로 붙게)")
+    void drawsFromSeveralTopics() {
+        words("동물", "코끼리", "기린");
+        words("직업", "소방관", "요리사");
+        words("물건", "텀블러", "우산");
+        service.configure(Set.of("동물", "직업"), 90, 90, PartySpeedMode.TALK, true);
+        service.start(PartyTeam.A);
+
+        Set<String> seen = new HashSet<>();
+        seen.add(currentWord());
+        for (int i = 0; i < 3; i++) {
+            service.correct();
+            seen.add(currentWord());
+        }
+
+        assertThat(seen).containsExactlyInAnyOrder("코끼리", "기린", "소방관", "요리사");
+        assertThat(service.consoleView().setup().getTopics()).containsExactlyInAnyOrder("동물", "직업");
+        assertThatThrownBy(() -> {
+            service.finish();
+            service.configure(Set.of("동물", "없는 주제"), 90, 90, PartySpeedMode.TALK, true);
+        }).isInstanceOf(PartyInputException.class);
+    }
+
+    @Test
+    @DisplayName("[정상] 보드는 턴이 없을 때도 두 팀의 제한 시간을 받는다")
+    void boardShowsBothLimits() {
+        service.configure(Set.of(), 60, 45, PartySpeedMode.TALK, true);
+
+        assertThat(service.boardView().phase()).isEqualTo("WAIT");
+        assertThat(service.boardView().limits()).containsEntry("A", 60).containsEntry("B", 45);
+    }
+
+    @Test
+    @DisplayName("[정상] 콘솔은 이번 턴에 지나간 제시어와 정답·패스를 순서대로 받고, 되돌리면 마지막 줄이 빠진다")
+    void consoleShowsTurnLog() {
+        words("동물", "코끼리", "기린", "사자", "호랑이");
+        service.start(PartyTeam.A);
+        String first = currentWord();
+        service.correct();
+        String second = currentWord();
+        service.pass();
+
+        assertThat(service.consoleView().log())
+                .extracting(PartySpeedConsoleView.LogEntry::word, PartySpeedConsoleView.LogEntry::correct)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple(first, true),
+                        org.assertj.core.groups.Tuple.tuple(second, false));
+
+        service.undo();
+        assertThat(service.consoleView().log()).hasSize(1);
+        service.finish();
+        service.start(PartyTeam.B);
+        assertThat(service.consoleView().log()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("[R-049] 턴 사이에 주제를 바꿀 수 있다 — 두 팀이 서로 다른 주제로 붙는다")
+    void topicsCanChangeBetweenTurns() {
+        words("동물", "코끼리", "기린", "사자");
+        words("직업", "소방관", "요리사", "의사");
+        service.configure(Set.of("동물"), 90, 90, PartySpeedMode.TALK, true);
+        service.start(PartyTeam.A);
+        service.correct();
+        service.finish();
+
+        service.configure(Set.of("직업"), 90, 90, PartySpeedMode.TALK, true);
+        service.start(PartyTeam.B);
+
+        Set<String> seen = new HashSet<>();
+        seen.add(currentWord());
+        service.correct();
+        seen.add(currentWord());
+        assertThat(seen).allMatch(word -> Set.of("소방관", "요리사", "의사").contains(word));
+        assertThat(service.boardView().results().get("A").correct()).isEqualTo(1);
+        assertThat(service.boardView().results().get("B").correct()).isEqualTo(1);
     }
 
     // ---------- 되돌리기 ----------
@@ -332,7 +494,7 @@ class PartySpeedQuizServiceTest {
     @DisplayName("[정상] 재대결은 결과만 비우고 나온 제시어 기록과 설정은 유지한다")
     void rematchKeepsUsedWords() {
         words("동물", "코끼리", "기린", "사자");
-        service.configure(null, 30, 30, PartySpeedMode.TALK, true);
+        service.configure(Set.of(), 30, 30, PartySpeedMode.TALK, true);
         service.start(PartyTeam.A);
         String first = currentWord();
         service.correct();
@@ -373,13 +535,54 @@ class PartySpeedQuizServiceTest {
         assertThat(gameService.boardView().round()).isZero();
     }
 
+    @Test
+    @DisplayName("[R-034] 초기화·재대결 뒤에도 보드 버전은 줄지 않는다")
+    void versionNeverGoesBack() {
+        words("동물", "코끼리", "기린");
+        service.start(PartyTeam.A);
+        service.correct();
+        service.finish();
+        long afterTurn = service.boardView().version();
+
+        service.rematch();
+        long afterRematch = service.boardView().version();
+        service.reset();
+
+        assertThat(afterRematch).isGreaterThan(afterTurn);
+        assertThat(service.boardView().version()).isGreaterThan(afterRematch);
+    }
+
+    @Test
+    @DisplayName("[R-037] 빠르게 두 번 누른 정답은 한 번만 센다")
+    void doubleClickCountsOnce() {
+        words("동물", "코끼리", "기린", "사자");
+        service.start(PartyTeam.A);
+        long seen = service.boardView().version();
+
+        service.apply(seen, service::correct);
+        assertThatThrownBy(() -> service.apply(seen, service::correct)).isInstanceOf(PartyStaleException.class);
+
+        assertThat(service.boardView().results().get("A").correct()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("[예외] 값이 틀린 설정은 단계 오류와 구분된다")
+    void inputErrorsAreDistinct() {
+        assertThatThrownBy(() -> service.configure(Set.of(), 0, 90, PartySpeedMode.TALK, true))
+                .isInstanceOf(PartyInputException.class);
+        assertThatThrownBy(() -> service.configure(Set.of("없는 주제"), 90, 90, PartySpeedMode.TALK, true))
+                .isInstanceOf(PartyInputException.class);
+        assertThatThrownBy(() -> service.correct())
+                .isInstanceOf(PartyGameException.class).isNotInstanceOf(PartyInputException.class);
+    }
+
     // ---------- 노출 ----------
 
     @Test
     @DisplayName("[노출] '콘솔만' 이면 보드 상태에 제시어가 없고, 안 나온 제시어는 어디에도 없다")
     void boardHidesWord() throws Exception {
         words("동물", "코끼리", "기린", "사자");
-        service.configure(null, 90, 90, PartySpeedMode.TALK, false);
+        service.configure(Set.of(), 90, 90, PartySpeedMode.TALK, false);
         service.start(PartyTeam.A);
         String current = currentWord();
 
@@ -397,7 +600,7 @@ class PartySpeedQuizServiceTest {
 
         service.finish();
         service.rematch();
-        service.configure(null, 90, 90, PartySpeedMode.TALK, true);
+        service.configure(Set.of(), 90, 90, PartySpeedMode.TALK, true);
         service.start(PartyTeam.A);
         assertThat(service.boardView().word()).isEqualTo(currentWord()).isNotNull();
     }
@@ -408,7 +611,7 @@ class PartySpeedQuizServiceTest {
     @DisplayName("[정상] 앱을 다시 켜도 설정·결과·나온 제시어·진행 중인 턴의 남은 시간이 이어진다")
     void restoresAfterRestart() {
         words("동물", "코끼리", "기린", "사자");
-        service.configure("동물", 60, 45, PartySpeedMode.BODY, false);
+        service.configure(Set.of("동물"), 60, 45, PartySpeedMode.BODY, false);
         service.start(PartyTeam.A);
         service.correct();
         String current = currentWord();
@@ -421,7 +624,7 @@ class PartySpeedQuizServiceTest {
         assertThat(board.turnTeam()).isEqualTo("A");
         assertThat(board.remainingSeconds()).isEqualTo(40);
         assertThat(board.results().get("A").correct()).isEqualTo(1);
-        assertThat(board.version()).isEqualTo(service.boardView().version());
+        assertThat(board.version()).isGreaterThan(service.boardView().version());
         assertThat(restarted.consoleView().word()).isEqualTo(current);
         assertThat(restarted.consoleView().setup().getLimitSeconds()).containsEntry(PartyTeam.B, 45);
         assertThat(restarted.consoleView().setup().getMode()).isEqualTo(PartySpeedMode.BODY);
@@ -435,7 +638,7 @@ class PartySpeedQuizServiceTest {
     @DisplayName("[정상] 초기화는 설정·결과·나온 제시어를 전부 비우고 저장 파일을 지운다")
     void resetClearsEverything() {
         words("동물", "코끼리");
-        service.configure(null, 30, 30, PartySpeedMode.BODY, false);
+        service.configure(Set.of(), 30, 30, PartySpeedMode.BODY, false);
         service.start(PartyTeam.A);
         service.correct();
         assertThat(file).exists();

@@ -179,6 +179,115 @@ class PartyItemImportTest {
     }
 
     @Test
+    @DisplayName("[R-035] 다시 올릴 때 빈 칸은 기존 값을 지우지 않는다 (화면에서 맞춘 시작초·URL 보존)")
+    void reimportKeepsValuesWhenCellBlank() {
+        importService.importTsv(tsv(row("GAME", "리그 오브 레전드", "AUDIO", "가렌", "가랜", "챔피언 대사",
+                "https://youtu.be/abcdefghijk", "12", "6", "", "", "탑 · 전사", "데마시아", "ㄱㄹ", "라이엇", "", "중")));
+
+        PartyImportResult second = importService.importTsv(tsv(
+                row("GAME", "리그 오브 레전드", "AUDIO", "가렌")));
+
+        assertThat(second.updated()).isEqualTo(1);
+        PartyItem item = partyItemRepository.findByCategoryAndAnswer(PartyCategory.GAME, "가렌").orElseThrow();
+        assertThat(item.getYoutubeVideoId()).isEqualTo("abcdefghijk");
+        assertThat(item.getStartTime()).isEqualTo(12);
+        assertThat(item.getPlayDuration()).isEqualTo(6);
+        assertThat(item.getAnswerAliases()).isEqualTo("가랜");
+        assertThat(item.getDetail()).isEqualTo("챔피언 대사");
+        assertThat(item.getHint1()).isEqualTo("탑 · 전사");
+        assertThat(item.getSourceNote()).isEqualTo("라이엇");
+        assertThat(item.getDifficulty()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("[R-035] 영상이 바뀌면 재생 불가 표시가 풀리고, 같은 영상이면 그대로다")
+    void reimportResetsInvalidFlagOnlyWhenVideoChanges() {
+        importService.importTsv(tsv(row("SOUND", "CM송", "AUDIO", "초코파이", "", "", "https://youtu.be/abcdefghijk")));
+        PartyItem item = partyItemRepository.findByCategoryAndAnswer(PartyCategory.SOUND, "초코파이").orElseThrow();
+        item.setIsYoutubeValid(false);
+        item.setYoutubeCheckedAt(java.time.LocalDateTime.now());
+        partyItemRepository.save(item);
+
+        importService.importTsv(tsv(row("SOUND", "CM송", "AUDIO", "초코파이", "", "", "https://youtu.be/abcdefghijk")));
+        assertThat(partyItemRepository.findByCategoryAndAnswer(PartyCategory.SOUND, "초코파이").orElseThrow()
+                .getIsYoutubeValid()).isFalse();
+
+        importService.importTsv(tsv(row("SOUND", "CM송", "AUDIO", "초코파이", "", "", "https://youtu.be/ZYXWVUTSRQP")));
+        PartyItem replaced = partyItemRepository.findByCategoryAndAnswer(PartyCategory.SOUND, "초코파이").orElseThrow();
+        assertThat(replaced.getYoutubeVideoId()).isEqualTo("ZYXWVUTSRQP");
+        assertThat(replaced.getIsYoutubeValid()).isTrue();
+        assertThat(replaced.getYoutubeCheckedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("[R-039] 거부된 행은 기존 문제를 조금도 바꾸지 않는다")
+    void rejectedUpdateLeavesExistingRowUntouched() {
+        importService.importTsv(tsv(row("GAME", "리그 오브 레전드", "AUDIO", "가렌", "가랜", "챔피언 대사",
+                "https://youtu.be/abcdefghijk", "12", "6")));
+
+        PartyImportResult second = importService.importTsv(tsv(
+                row("GAME", "롤", "IMAGE", "가렌", "새 별칭", "새 보조", "https://youtu.be/ZYXWVUTSRQP", "99", "9",
+                        "", "", "", "", "", "출".repeat(300))));
+
+        assertThat(second.updated()).isZero();
+        assertThat(second.errors()).extracting(PartyImportResult.RowError::line).containsExactly(2);
+        PartyItem item = partyItemRepository.findByCategoryAndAnswer(PartyCategory.GAME, "가렌").orElseThrow();
+        assertThat(item.getSubCategory()).isEqualTo("리그 오브 레전드");
+        assertThat(item.getPresentation()).isEqualTo(PartyPresentation.AUDIO);
+        assertThat(item.getAnswerAliases()).isEqualTo("가랜");
+        assertThat(item.getDetail()).isEqualTo("챔피언 대사");
+        assertThat(item.getYoutubeVideoId()).isEqualTo("abcdefghijk");
+        assertThat(item.getStartTime()).isEqualTo(12);
+        assertThat(item.getPlayDuration()).isEqualTo(6);
+    }
+
+    @Test
+    @DisplayName("[R-043] 한 파일 안에서 같은 대분류·정답이 두 번 나오면 두 번째 행은 거부된다")
+    void duplicateKeyInOneFileIsRejected() {
+        PartyImportResult result = importService.importTsv(tsv(
+                row("SOUND", "CM송", "AUDIO", "초코파이", "", "첫 줄"),
+                row("SOUND", "TV 프로그램", "AUDIO", "초코파이", "", "둘째 줄")));
+
+        assertThat(result.created()).isEqualTo(1);
+        assertThat(result.updated()).isZero();
+        assertThat(result.errors()).extracting(PartyImportResult.RowError::line).containsExactly(3);
+        assertThat(partyItemRepository.findByCategoryAndAnswer(PartyCategory.SOUND, "초코파이").orElseThrow()
+                .getDetail()).isEqualTo("첫 줄");
+    }
+
+    @Test
+    @DisplayName("[R-042] 사진 파일명에 경로·윈도우 금지 글자가 있으면 그 행은 거부된다")
+    void rejectsUnsafeImageName() {
+        PartyImportResult result = importService.importTsv(tsv(
+                row("PERSON", "공통", "IMAGE", "가", "", "", "", "", "", "poster?.jpg"),
+                row("PERSON", "공통", "IMAGE", "나", "", "", "", "", "", "../secret.jpg"),
+                row("PERSON", "공통", "IMAGE", "다", "", "", "", "", "", "sub/person.jpg"),
+                row("PERSON", "공통", "IMAGE", "라", "", "", "", "", "", "person_01.jpg"),
+                row("PERSON", "공통", "IMAGE", "마", "", "", "", "", "", "유재석 어릴 때.jpg")));
+
+        assertThat(result.errors()).extracting(PartyImportResult.RowError::line).containsExactly(2, 3, 4);
+        assertThat(result.created()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("[R-043] 같은 대분류·정답은 DB 에 두 줄이 들어갈 수 없다 (유니크 키)")
+    void uniqueKeyRejectsDuplicateRows() {
+        PartyItem first = new PartyItem();
+        first.setCategory(PartyCategory.SPEED);
+        first.setPresentation(PartyPresentation.TEXT);
+        first.setAnswer("코끼리");
+        partyItemRepository.saveAndFlush(first);
+
+        PartyItem second = new PartyItem();
+        second.setCategory(PartyCategory.SPEED);
+        second.setPresentation(PartyPresentation.TEXT);
+        second.setAnswer("코끼리");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> partyItemRepository.saveAndFlush(second))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    }
+
+    @Test
     @DisplayName("[경계] 정답이 같아도 대분류가 다르면 다른 문제다")
     void sameAnswerDifferentCategory() {
         PartyImportResult result = importService.importTsv(tsv(

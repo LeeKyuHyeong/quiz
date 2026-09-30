@@ -1,4 +1,4 @@
-# 12-26 파티 퀴즈 — 한 장 현황 (2026-09-30 00:55 기준, 집 PC)
+# 12-26 파티 퀴즈 — 한 장 현황 (2026-09-30 19:30 기준, 집 PC)
 
 > 진입점. 근거·배경은 `party-quiz-plan.md`, 문제 목록은 `party-content/`, 화면은 `party-mockup/index.html`. **`party` 브랜치**에만 커밋한다(main 에 올리면 `.tsv`·`.html` 이 CI 필터 밖이라 배포가 돈다).
 
@@ -12,29 +12,25 @@
 | `docs/party-content/README.md` + TSV 7개 | 문제 초안, 열 정의, **MC 판정 규칙 표**, 선정 기준 | 50 + 347행 |
 | `docs/party-mockup/index.html` | 콘솔·보드·플레이어·스피드 콘솔·스피드 보드 5화면 목업(상태 버튼) | 476 |
 | `docs/verification/records/2026-09-29_party-quiz-plan.md` | 검증 기록(문서만, 코드 0) · O-025 | 61 |
-| `src/main/java/com/kh/game/party/` | 파티 코드 전부(16개 파일). 기존 자바 파일은 수정 없음 | |
-| `src/test/java/com/kh/game/party/` | `PartyItemImportTest` 12 · `PartyGameServiceTest` 26 | |
-| `docs/verification/records/2026-09-29_party-item-ddl.md` · `…_party-item-import.md` · `2026-09-30_party-game-service.md` | 착수·Part ①·Part ② 검증 기록 | |
+| `src/main/java/com/kh/game/party/` | 파티 코드 전부(23개 파일). 기존 자바 파일은 수정 없음 | |
+| `src/test/java/com/kh/game/party/` | `PartyItemImportTest` 12 · `PartyGameServiceTest` 26 · `PartySpeedQuizServiceTest` 19 | |
+| `docs/verification/records/2026-09-29_party-item-ddl.md` · `…_party-item-import.md` · `2026-09-30_party-game-service.md` · `2026-09-30_party-speed-quiz.md` | 착수·Part ①·②·③ 검증 기록 | |
 
 ## 개발 진행 (P-2 서버를 Part 4개로 나눔)
 | Part | 내용 | 상태 | 증거 |
 |---|---|---|---|
 | 착수 | 기준선 테스트, `party_item` 테이블(`schema.sql` + 집 PC 로컬 DB) | **완료** `9fd29b1` | 481 통과 · dev 기동 |
 | ① | `PartyItem` 엔티티·리포지토리 + TSV 가져오기(`PartyItemImportService`) | **완료** `5f54ec6` | 12건 · 실제 TSV 7개 거부 0 · dev `validate` 통과 |
-| ② | 본게임 규칙 `PartyGameService`(출제·판정·점수·힌트·재생 명령·보드 노출·이력·스냅샷 복구) | **완료**(이 커밋) | 26건 · 전체 519 통과 |
-| ③ | 스피드퀴즈 `PartySpeedQuizService` | **AC 초안 제시, 답 대기** — 아래 "이어서 할 일" | |
+| ② | 본게임 규칙 `PartyGameService`(출제·판정·점수·힌트·재생 명령·보드 노출·이력·스냅샷 복구) | **완료** `b3d73f2` | 26건 · 전체 519 통과 |
+| ③ | 스피드퀴즈 `PartySpeedQuizService`(설정·턴·되돌리기·재대결·결과·스냅샷 복구) | **완료** | 19건 · 전체 538 통과 |
 | ④ | 컨트롤러 3개(`/admin/party/**`) + 이미지 업로드 + 권한 테스트 | 미착수 | |
 | P-3 | 화면(console → board → player → speed), `youtube-player.js` 옵션 | 미착수 | |
 
-전체 테스트 수: **519**(기존 481 + 12 + 26), 0 Skipped(Docker 켠 집 PC). Docker 없는 회사 PC 는 Redis 13건이 Skipped 로 나오는 것이 정상.
+전체 테스트 수: **538**(기존 481 + 12 + 26 + 19), 0 Skipped(Docker 켠 집 PC). Docker 없는 회사 PC 는 Redis 13건이 Skipped 로 나오는 것이 정상.
 
-## 이어서 할 일 — Part ③ 시작 전에 답할 것
-AC 초안은 plan §1-4·§8 을 그대로 옮긴 것(설정 · 턴 · 되돌리기 · 결과 · 노출 · 복구). 남은 질문:
-1. **재대결**: 동점일 때 다시 하려면 결과를 비워야 하는데, 앞서 나온 제시어가 다시 나올 수 있다. 추천 = 결과만 비우고 **나온 제시어 기록은 유지**하는 [재대결]과, 전부 비우는 [초기화]를 따로 둔다.
-2. **시간 판정 여유**: 브라우저·서버 시계 차이로 0초 직전의 [정답]이 거부될 수 있다. 기본값 = 서버가 1초 여유.
-3. AC 에서 고칠 것(기본값 = 초안 그대로).
-
-답이 정해지면 Part ③ → ④ → P-3 순서. Part ④ 가 끝나야 O-027(실제 TSV 를 로컬 DB 에 적재)·O-028(실제 곡으로 출제, 스냅샷 파일 생성)을 닫을 수 있다.
+## 이어서 할 일 — Part ④ (컨트롤러)
+서비스 3개(가져오기·본게임·스피드퀴즈)는 끝났고 부르는 경로가 없다. Part ④ = `/admin/party/**` 컨트롤러 3개(plan §11-2 의 경로 목록) + 이미지 업로드·리소스 핸들러 + `PartyControllerAuthTest`(비관리자 403·CSRF 없는 POST 403). 시작 전에 AC 합의.
+Part ④ 가 끝나야 O-027(실제 TSV 를 로컬 DB 에 적재)·O-028(실제 곡·제시어로 한 판, 스냅샷 파일 생성)을 닫을 수 있다. 그다음 P-3 화면.
 
 ## 구현하면서 정한 것 (plan 과 다르거나 plan 에 없던 것)
 - `party_item`: `difficulty INT`, `use_yn VARCHAR(1)`, 날짜 `DATETIME(6)`(plan §2 DDL 도 정정함). 난이도 하/중/상 = 1/2/3.
@@ -43,7 +39,8 @@ AC 초안은 plan §1-4·§8 을 그대로 옮긴 것(설정 · 턴 · 되돌리
 - 본게임 단계에 **READY**(뽑았지만 아직 안 띄움) 추가. 보드에는 WAIT 로 보인다. 라운드 번호는 [띄우기] 때 오르고, 띄우기 전에 다시 뽑으면 앞 문제는 소모되지 않는다.
 - 판정 정정은 점수 ± 만(되돌리기 없음). 점수 1점 고정. 노래는 RETRO·비인기곡 포함.
 - 재생 명령은 문제가 떠 있을 때와 정답 공개 뒤에만. 스냅샷 저장 실패는 진행을 막지 않고 ERROR 로그.
-- 설정 `party.state-file`(dev 만 `../party-images/party-state.json`, 비어 있으면 메모리).
+- 설정 `party.state-file`·`party.speed-state-file`(dev 만 `../party-images/` 아래, 비어 있으면 메모리).
+- 스피드퀴즈: [재대결](결과만 비움, 나온 제시어·설정 유지)과 [초기화](전부)를 따로 둔다. 시간 판정은 서버 시계 + 여유 1초. 턴은 시간 경과·[턴 종료]·제시어 소진으로 끝난다. 되돌리기는 진행 중이면 그 제시어를 다시 띄우고, 끝난 뒤에는 수만 줄인다. 팀 이름·"다음 출제자!" 안내는 화면 몫.
 
 ## PC 별 주의
 | | 집 PC | 회사 PC |
@@ -88,4 +85,4 @@ AC 초안은 plan §1-4·§8 을 그대로 옮긴 것(설정 · 턴 · 되돌리
 - 개발: 위 "개발 진행" 표. plan §11-3 의 앞 세 항목(파일 이동 · `party` 브랜치 · `party_item` CREATE)은 끝났다. 일정은 plan §9(리허설 1 = 11월 첫째 주, 코드 동결 12/8).
 
 ## 검증 상태
-집 PC 에서 실행 확인: `./mvnw test` 519 통과 · dev 기동 · 엔티티 `validate`. **화면·경로가 없어 실제 데이터로는 아직 못 돌렸다**(O-027·O-028, Part ④ 뒤). 열린 항목은 `docs/verification/open-issues.md` 의 O-025·O-027·O-028.
+집 PC 에서 실행 확인: `./mvnw test` 538 통과 · dev 기동 · 엔티티 `validate`. **화면·경로가 없어 실제 데이터로는 아직 못 돌렸다**(O-027·O-028, Part ④ 뒤). 열린 항목은 `docs/verification/open-issues.md` 의 O-025·O-027·O-028.

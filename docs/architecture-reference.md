@@ -25,6 +25,7 @@ Controller (MVC + REST) → Service (Business Logic) → Repository (JPA) → Ma
 - **exception/** - `GlobalExceptionHandler` (`@RestControllerAdvice`, REST/MVC 분기 응답), `BusinessException`, `ResourceNotFoundException`
 - **util/** - `AnswerGeneratorUtil` (English→Korean phonetic conversion for song titles), `SecurityInputValidator` (이메일 정규식 + SQL Injection 패턴 차단), `JunkInputFilter`
 - **dto/** - `GameSettings` (multiplayer room configuration), `WebSocketMessage`
+- **mcp/** - `QuizOpsTools` (Spring AI `@Tool` 4개: `list_song_reports`·`get_batch_status`·`find_member`·`process_song_report`), `McpToolAuditLog` (호출 감사 로그, `mcp_tool_audit_log`), `McpToolsConfig` (`spring.ai.mcp.server.enabled=true` 일 때만 등록 — 기본 false, dev 만 true). 전송은 SSE `/sse` + POST `/mcp/message`
 
 ### Game Modes
 

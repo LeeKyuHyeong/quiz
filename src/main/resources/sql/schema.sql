@@ -454,6 +454,20 @@ CREATE TABLE `genre_challenge_record` (
   CONSTRAINT `fk_genre_challenge_member` FOREIGN KEY (`member_id`) REFERENCES `member` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `mcp_tool_audit_log`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `mcp_tool_audit_log` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `tool_name` varchar(50) NOT NULL,
+  `arguments` varchar(1000) DEFAULT NULL,
+  `result` varchar(1000) DEFAULT NULL,
+  `success` bit(1) NOT NULL,
+  `caller` varchar(100) NOT NULL,
+  `called_at` datetime(6) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `member`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;

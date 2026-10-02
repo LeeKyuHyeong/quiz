@@ -73,7 +73,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | XSS | `th:utext="${userInput}"`, `innerHTML = userInput` | `th:text`, `textContent` |
 | 인증 | POST에 검증 없음 | 모든 POST/PUT/DELETE에 인증+권한. 새 관리자 경로는 `/admin/**` 아래 |
 | IDOR | ID만으로 접근 | 소유권 검증(`member.getId().equals(...)` 또는 `findByIdAndMemberId`) |
-| CSRF | 토큰 없는 fetch | `th:action` 폼 자동, AJAX는 fetch 래퍼가 meta 토큰 첨부. 예외는 `/ws/**`·`/unload`뿐 |
+| CSRF | 토큰 없는 fetch | `th:action` 폼 자동, AJAX는 fetch 래퍼가 meta 토큰 첨부. 예외는 `/ws/**`·`/unload`·`/mcp/message`(dev 전용 MCP)뿐 |
 | 로깅 | 비밀번호·개인정보 로깅 | id·이메일 정도만 |
 
 ### Thymeleaf
@@ -108,7 +108,7 @@ export JAVA_HOME="/c/Program Files/Java/jdk-17"          # 집 PC (기본 21)
 
 Spring Boot 3.4.1 + Java 17 + JPA + MariaDB 11.8 + Thymeleaf + STOMP/SockJS. `Controller(MVC+REST) → Service → Repository(JPA) → MariaDB`, 화면은 Thymeleaf SSR.
 
-`com.kh.game` 패키지: `controller/client`(13) · `controller/admin`(25) · `service`(23 + `BrevoMailClient`) · `entity`(`@Entity` 29 + enum 3) · `repository` · `batch`(24, `BatchScheduler`) · `config`(`SecurityConfig`, `WebSocketConfig`+`WebSocketAuthInterceptor`, `DataInitializer` 등) · `security`(`CustomUserDetails*`, 로그인 핸들러, `LoginRateLimiter`) · `exception`(`GlobalExceptionHandler`) · `util`(`AnswerGeneratorUtil`, `SecurityInputValidator`, `JunkInputFilter`) · `dto`(`GameSettings`, `WebSocketMessage`). 클래스 목록은 `docs/architecture-reference.md`.
+`com.kh.game` 패키지: `controller/client`(13) · `controller/admin`(25) · `service`(23 + `BrevoMailClient`) · `entity`(`@Entity` 29 + enum 3) · `repository` · `batch`(24, `BatchScheduler`) · `config`(`SecurityConfig`, `WebSocketConfig`+`WebSocketAuthInterceptor`, `DataInitializer` 등) · `security`(`CustomUserDetails*`, 로그인 핸들러, `LoginRateLimiter`) · `exception`(`GlobalExceptionHandler`) · `util`(`AnswerGeneratorUtil`, `SecurityInputValidator`, `JunkInputFilter`) · `dto`(`GameSettings`, `WebSocketMessage`) · `mcp`(`QuizOpsTools` 운영 도구 4개 + `McpToolAuditLog`, dev 전용 — 아래 Configuration). 클래스 목록은 `docs/architecture-reference.md`.
 
 ### 게임 모드
 1. **Solo Guess** — 3회 시도. RANDOM/FIXED_GENRE/FIXED_ARTIST/FIXED_YEAR/라운드별 선택. 30곡 도전 모드는 랭킹 반영.
@@ -158,6 +158,7 @@ Spring Boot 3.4.1 + Java 17 + JPA + MariaDB 11.8 + Thymeleaf + STOMP/SockJS. `Co
 - **dev:** 8082, MariaDB `localhost:3306/song`, `ddl-auto=validate`. **prod:** 환경변수 자격증명, Docker 볼륨. **test:** H2 `MODE=MariaDB`, `create-drop`.
 - **Schema:** `src/main/resources/sql/schema.sql`이 단일 출처(dev·prod `validate`, Flyway 없음). **엔티티 변경 시 schema.sql 수정 + 로컬·운영 DB에 직접 ALTER**해야 기동한다.
 - **Admin:** `Member.role=ADMIN`, `/admin/**` → `hasRole("ADMIN")`. 세션 유휴 60분(열린 탭의 상태 확인은 연장하지 않음, 멀티 WS 연결 중에는 keepalive), 1계정 1세션. **세션 저장소(2026-09-22, O-020):** prod 는 Spring Session JDBC(`spring.profiles.group.prod=session-jdbc`, 쿠키 `SESSION`, `SPRING_SESSION` 2테이블) — 배포·재시작에도 로그인·방 참가 유지. dev·test 는 `SessionAutoConfiguration` 제외 = 메모리(로컬 확인은 `dev,session-jdbc`). **AWS 시연은 `session-redis`**(Spring Session Data Redis indexed, `REDIS_HOST`·`REDIS_PORT`·`REDIS_PASSWORD`·`REDIS_SSL`, `configure-action=none` = ElastiCache 가 CONFIG 를 막으므로; 로컬은 `docker run -d --name quiz-redis -p 6379:6379 redis:7-alpine` 뒤 `dev,session-redis`). Redis 클라이언트가 클래스패스에 있어도 **Redis 자동구성은 기본에서 제외**하고 `session-redis` 만 되돌린다 — 켜 두면 Redis 저장소가 JDBC 보다 먼저 잡혀 prod 가 기동 실패(`SessionStoreProfileTest` 가 고정, `spring.autoconfigure.exclude` 는 프로파일 파일이 통째로 덮어쓰므로 dev·test·session-jdbc 도 같은 목록). 요청 제한·presence·언로드 토큰은 어느 저장소에서도 인스턴스 메모리. `SessionRegistry` 는 저장소를 따른다(`SessionStoreConfig`) — 메모리 것을 그대로 두면 재시작 뒤 상태 확인이 NOT_LOGGED_IN. DB·Redis 저장소는 세션 이벤트가 없어(Redis 는 키스페이스 이벤트를 앱이 못 켬) `WebSocketHttpSessionGuard` 가 30초마다 세션 없는 WS 를 닫는다. **배포 규칙:** 세션 테이블 없이 push 금지(헬스는 UP 인데 첫 요청부터 500) · 세션에 실리는 클래스(`CustomUserDetails` 등)를 바꾸는 배포는 `SPRING_SESSION` truncate(전원 로그아웃 1회) · 세션에 엔티티를 넣지 않는다(직렬화·비밀번호 해시). runbook §9.
+- **MCP 운영 도구(2026-10-02):** Spring AI 1.1.8 `spring-ai-starter-mcp-server-webmvc`, SSE `/sse` + POST `/mcp/message`(CSRF 예외). **기본 꺼짐**(`spring.ai.mcp.server.enabled=false`), dev 만 켬 — 관리자 조회·처리를 인증 없는 HTTP 로 여는 것이라 운영에서 켜려면 인증이 먼저. 도구 4개는 `QuizOpsTools`(기존 서비스 재사용, 응답에 이메일·해시 없음), 쓰기 도구는 `confirm=true` 뒤에만 실행하고 처리자는 `quiz.mcp.admin-email`(`QUIZ_MCP_ADMIN_EMAIL`, dev 기본 `a@a.com`) 의 ADMIN 계정. 모든 호출은 `mcp_tool_audit_log`. Claude Code 연결: `claude mcp add --transport sse quiz-ops http://localhost:8082/sse`. 열린 SSE 는 graceful shutdown 을 최대 30초 붙든다(dev 재시작이 느린 이유). 기록: `docs/verification/records/2026-10-02_mcp-ops.md`.
 - **File uploads:** `uploads/songs/` 50MB — MP3 지원 제거 후 데드 코드. `Song.file_path`·`GameRoom.password`와 함께 스키마 변경 동반이라 보류(`docs/finish.md` 7, open-issues O-005).
 - **Docker memory:** App 640M ×2(blue/green, 평시 한 벌, JVM `MaxRAMPercentage=50`), DB 256M.
 
@@ -208,7 +209,7 @@ Spring Boot 3.4.1 + Java 17 + JPA + MariaDB 11.8 + Thymeleaf + STOMP/SockJS. `Co
 > 전역 `~/.claude/CLAUDE.md`의 검증 규칙(AC → 검증 실행 → 기록)이 이 저장소에 적용될 때의 값. 검증 기록은 `docs/verification/`.
 
 - 유형: 본인 작성·운영 중(전역 onboarding §1 특성 테스트 절차 해당 없음).
-- 명령: 위 Build & Run. 전체 테스트는 H2라 로컬 DB 불필요, 2026-09-22 밤 기준 **테스트 클래스 62개·481건**(Docker 있을 때; 없으면 Redis 13건 Skipped). `src/test/java` 의 `.java` 파일은 63 이지만 `support/TestBrowser.java` 는 `@Test` 0개인 헬퍼다 — 클래스 수를 셀 때 빼고, 파일 수와 혼동하지 말 것. 로컬 실행만 MariaDB `song` 필요. **Redis 계약 테스트(`SessionLifecycleRedisContractTest`·`SessionStoreProfileTest$Redis`)는 Testcontainers 2.0.5 로 실제 Redis 컨테이너를 띄운다 — Docker 없는 PC(회사)는 그 클래스만 Skipped, CI·집 PC 는 실행. Docker Engine 29 는 Testcontainers 2.0.2+ 여야 붙는다(1.x 는 API 1.32 로 400).**
+- 명령: 위 Build & Run. 전체 테스트는 H2라 로컬 DB 불필요, 2026-10-02 밤 기준 **테스트 클래스 64개·497건**(Docker 있을 때; 없으면 Redis 13건 Skipped. 09-22 밤 62·481 + 10-02 MCP 2·16). `src/test/java` 의 `.java` 파일은 65 이지만 `support/TestBrowser.java` 는 `@Test` 0개인 헬퍼다 — 클래스 수를 셀 때 빼고, 파일 수와 혼동하지 말 것. 로컬 실행만 MariaDB `song` 필요. **Redis 계약 테스트(`SessionLifecycleRedisContractTest`·`SessionStoreProfileTest$Redis`)는 Testcontainers 2.0.5 로 실제 Redis 컨테이너를 띄운다 — Docker 없는 PC(회사)는 그 클래스만 Skipped, CI·집 PC 는 실행. Docker Engine 29 는 Testcontainers 2.0.2+ 여야 붙는다(1.x 는 API 1.32 로 400).**
 - 사용자 시나리오: 수동 체크리스트(Playwright 스펙은 저장소 미포함). 멀티는 브라우저 2개 + 시크릿 창(참가자 B·비참가자 C).
 - 테스트 계정(dev, `DataInitializer`, prod 미생성): 관리자 `a@a.com`(ADMIN) · 일반 `test1@test.com`~`test6@test.com`(USER). 비밀번호는 코드에만.
 - 외부 연동: Brevo는 `@MockBean`/`@Mock`(`AuthControllerPasswordResetTest`, `MemberServicePasswordTest`), 실제 발송은 운영 반영 후 🙋. YouTube는 Mockito(`YouTubeValidationServiceTest`, `YouTubeVideoCheckBatchTest`). DB는 H2 `MODE=MariaDB`라 MariaDB 전용 SQL은 테스트에서 못 잡는다.

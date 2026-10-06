@@ -191,7 +191,7 @@ button{font:inherit;cursor:pointer}
   <div class="console">
     <div style="display:grid;gap:1rem">
       <div class="card console-head">
-        <div><span class="chip on">라운드 7</span> <span class="muted">이번 게임 출제 6 · 남은 GAME 53</span></div>
+        <div><span class="chip on">라운드 7</span> <span class="muted">이번 판 6 · 누적 출제 14(연습 8 포함) · 남은 GAME 47</span></div>
         <div class="score">
           <div class="team a"><small>남팀</small><b>3</b></div>
           <div class="pm"><button>+</button><button>−</button></div>
@@ -241,7 +241,7 @@ button{font:inherit;cursor:pointer}
           </dl>
           <div class="rule">판정 규칙 · PERSON: 예명·본명·별명 모두 인정.</div>
         </div>
-        <div class="row" style="margin-top:.7rem" data-show="ready"><button class="btn primary big">보드에 띄우기</button><button class="btn">다시 뽑기</button><span class="muted">띄우기 전까지 TV는 "대기"</span></div>
+        <div class="row" style="margin-top:.7rem" data-show="ready"><button class="btn primary big">보드에 띄우기</button><button class="btn">다시 뽑기</button><button class="btn">대분류 변경</button><span class="muted">띄우기 전까지 TV는 "준비 중" · 취소한 항목은 미출제로 복귀</span></div>
       </div>
 
       <div class="card" data-show="playing paused wrong hint reveal">
@@ -253,7 +253,7 @@ button{font:inherit;cursor:pointer}
             <span style="position:absolute;top:.4rem;left:.6rem;font-size:.75rem">YouTube 플레이어 480×270 (보이는 상태, 정책 준수)</span>
           </div>
           <div class="row" style="margin-top:.6rem">
-            <span class="timer" data-show="playing">0:04</span><span class="timer" data-show="paused wrong hint">0:06 ⏸</span><span class="timer" data-show="reveal">—</span>
+            
             <button class="btn" data-show="playing">⏸ 일시정지</button>
             <button class="btn primary" data-show="paused wrong hint">▶ 재생</button>
             <button class="btn" data-show="playing paused wrong hint">⏮ 처음부터</button>
@@ -267,7 +267,7 @@ button{font:inherit;cursor:pointer}
         </div>
         <div data-item-show="person">
           <div class="img-preview">사진 미리보기 (노트북 폴더의 파일 · TV엔 크게)</div>
-          <div class="row" style="margin-top:.6rem"><span class="timer">0:12</span><span class="muted">타이머는 표시만 · 강제 종료 없음</span></div>
+          <div class="row" style="margin-top:.6rem"><span class="muted">타이머 없음 · 외침을 기다렸다 판정</span></div>
         </div>
       </div>
 
@@ -275,7 +275,7 @@ button{font:inherit;cursor:pointer}
         <h3>판정</h3>
         <div class="status-line" data-show="playing">재생 중 — "정답!" 외치면 [일시정지]</div>
         <div class="status-line" data-show="paused">일시정지 — 외친 팀의 답을 듣고 판정</div>
-        <div class="status-line" data-show="wrong hint"><b class="a">남팀 오답</b> → <b class="b">여팀 기회</b> (보드에 표시됨 · 점수 무관)</div>
+        <div class="status-line" data-show="wrong hint"><b class="a">남팀 오답</b> → <b class="b">여팀 기회</b> (보드에 표시됨 · 점수 무관) · 양 팀 다 오답이면 끝까지 재생하며 <b>자유 도전</b>, 버튼은 계속 열림</div>
         <div class="row" style="margin-top:.7rem">
           <button class="btn a big">남팀 정답</button>
           <button class="btn b big">여팀 정답</button>
@@ -314,7 +314,7 @@ button{font:inherit;cursor:pointer}
       </div>
       <div class="card">
         <h3>설정</h3>
-        <div class="muted">팀 이름 남팀 / 여팀 · 타이머 30초 · 재생 담당 이 창 · <button class="btn" style="padding:.2rem .5rem;font-size:.8rem">새 게임</button></div>
+        <div class="muted">팀 이름 남팀 / 여팀 · 재생 담당 이 창</div><div class="row" style="margin-top:.5rem"><button class="btn" style="padding:.3rem .6rem;font-size:.8rem">새 게임 · 이력 유지</button><button class="btn danger" style="padding:.3rem .6rem;font-size:.8rem">전부 초기화</button></div><div class="muted" style="margin-top:.4rem">연습경기 뒤 [이력 유지]로 시작하면 연습 때 띄운 문제는 안 나옴</div>
       </div>
     </div>
   </div>
@@ -354,7 +354,7 @@ button{font:inherit;cursor:pointer}
     </div>
     <div class="ftr">
       <span data-show="wait">🔊 소리는 노트북 → HDMI → TV</span><span data-show="image audio wrong hint text">먼저 손 든 팀만 · 오답이면 상대 팀 기회</span><span data-show="reveal scores">다음 대분류는 MC가</span>
-      <span class="ftimer" data-show="image audio text">0:12</span><span class="ftimer warn" data-show="wrong hint">0:24</span>
+      
     </div>
   </div>
 </section>
@@ -391,7 +391,7 @@ button{font:inherit;cursor:pointer}
         <div class="field"><label>여팀 제한 시간(초)</label><input type="number" value="120"></div>
       </div>
       <div class="field"><label>설명 방식</label><div class="seg"><span class="on">말로</span><span>몸으로</span></div></div>
-      <div class="field"><label>제시어 표시</label><div class="seg"><span class="on">보드(TV) — 맞히는 6명은 등 돌림</span><span>콘솔에만</span></div></div>
+      <div class="muted" style="margin-bottom:.5rem">팀별 제한 시간은 입력만 남기고 실제로는 같은 값으로 진행(10-06)</div><div class="field"><label>제시어 표시</label><div class="seg"><span class="on">보드(TV) — 맞히는 6명은 등 돌림</span><span>콘솔에만</span></div></div>
       <div class="muted">몸으로 모드면 비고의 [몸으로 어려움]·[임산부 출제자 제외] 제시어는 MC가 [패스]로 넘긴다(패스 무제한).</div>
     </div>
     <div class="card">
@@ -426,21 +426,21 @@ button{font:inherit;cursor:pointer}
 
 <!-- 5. 스피드 보드 -->
 <section class="screen" id="sboard" data-state="wait">
-  <p class="desc"><b>/admin/party/speed/board</b> — 출제자는 TV를 보고 설명, 맞히는 6명은 등을 돌린다. 제시어가 바뀔 때마다 "다음 출제자!"가 잠깐 뜬다.</p>
-  <div class="states"><span class="lbl">상태:</span><button class="st active" data-set="wait">대기</button><button class="st" data-set="run">진행 중</button><button class="st" data-set="next">다음 출제자!</button><button class="st" data-set="over">시간 종료</button><button class="st" data-set="result">결과</button></div>
+  <p class="desc"><b>/admin/party/speed/board</b> — 출제자는 TV를 보고 설명, 맞히는 6명은 등을 돌린다. [정답]/[패스]를 누르면 제시어가 바로 다음으로 바뀐다(안내 화면 없음). 출제자는 제시어마다 교대.</p>
+  <div class="states"><span class="lbl">상태:</span><button class="st active" data-set="wait">대기</button><button class="st" data-set="run">진행 중</button><button class="st" data-set="over">시간 종료</button><button class="st" data-set="result">결과</button></div>
   <div class="tv">
     <div class="hdr">
-      <div class="cat">스피드퀴즈 <small data-show="run next over">· 남팀 · 말로 설명</small></div>
-      <div class="tscore" data-show="run next over"><div class="t a">정답 <b>7</b></div></div>
+      <div class="cat">스피드퀴즈 <small data-show="run over">· 남팀 · 말로 설명</small></div>
+      <div class="tscore" data-show="run over"><div class="t a">정답 <b>7</b></div></div>
     </div>
     <div class="body">
       <div data-show="wait" class="wait">스피드퀴즈<small>남팀 90초 · 여팀 120초 · 정답 수로 승부 · 승자가 첫 대분류 선택</small></div>
-      <div data-show="run next"><div class="stime">0:37</div><div class="sword">코끼리</div><div class="scount"><div>정답<b>7</b></div><div>패스<b>2</b></div></div></div>
-      <div data-show="next" class="flash">다음 출제자!</div>
+      <div data-show="run"><div class="stime">0:37</div><div class="sword">코끼리</div><div class="scount"><div>정답<b>7</b></div><div>패스<b>2</b></div></div></div>
+      
       <div data-show="over"><div class="stime warn">0:00</div><div class="sword" style="color:var(--tv-muted);font-size:5cqw">시간 종료</div><div class="scount"><div>정답<b>7</b></div><div>패스<b>2</b></div></div></div>
       <div data-show="result"><div class="board2"><div class="bt a">남팀 · 90초<b>7</b></div><div class="vs">VS</div><div class="bt b">여팀 · 120초<b>9</b></div></div><div class="final">첫 대분류 선택권 → <b style="color:#f9a8d4">여팀</b></div></div>
     </div>
-    <div class="ftr"><span data-show="run next over">맞히는 6명은 TV에 등 돌리기</span><span data-show="wait result">&nbsp;</span><span data-show="run next over">패스 무제한</span></div>
+    <div class="ftr"><span data-show="run over">맞히는 6명은 TV에 등 돌리기</span><span data-show="wait result">&nbsp;</span><span data-show="run over">패스 무제한</span></div>
   </div>
 </section>
 

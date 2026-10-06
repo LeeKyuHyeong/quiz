@@ -17,4 +17,10 @@ public class PartyPageController {
         model.addAttribute("menu", "party");
         return "admin/party/console";
     }
+
+    /** TV 보드. 보드 상태(/admin/party/state)만 읽으므로 정답은 공개 뒤에만 보인다. */
+    @GetMapping("/board")
+    public String board() {
+        return "admin/party/board";
+    }
 }

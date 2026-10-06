@@ -1,0 +1,348 @@
+/* ========================================
+   파티 보드(TV) (/admin/party/board) - 기본 스타일
+   body 가 .game-page 라 라이트 설정에서도 항상 다크 변수.
+   TV 거리에서 읽히도록 글자는 vw·vh. 팀 색: A = --info, B = --pink
+   ======================================== */
+.party-board-page {
+    margin: 0;
+    overflow: hidden;
+}
+
+.party-board [hidden] {
+    display: none !important;
+}
+
+.party-board {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    width: 100vw;
+    height: 100vh;
+    background: var(--bg-base);
+    color: var(--text-primary);
+    box-sizing: border-box;
+    padding: 2vh 3vw;
+    gap: 2vh;
+}
+
+/* 머리 · 꼬리 */
+.pb-hdr {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 2vw;
+}
+
+.pb-cat {
+    font-size: 2.6vw;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+.pb-scores {
+    display: flex;
+    gap: 1.5vw;
+}
+
+.pb-team {
+    padding: 0.8vh 1.5vw;
+    border-radius: 0.75rem;
+    font-size: 2vw;
+    font-weight: 700;
+    color: var(--text-on-gradient);
+    transition: opacity 0.3s;
+}
+
+.pb-team b {
+    font-size: 2.8vw;
+    margin-left: 0.5vw;
+}
+
+.pb-team.a {
+    background: var(--info);
+}
+
+.pb-team.b {
+    background: var(--pink);
+}
+
+.pb-team.dim {
+    opacity: 0.3;
+}
+
+.pb-ftr {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1.4vw;
+    color: var(--text-muted);
+}
+
+.pb-conn {
+    font-size: 1vw;
+    color: var(--text-muted);
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+}
+
+/* 본문 */
+.pb-body {
+    display: grid;
+    place-items: center;
+    min-height: 0;
+}
+
+.pb-body > section {
+    display: grid;
+    place-items: center;
+    gap: 2vh;
+    width: 100%;
+    max-height: 100%;
+    min-height: 0;
+    text-align: center;
+}
+
+.pb-big {
+    font-size: 6vw;
+    font-weight: 800;
+}
+
+.pb-sub {
+    font-size: 2vw;
+    color: var(--text-secondary);
+}
+
+.pb-fullscreen {
+    margin-top: 2vh;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border-color);
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+    font-size: 1rem;
+}
+
+/* 문제 */
+.pb-question {
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    height: 100%;
+}
+
+.pb-img {
+    max-width: 100%;
+    max-height: 100%;
+    min-height: 0;
+    object-fit: contain;
+    border-radius: 1rem;
+}
+
+.pb-text {
+    font-size: 9vw;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    white-space: pre-wrap;
+    word-break: keep-all;
+}
+
+.pb-listen {
+    display: grid;
+    gap: 1vh;
+}
+
+.pb-turn {
+    padding: 1vh 2vw;
+    border-radius: 1rem;
+    font-size: 2.6vw;
+    font-weight: 700;
+    background: var(--bg-elevated);
+}
+
+.pb-turn.a {
+    color: var(--info);
+}
+
+.pb-turn.b {
+    color: var(--pink);
+}
+
+.pb-turn.free {
+    background: var(--warning-color);
+    color: var(--text-on-gradient);
+}
+
+.pb-hints {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 1vh;
+    font-size: 2.2vw;
+}
+
+.pb-hints li {
+    padding: 0.8vh 2vw;
+    border-radius: 0.75rem;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+}
+
+/* 정답 공개 */
+.pb-lab {
+    font-size: 2vw;
+    color: var(--text-muted);
+}
+
+.pb-ans {
+    font-size: 8vw;
+    font-weight: 800;
+    line-height: 1.1;
+    word-break: keep-all;
+}
+
+.pb-det {
+    font-size: 2vw;
+    color: var(--text-secondary);
+}
+
+.pb-who {
+    padding: 1vh 3vw;
+    border-radius: 1rem;
+    font-size: 3vw;
+    font-weight: 800;
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+}
+
+.pb-who.a {
+    background: var(--info);
+    color: var(--text-on-gradient);
+}
+
+.pb-who.b {
+    background: var(--pink);
+    color: var(--text-on-gradient);
+}
+
+/* 점수판 · 종료 */
+.pb-final {
+    font-size: 4vw;
+    font-weight: 800;
+}
+
+.pb-final:empty {
+    display: none;
+}
+
+.pb-vs-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 4vw;
+    width: 80%;
+}
+
+.pb-bt {
+    display: grid;
+    padding: 3vw;
+    border-radius: 1rem;
+    color: var(--text-on-gradient);
+    font-size: 3vw;
+    font-weight: 700;
+    transition: box-shadow 0.3s;
+}
+
+.pb-bt b {
+    font-size: 12vw;
+    line-height: 1;
+}
+
+.pb-bt.a {
+    background: var(--info);
+}
+
+.pb-bt.b {
+    background: var(--pink);
+}
+
+.pb-bt.win {
+    box-shadow: 0 0 0 0.5vw var(--warning-color);
+}
+
+.pb-vs {
+    font-size: 4vw;
+    font-weight: 800;
+    color: var(--text-muted);
+}
+
+/* ========================================
+   파티 보드 - 다크 모드
+   .game-page 가 이미 다크 변수라 라이트 설정과 같게 보인다(TV 는 늘 다크). 명시만 맞춘다.
+   ======================================== */
+[data-theme="dark"] .party-board {
+    background: var(--bg-base);
+    color: var(--text-primary);
+}
+
+/* ========================================
+   파티 보드 - 태블릿 (768px 이하) — 보드는 TV 용, 작은 화면은 깨지지 않게만
+   ======================================== */
+@media (max-width: 768px) {
+    .party-board {
+        padding: 2vh 4vw;
+    }
+
+    .pb-cat {
+        font-size: 4vw;
+    }
+
+    .pb-team {
+        font-size: 3vw;
+    }
+
+    .pb-team b {
+        font-size: 4vw;
+    }
+
+    .pb-ftr {
+        font-size: 2.6vw;
+    }
+}
+
+/* ========================================
+   파티 보드 - 모바일 (480px 이하)
+   ======================================== */
+@media (max-width: 480px) {
+    .pb-hdr {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .pb-cat {
+        font-size: 5vw;
+    }
+
+    .pb-team {
+        font-size: 4vw;
+    }
+
+    .pb-team b {
+        font-size: 5vw;
+    }
+
+    .pb-sub,
+    .pb-det,
+    .pb-hints {
+        font-size: 4vw;
+    }
+
+    .pb-turn {
+        font-size: 4.5vw;
+    }
+
+    .pb-ftr {
+        font-size: 3.2vw;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+}

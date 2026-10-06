@@ -9,6 +9,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -46,6 +47,25 @@ class PartyPageControllerTest {
     @DisplayName("[권한] 일반 회원은 403 이다")
     void memberIsForbidden() throws Exception {
         mockMvc.perform(get("/admin/party/console").with(user("user@test.com").roles("USER")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("[정상] 관리자는 보드 화면을 받는다 — 항상 다크(.game-page), 보드 스크립트만 싣고 콘솔 스크립트는 없다")
+    void adminGetsBoard() throws Exception {
+        mockMvc.perform(get("/admin/party/board").with(user("admin@test.com").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("game-page")))
+                .andExpect(content().string(containsString("/js/admin/party-board.js")))
+                .andExpect(content().string(not(containsString("party-console.js"))))
+                .andExpect(content().string(containsString("id=\"partyBoard\"")));
+    }
+
+    @Test
+    @DisplayName("[권한] 보드도 비로그인은 로그인 화면, 일반 회원은 403 이다")
+    void boardNeedsAdmin() throws Exception {
+        mockMvc.perform(get("/admin/party/board")).andExpect(status().is3xxRedirection());
+        mockMvc.perform(get("/admin/party/board").with(user("user@test.com").roles("USER")))
                 .andExpect(status().isForbidden());
     }
 }

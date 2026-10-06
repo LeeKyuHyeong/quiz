@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{common/fragments/head :: adminHead('파티 보드')}"></head>
+<body class="game-page party-board-page">
+<link rel="stylesheet" th:href="@{/css/admin/party-board.css}">
+<div class="party-board" id="partyBoard" data-phase="WAIT">
+    <header class="pb-hdr">
+        <div class="pb-cat" id="pbCat">준비 중</div>
+        <div class="pb-scores">
+            <div class="pb-team a" id="pbTeamA"><span id="pbTeamNameA">남팀</span> <b id="pbScoreA">0</b></div>
+            <div class="pb-team b" id="pbTeamB"><span id="pbTeamNameB">여팀</span> <b id="pbScoreB">0</b></div>
+        </div>
+    </header>
+
+    <main class="pb-body">
+        <!-- 대기 -->
+        <section class="pb-wait" id="pbWait">
+            <div class="pb-big">준비 중</div>
+            <div class="pb-sub" id="pbWaitSub">다음 문제를 기다리는 중</div>
+            <button type="button" class="pb-fullscreen" id="pbFullscreen">전체화면</button>
+        </section>
+
+        <!-- 문제 -->
+        <section class="pb-question" id="pbQuestion" hidden>
+            <img class="pb-img" id="pbImg" alt="문제 사진" hidden>
+            <div class="pb-text" id="pbText" hidden></div>
+            <div class="pb-listen" id="pbListen" hidden>
+                <div class="pb-big">🎧 듣고 맞히세요</div>
+                <div class="pb-sub" id="pbListenSub"></div>
+            </div>
+            <div class="pb-turn" id="pbTurn" hidden></div>
+            <ol class="pb-hints" id="pbHints" hidden></ol>
+        </section>
+
+        <!-- 정답 공개 -->
+        <section class="pb-reveal" id="pbReveal" hidden>
+            <div class="pb-lab">정답</div>
+            <div class="pb-ans" id="pbAnswer"></div>
+            <div class="pb-det" id="pbDetail"></div>
+            <div class="pb-who" id="pbWho"></div>
+        </section>
+
+        <!-- 점수판 · 종료 -->
+        <section class="pb-scoreboard" id="pbScoreboard" hidden>
+            <div class="pb-final" id="pbFinalTitle"></div>
+            <div class="pb-vs-row">
+                <div class="pb-bt a" id="pbBigA"><span id="pbBigNameA">남팀</span><b id="pbBigScoreA">0</b></div>
+                <div class="pb-vs">VS</div>
+                <div class="pb-bt b" id="pbBigB"><span id="pbBigNameB">여팀</span><b id="pbBigScoreB">0</b></div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="pb-ftr">
+        <span id="pbFooter">🔊 소리는 노트북 → HDMI → TV</span>
+        <span class="pb-conn" id="pbConn" hidden></span>
+    </footer>
+</div>
+
+<script th:src="@{/js/admin/party-board.js}" defer></script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-# 12-26 파티 퀴즈 — 한 장 현황 (2026-10-06 기준 — 집 PC 09-30 P-2 완료 + 회사 PC 10-06 규칙 확정)
+# 12-26 파티 퀴즈 — 한 장 현황 (2026-10-06 밤 기준 — P-2 완료 · 10-06 규칙 확정 · P-3 콘솔 완료)
 
 > 진입점. 근거·배경은 `party-quiz-plan.md`, 문제 목록은 `party-content/`, 화면은 `party-mockup/index.html`. **`party` 브랜치**에만 커밋한다(main 에 올리면 `.tsv`·`.html` 이 CI 필터 밖이라 배포가 돈다).
 
@@ -12,7 +12,8 @@
 | `docs/party-content/README.md` + TSV 7개 | 문제 초안, 열 정의, **MC 판정 규칙 표**, 선정 기준 | 50 + 347행 |
 | `docs/party-mockup/index.html` | 콘솔·보드·플레이어·스피드 콘솔·스피드 보드 5화면 목업(상태 버튼) | 476 |
 | `docs/verification/records/2026-09-29_party-quiz-plan.md` | 검증 기록(문서만, 코드 0) · O-025 | 61 |
-| `src/main/java/com/kh/game/party/` | 파티 코드 전부(32개 파일). 기존 자바 파일은 수정 없음 | |
+| `src/main/java/com/kh/game/party/` | 파티 코드 전부(33개 파일). 기존 자바 파일은 수정 없음 | |
+| `templates/admin/party/console.html` · `static/js/admin/party-console.js` · `static/css/admin/party-console.css` | P-3 콘솔 화면. 기존 파일 수정은 `youtube-player.js`(크기 옵션)·사이드바 1줄 | |
 | `src/test/java/com/kh/game/party/` | 자동 111건: `PartyControllerTest` 16 · `PartyGameServiceTest` 43 · `PartySpeedQuizServiceTest` 30 · `PartyItemImportTest` 18 · `PartyImageAccessTest` 4. `PartyDevCheck` 는 로컬 DB 수동 점검(전체 실행에 안 걸림) | |
 | `docs/verification/records/2026-09-29_party-item-ddl.md` · `…_party-item-import.md` · `2026-09-30_party-game-service.md` · `2026-09-30_party-speed-quiz.md` · `2026-09-30_party-controllers-hardening.md` | 착수·Part ①~④ 검증 기록(마지막 것이 공격·수정 3회) | |
 
@@ -24,11 +25,13 @@
 | ② | 본게임 규칙 `PartyGameService` | **완료** `b3d73f2` | |
 | ③ | 스피드퀴즈 `PartySpeedQuizService` | **완료** `e77a8aa` | |
 | ④ | `/admin/party/**` 컨트롤러 3개 + 사진 경로 + 공격·수정 3회(결함 20여 건 수정, R-034~R-049) | **완료**(이 커밋) | 전체 591 통과 · 실제 MySQL 에 347행 · 재시작 뒤 이어짐 |
-| P-3 | 화면(console → board → player → speed) + 사진 올리기·문제 목록 + `youtube-player.js` 옵션 + 사이드바 1줄 | **다음** | |
+| P-3 ① | 콘솔 `/admin/party/console` + `youtube-player.js` 크기 옵션 + 사이드바 1줄 + 서버 `freeChallenge`(양 팀 오답 = 자유 도전, R-052) | **완료**(10-06 밤) | 전체 613 통과 · 실제 로그인 브라우저로 한 판(records/2026-10-06_party-console.md) |
+| P-3 ② | 보드(TV) → 플레이어 창 → 스피드 콘솔·보드 + 사진 올리기·문제 목록 | **다음** | |
 
-전체 테스트 수: **592**(기존 481 + 파티 111), 0 Skipped(Docker 켠 집 PC). Docker 없는 회사 PC 는 Redis 13건이 Skipped 로 나오는 것이 정상.
+전체 테스트 수: **613**(기존 481 + MCP 16 + 파티 116), 0 Skipped(Docker 켠 집 PC, 10-06 밤 — main 의 MCP 를 party 에 merge). Docker 없는 회사 PC 는 Redis 13건이 Skipped 로 나오는 것이 정상.
 
-## 이어서 할 일 — P-3 화면
+## 이어서 할 일 — P-3 화면 (콘솔 완료, 다음은 보드)
+콘솔에서 정한 것: 재생 명령은 처음 받은 상태의 것은 실행하지 않는다(새로고침 때 다시 안 나오게) · 클립 길이는 표시만(자동 정지 없음) · 판정 규칙 한 줄은 README 표를 JS 상수로(바뀌면 두 곳) · 2열은 본문 폭 기준으로 접는다(관리자 사이드바). 못 본 것은 O-032(GAME 힌트·사진 — 콘텐츠 없음, 로그아웃 배너, 실기기).
 **10-06 규칙 확정이 P-3 화면에 미치는 것(서버 변경 없음, plan §4-2·§4-3·§8)**: ① 본게임 타이머는 화면에 그리지 않는다(`timerElapsedSeconds` 는 무시) ② 재생형은 [○팀 오답] 2회 뒤에도 [팀 정답]을 잠그지 않고 보드에 "자유 도전" 표시(서버는 원래 막지 않음) ③ [새 게임] 버튼 2개 = `keepUsed=true`(이력 유지, 연습경기 뒤 본게임) / `false`(전부 초기화) ④ 스피드퀴즈는 [정답]/[패스] 즉시 다음 제시어, "다음 출제자!" 화면 없음, 팀별 시간은 같은 값으로 쓸 예정 ⑤ 용어 '탈출'(탈락 아님) ⑥ 17명·8 vs 8, 선물 팀당 8.
 서버는 끝났다. 남은 것은 화면과, 화면이 있어야만 볼 수 있는 확인(O-029: 실제 로그인·브라우저 폴링·타이머).
 정해진 것: **스피드퀴즈는 두 팀이 서로 다른 주제로 붙는다**(턴마다 설정에서 주제 선택 — 콘솔 화면에 반영). 시작 전에 정할 것(O-030): 행사 실행 프로파일, 노트북의 사진·상태 폴더 절대 경로.
@@ -53,6 +56,7 @@
 3. 스피드퀴즈 타이머는 서버의 `remainingSeconds` 로 그린다. 화면 시계로 0 을 계산해 `/finish` 를 보내지 않는다(서버가 자기 시계로 끝낸다). 본게임 타이머는 `timerElapsedSeconds`.
 4. 단계는 `WAIT → READY → SHOW → REVEAL → WAIT`. READY 는 콘솔에만 있고 보드에는 `WAIT` 로 보인다. 콘솔은 READY 에서 `state.item`(영상 ID·시작초·사진 주소)으로 **띄우기 전에 재생·사진을 확인**하고, 안 되면 [다시 뽑기]. 띄운 뒤에 안 되면 `cancel`.
 5. 정답·인정답안·보조·출처·난이도는 콘솔의 `card` 에만 있다. 보드 상태에는 정답 공개(`reveal`) 전까지 없다.
+9. 오답 표시: `wrongTeam` 은 마지막 오답 팀, **`freeChallenge` 가 true 면 두 팀 모두 오답 = 자유 도전**(10-06 밤 추가) — 보드는 "○팀 기회" 대신 "자유 도전"을 그린다.
 6. 응답이 JSON 이 아니거나 로그인 화면으로 넘어가면 "로그아웃됨"으로 표시한다(세션 만료·앱 재시작).
 7. 조작 버튼은 응답이 올 때까지 잠근다. 스피드퀴즈 정답·패스는 서버가 0.3초 안의 두 번째를 409 로 거른다.
 8. fetch 에는 `Accept: application/json` 을 붙인다(기존 공통 오류 처리가 이 헤더로 JSON/HTML 을 가른다).

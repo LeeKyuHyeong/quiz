@@ -26,11 +26,13 @@ const YouTubePlayerManager = {
     /**
      * YouTube IFrame API 초기화
      * @param {string} containerId - YouTube 플레이어를 삽입할 DOM 요소 ID
-     * @param {object} options - 추가 옵션 (onReady, onStateChange, onError 콜백)
+     * @param {object} options - 추가 옵션 (onReady, onStateChange, onError 콜백, width·height — 없으면 0 = 숨김)
      * @returns {Promise} - 플레이어 준비 완료 시 resolve
      */
     init(containerId, options = {}) {
         this.containerId = containerId;
+        this.width = options.width || '0';
+        this.height = options.height || '0';
         this.onReadyCallback = options.onReady || null;
         this.onStateChangeCallback = options.onStateChange || null;
         this.onErrorCallback = options.onError || null;
@@ -58,8 +60,8 @@ const YouTubePlayerManager = {
      */
     createPlayer(resolve) {
         this.player = new YT.Player(this.containerId, {
-            height: '0',
-            width: '0',
+            height: this.height,
+            width: this.width,
             playerVars: {
                 autoplay: 0,
                 controls: 0,

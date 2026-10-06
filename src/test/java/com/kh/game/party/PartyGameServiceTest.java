@@ -431,6 +431,28 @@ class PartyGameServiceTest {
     }
 
     @Test
+    @DisplayName("[정상] 두 팀이 모두 오답이면 자유 도전이 되고, 다음 문제에서 풀린다")
+    void bothWrongMeansFreeChallenge() {
+        text("초성 · 과자", "포카칩");
+        text("초성 · 과자", "새우깡");
+        showQuiz("초성 · 과자");
+
+        service.wrong(PartyTeam.A);
+        assertThat(service.boardView().freeChallenge()).isFalse();
+        service.wrong(PartyTeam.A);
+        assertThat(service.boardView().freeChallenge()).isFalse();
+
+        service.wrong(PartyTeam.B);
+        assertThat(service.boardView().freeChallenge()).isTrue();
+        assertThat(service.consoleView().board().freeChallenge()).isTrue();
+
+        service.correct(PartyTeam.A);
+        service.next();
+        showQuiz("초성 · 과자");
+        assertThat(service.boardView().freeChallenge()).isFalse();
+    }
+
+    @Test
     @DisplayName("[경계] 점수 정정은 어느 단계에서나 되고 0 아래로 내려가지 않는다")
     void adjustsScore() {
         service.adjustScore(PartyTeam.A, 1);
@@ -784,6 +806,21 @@ class PartyGameServiceTest {
     private PartyGameService serviceOn(Path file) {
         return new PartyGameService(partyItemRepository, partySongRepository, songAnswerRepository,
                 new PartyGameHolder(objectMapper, file.toString()), new PartyImageStore(imageDir.toString()));
+    }
+
+    @Test
+    @DisplayName("[정상] 앱을 다시 켜도 자유 도전 상태가 이어진다")
+    void restoresFreeChallengeAfterRestart() {
+        text("초성 · 과자", "포카칩");
+        Path file = tempDir.resolve("state/party-state.json");
+
+        PartyGameService first = serviceOn(file);
+        first.pick(PartyCategory.QUIZ, "초성 · 과자");
+        first.show();
+        first.wrong(PartyTeam.A);
+        first.wrong(PartyTeam.B);
+
+        assertThat(serviceOn(file).boardView().freeChallenge()).isTrue();
     }
 
     @Test

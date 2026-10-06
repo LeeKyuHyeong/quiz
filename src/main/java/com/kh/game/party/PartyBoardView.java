@@ -10,7 +10,7 @@ import java.util.Map;
  */
 public record PartyBoardView(long version, String phase, int round,
                              Map<String, String> teamNames, Map<String, Integer> scores,
-                             Item item, List<String> hints, String wrongTeam,
+                             Item item, List<String> hints, String wrongTeam, boolean freeChallenge,
                              Reveal reveal, Player player, LocalDateTime timerStartedAt,
                              Integer timerElapsedSeconds) {
 

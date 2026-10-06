@@ -174,6 +174,7 @@ public class PartyGameService {
     public synchronized void wrong(PartyTeam team) {
         PartyGameState state = requireShowing();
         state.setWrongTeam(team);
+        state.getWrongTeams().add(team);
         commit(state);
     }
 
@@ -331,7 +332,8 @@ public class PartyGameService {
         return new PartyBoardView(state.getVersion(),
                 (phase == PartyPhase.READY ? PartyPhase.WAIT : phase).name(),
                 state.getRound(), teamNames, scores, item, hints,
-                onBoard ? name(state.getWrongTeam()) : null, reveal,
+                onBoard ? name(state.getWrongTeam()) : null,
+                onBoard && state.getWrongTeams().size() == PartyTeam.values().length, reveal,
                 new PartyBoardView.Player(state.getPlayerSeq(), onBoard ? state.getPlayerCmd() : null),
                 onBoard ? state.getTimerStartedAt() : null,
                 onBoard && state.getTimerStartedAt() != null
@@ -423,6 +425,7 @@ public class PartyGameService {
         state.setQuestion(null);
         state.setHintsOpened(0);
         state.setWrongTeam(null);
+        state.getWrongTeams().clear();
         state.setScoringTeam(null);
         state.setTimerStartedAt(null);
         state.setPlayerCmd(null);

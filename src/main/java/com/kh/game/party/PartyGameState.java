@@ -33,6 +33,8 @@ public class PartyGameState implements PartyVersioned {
     private Question question;
     private int hintsOpened;
     private PartyTeam wrongTeam;
+    /** 이번 문제에서 오답을 낸 팀들. 두 팀이 다 있으면 자유 도전. */
+    private Set<PartyTeam> wrongTeams = new HashSet<>();
     private PartyTeam scoringTeam;
     private LocalDateTime timerStartedAt;
 

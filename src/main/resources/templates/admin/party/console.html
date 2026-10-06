@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{common/fragments/head :: adminHead('파티 콘솔')}"></head>
+<body class="admin-page">
+<link rel="stylesheet" th:href="@{/css/admin/party-console.css}">
+<div class="admin-container">
+    <th:block th:replace="~{admin/layout/sidebar :: sidebar}"></th:block>
+
+    <main class="main-content">
+        <div class="party-console" id="partyConsole">
+            <div class="pc-banner" id="pcBanner" hidden></div>
+            <div class="pc-notice" id="pcNotice" role="status" hidden></div>
+
+            <div class="pc-grid">
+                <div class="pc-main">
+                    <!-- 헤더: 라운드 · 점수 -->
+                    <section class="pc-card pc-head">
+                        <div class="pc-head-info">
+                            <span class="pc-chip on" id="pcRound">라운드 0</span>
+                            <span class="pc-muted" id="pcPhase"></span>
+                        </div>
+                        <div class="pc-score">
+                            <div class="pc-team a">
+                                <small id="pcTeamNameA">남팀</small><b id="pcScoreA">0</b>
+                                <span class="pc-pm">
+                                    <button type="button" class="pc-btn sm" data-act="score" data-team="A" data-delta="1">+</button>
+                                    <button type="button" class="pc-btn sm" data-act="score" data-team="A" data-delta="-1">−</button>
+                                </span>
+                            </div>
+                            <div class="pc-team b">
+                                <small id="pcTeamNameB">여팀</small><b id="pcScoreB">0</b>
+                                <span class="pc-pm">
+                                    <button type="button" class="pc-btn sm" data-act="score" data-team="B" data-delta="1">+</button>
+                                    <button type="button" class="pc-btn sm" data-act="score" data-team="B" data-delta="-1">−</button>
+                                </span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 대분류 → 중분류 → 뽑기 -->
+                    <section class="pc-card" id="pcPick">
+                        <h3>대분류 → 중분류 (남은 문제 수)</h3>
+                        <div class="pc-cat-grid" id="pcCategories"></div>
+                        <div class="pc-row" id="pcSubCategories"></div>
+                        <div class="pc-row">
+                            <button type="button" class="pc-btn primary big" id="pcPickBtn" data-act="pick" disabled>랜덤 뽑기</button>
+                            <span class="pc-muted" id="pcPickHint">대분류를 고르세요</span>
+                        </div>
+                    </section>
+
+                    <!-- 정답 카드 (MC 만) -->
+                    <section class="pc-card" id="pcCard" hidden>
+                        <h3>정답 카드 — MC 만</h3>
+                        <div class="pc-row" id="pcCardChips"></div>
+                        <div class="pc-answer" id="pcAnswer"></div>
+                        <dl class="pc-dl">
+                            <dt>인정 답안</dt><dd id="pcAliases"></dd>
+                            <dt>보조</dt><dd id="pcDetail"></dd>
+                            <dt>출처</dt><dd id="pcSource"></dd>
+                            <dt id="pcClipLabel">클립</dt><dd id="pcClip"></dd>
+                        </dl>
+                        <div class="pc-rule" id="pcRule"></div>
+                        <div class="pc-row" id="pcReadyActions" hidden>
+                            <button type="button" class="pc-btn primary big" data-act="show">보드에 띄우기</button>
+                            <span class="pc-muted">띄우기 전까지 TV 는 대기 화면 · 다시 뽑으면 이 문제는 미출제로 돌아감</span>
+                        </div>
+                    </section>
+
+                    <!-- 제시: 영상·사진·문제 -->
+                    <section class="pc-card" id="pcPresent" hidden>
+                        <h3 id="pcPresentTitle">제시</h3>
+                        <div class="pc-media" id="pcAudio" hidden>
+                            <div class="pc-player"><div id="pcYoutube"></div></div>
+                            <div class="pc-row" id="pcPreviewControls">
+                                <button type="button" class="pc-btn" id="pcPreviewPlay">▶ 미리 듣기</button>
+                                <button type="button" class="pc-btn" id="pcPreviewStop">⏹ 정지</button>
+                                <span class="pc-muted">이 창에서만 재생 · 참가자에겐 아직 안 보임</span>
+                            </div>
+                            <div class="pc-row" id="pcPlayControls">
+                                <button type="button" class="pc-btn primary" data-act="play">▶ 재생</button>
+                                <button type="button" class="pc-btn" data-act="pause">⏸ 일시정지</button>
+                                <button type="button" class="pc-btn" data-act="restart">⏮ 처음부터</button>
+                            </div>
+                            <div class="pc-warn" id="pcPlayerWarn" hidden></div>
+                        </div>
+                        <div class="pc-media" id="pcImage" hidden>
+                            <img class="pc-img" id="pcImg" alt="문제 사진 미리보기">
+                            <div class="pc-warn" id="pcImageWarn" hidden>사진을 불러오지 못했습니다 — 띄우기 전이면 다시 뽑고, 띄운 뒤면 [거두기]</div>
+                        </div>
+                        <div class="pc-question" id="pcText" hidden></div>
+                        <div class="pc-hints" id="pcHints" hidden></div>
+                    </section>
+
+                    <!-- 판정 -->
+                    <section class="pc-card" id="pcJudge" hidden>
+                        <h3>판정</h3>
+                        <div class="pc-status" id="pcJudgeStatus"></div>
+                        <div class="pc-row">
+                            <button type="button" class="pc-btn team-a big" data-act="correct" data-team="A" id="pcCorrectA">남팀 정답</button>
+                            <button type="button" class="pc-btn team-b big" data-act="correct" data-team="B" id="pcCorrectB">여팀 정답</button>
+                            <button type="button" class="pc-btn big" data-act="miss">못 맞힘</button>
+                        </div>
+                        <div class="pc-row">
+                            <button type="button" class="pc-btn ghost-a" data-act="wrong" data-team="A" id="pcWrongA">남팀 오답</button>
+                            <button type="button" class="pc-btn ghost-b" data-act="wrong" data-team="B" id="pcWrongB">여팀 오답</button>
+                            <span class="pc-muted">점수 무관 · 보드에 "○팀 기회" 표시</span>
+                        </div>
+                        <div class="pc-row pc-sub-actions">
+                            <button type="button" class="pc-btn danger sm" data-act="cancel" data-confirm="정답 공개 없이 문제를 거둘까요? 이 문제는 소모됩니다.">거두기 (영상·사진 안 나올 때)</button>
+                        </div>
+                    </section>
+
+                    <!-- 정답 공개 -->
+                    <section class="pc-card" id="pcReveal" hidden>
+                        <h3>정답 공개됨</h3>
+                        <div class="pc-status" id="pcRevealStatus"></div>
+                        <div class="pc-row">
+                            <button type="button" class="pc-btn primary big" data-act="next">다음 라운드 →</button>
+                        </div>
+                    </section>
+
+                    <!-- 종료 -->
+                    <section class="pc-card" id="pcEnd" hidden>
+                        <h3>게임 종료</h3>
+                        <div class="pc-status" id="pcEndStatus"></div>
+                        <div class="pc-row">
+                            <button type="button" class="pc-btn" data-act="wait">잘못 눌렀음 — 대기로 복귀</button>
+                        </div>
+                    </section>
+                </div>
+
+                <aside class="pc-side">
+                    <section class="pc-card">
+                        <h3>보드 (TV)</h3>
+                        <div class="pc-status" id="pcBoardStatus"></div>
+                        <div class="pc-row">
+                            <button type="button" class="pc-btn" data-act="scores" id="pcScoresBtn">점수판 보이기</button>
+                            <button type="button" class="pc-btn" data-act="wait" id="pcWaitBtn">대기 화면</button>
+                        </div>
+                    </section>
+
+                    <section class="pc-card">
+                        <h3>이력</h3>
+                        <ul class="pc-hist" id="pcHistory"></ul>
+                    </section>
+
+                    <section class="pc-card">
+                        <h3>설정</h3>
+                        <label class="pc-toggle">
+                            <span>재생 담당</span>
+                            <select id="pcPlayerMode">
+                                <option value="here">이 창</option>
+                                <option value="window">플레이어 창</option>
+                            </select>
+                        </label>
+                        <div class="pc-row">
+                            <button type="button" class="pc-btn sm" data-act="new" data-keep-used="true"
+                                    data-confirm="새 게임을 시작할까요? 점수·라운드는 0 이 되고, 지금까지 낸 문제는 다시 안 나옵니다.">새 게임 · 이력 유지</button>
+                            <button type="button" class="pc-btn danger sm" data-act="new" data-keep-used="false"
+                                    data-confirm="전부 초기화할까요? 점수와 지금까지 낸 문제 기록이 모두 지워집니다.">전부 초기화</button>
+                        </div>
+                        <div class="pc-muted">연습경기 뒤 [이력 유지]로 시작하면 연습 때 띄운 문제는 안 나옴</div>
+                        <div class="pc-row">
+                            <button type="button" class="pc-btn danger sm" data-act="end"
+                                    data-confirm="게임을 종료할까요? 보드에 최종 점수가 뜹니다.">게임 종료</button>
+                        </div>
+                    </section>
+                </aside>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script th:src="@{/js/common/youtube-player.js}" defer></script>
+<script th:src="@{/js/admin/party-console.js}" defer></script>
+</body>
+</html>

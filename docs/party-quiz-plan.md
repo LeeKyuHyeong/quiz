@@ -129,7 +129,7 @@ CREATE TABLE party_item (
 
 ### 2-3. 로컬 실행 환경 (노트북) — 노래 데이터는 운영에서 가져와야 한다
 
-- 노트북: JDK 17 + MariaDB 11 + 저장소 클론(또는 WAR). `application-dev.properties` 가 `localhost:3306/song`(root) 를 보므로 노트북 로컬 DB 를 같은 이름·계정으로 만들면 설정 변경 없음. 기동 `./mvnw spring-boot:run -Dspring-boot.run.profiles=dev` → 8082.
+- 노트북: JDK 17 + MariaDB 11 + 저장소 클론(또는 WAR). 집 PC 개발 DB 는 **MySQL 8.0.46**(MariaDB 아님, 10-06 확인)이고 같은 MariaDB 드라이버로 기동·`validate`·TSV 적재가 된다 — 노트북도 MySQL 이면 아래 `mariadb` 명령을 `mysql` 로 바꾸고 덤프 적재를 리허설 1 에서 확인. `application-dev.properties` 가 `localhost:3306/song`(root) 를 보므로 노트북 로컬 DB 를 같은 이름·계정으로 만들면 설정 변경 없음. 기동 `./mvnw spring-boot:run -Dspring-boot.run.profiles=dev` → 8082.
 - **노래 데이터(질문의 답: 필요하다)**: 운영 DB 에서 `genre`·`song` **두 테이블 데이터만** 덤프해 로컬에 적재한다. 나머지 테이블은 `schema.sql` 로 빈 구조만 만든다(`validate` 통과용). `member` 를 안 가져오므로 회원 개인정보가 노트북에 남지 않고, 회원 0명이면 `DataInitializer` 가 관리자 `a@a.com` 을 만들어 준다(비밀번호는 코드). `song_answer` 는 텍스트 판정을 안 하므로 불필요.
   ```bash
   # 서버 (runbook §4-1 과 같은 컨테이너). 'song genre song' = DB song 의 genre·song 테이블
@@ -363,7 +363,7 @@ CREATE TABLE party_item (
 ### 11-3. 집 PC 에서 첫 세션에 할 일 (순서대로)
 - [ ] 회사 PC 의 미커밋 파일을 옮긴다: `docs/party-quiz-plan.md`, `docs/party-content/*`, `docs/party-mockup/index.html`, `docs/verification/records/2026-09-29_party-quiz-plan.md`, `docs/verification/README.md`·`open-issues.md` 수정분. main 에 문서만 커밋해도 CI 는 안 돈다(`**.md` 필터 — 단 `.html`·`.tsv` 는 필터 밖이라 **`party` 브랜치에 커밋**).
 - [ ] `git checkout -b party` → 이후 파티 코드는 전부 여기.
-- [ ] 로컬 MariaDB `song` 에 `party_item` CREATE(§2 DDL) + `schema.sql` 같은 내용 추가 → `./mvnw spring-boot:run -Dspring-boot.run.profiles=dev` 기동 확인(`validate` 통과).
+- [ ] 로컬 DB(집 PC 는 MySQL 8.0.46) `song` 에 `party_item` CREATE(§2 DDL) + `schema.sql` 같은 내용 추가 → `./mvnw spring-boot:run -Dspring-boot.run.profiles=dev` 기동 확인(`validate` 통과).
 - [ ] P-2 서버: `com.kh.game.party` 패키지(§2) → `./mvnw test` 전체 회귀(481건 기준) + `PartyGameServiceTest`·`PartySpeedQuizServiceTest`·`PartyControllerAuthTest`·`PartyItemImportTest`.
 - [ ] P-3 화면: 목업 순서대로 console → board → player → speed → speed/board. `youtube-player.js` 옵션 1곳. 기존 Solo Guess·Host 재생 회귀 확인.
 - [ ] P-4: `docs/party-content/*.tsv` 일괄 등록 → `quiz.tsv`·`speed.tsv` 는 바로, 나머지는 URL·이미지 채운 뒤.

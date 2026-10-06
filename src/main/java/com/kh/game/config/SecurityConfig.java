@@ -88,8 +88,11 @@ public class SecurityConfig {
                         // 방 참가자 검사는 WebSocketAuthInterceptor 가 STOMP SUBSCRIBE 시점에 수행한다.
                         // 대기실·플레이 화면의 언로드(sendBeacon) 나가기도 헤더를 실을 수 없다.
                         // 즉시 나가지 않고 유예 뒤 적용되며 페이지 재진입 시 취소된다 (RoomUnloadService).
+                        // MCP 클라이언트(Claude Code)의 JSON-RPC POST 도 세션·토큰이 없다. 서버 자체가 dev 에서만 켜진다
+                        // (spring.ai.mcp.server.enabled, McpToolsConfig) — 운영에서는 이 경로가 404 라 예외가 열리지 않는다.
                         .ignoringRequestMatchers(new AntPathRequestMatcher("/ws/**"),
-                                new AntPathRequestMatcher("/game/multi/room/*/unload", "POST"))
+                                new AntPathRequestMatcher("/game/multi/room/*/unload", "POST"),
+                                new AntPathRequestMatcher("/mcp/message", "POST"))
                 )
                 .formLogin(form -> form
                         .loginPage("/auth/login")

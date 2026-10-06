@@ -11,6 +11,7 @@
 
 | 일자 | 기록 | 유형 | 우선순위 | 판정 |
 |---|---|---|---|---|
+| 2026-10-02 | [quiz 운영 도구 MCP 서버 — 곡 신고·배치·회원 조회 + confirm 뒤 신고 처리 (Spring AI 1.1.8)](records/2026-10-02_mcp-ops.md) | 신규 | P1 (운영 비활성은 P0) | 수용 가능 — 497 ✅(481 + 16, 0 Skipped) · 실전송 4종 ✅ · 운영 배포 run 36998084920 + Smoke `/sse` 404 ✅(O-031 CLOSED) · Claude Code 대화 ✅(단 confirm 을 모델이 스스로 채운 실측 — §9) |
 | 2026-09-30 | [파티 퀴즈 P-2 Part ④ — `/admin/party/**` 경로 + 공격·수정 3회](records/2026-09-30_party-controllers-hardening.md) | 신규 + 버그 | P1 | 조건부 — 591 ✅(481 + 110) · 실패 테스트 21건 선행 ✅ · 실제 MySQL 347행·재시작 ✅ · 실제 로그인·브라우저는 🙋 O-029 |
 | 2026-09-30 | [파티 퀴즈 P-2 Part ③ — 스피드퀴즈 규칙 (`PartySpeedQuizService`)](records/2026-09-30_party-speed-quiz.md) | 신규 | P1 | 수용 가능 — 538 ✅(481 + 12 + 26 + 19) · 테스트 실패 확인 ✅ · dev 기동 ✅ · 실제 데이터는 O-028(Part ④ 뒤) |
 | 2026-09-30 | [파티 퀴즈 P-2 Part ② — 본게임 규칙 (`PartyGameService`)](records/2026-09-30_party-game-service.md) | 신규 | P1 | 수용 가능 — 519 ✅(481 + 12 + 26) · 테스트 실패 확인 ✅ · dev 기동 ✅ · 실제 데이터는 O-028(Part ④ 뒤) |

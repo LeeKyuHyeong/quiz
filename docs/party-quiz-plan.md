@@ -1,7 +1,7 @@
 # 2026-12-26 팀전 파티 퀴즈 — 소스 분석·개발 계획
 
 - 작성: 2026-09-29 v1(분석) → v2(결정 반영) → v3(선물·대분류·탈출 규칙·중분류) → v4(MISC·몸풀기·인물 흐름·판정 규칙 확정) → v5(로컬 인스턴스 + 사진·캡처 확정, 설문 단순화) → v6(진행 패턴 3종·힌트는 GAME 만·MISC 를 QUIZ/SOUND 로 분리) → **v7(스피드퀴즈 몸풀기 상세)** → 09-29 후속(선물 품목 확정 · §11 착수 체크리스트 · 화면 목업 · 콘텐츠 규칙: 파일 간 정답 중복 금지, CM송·TV 프로그램 선정 기준). 회사 PC, 코드 변경 없음. **한 장 현황: `docs/party-status.md`.**
-- 행사: 2026-12-26 1박 2일, 15명(남 7 + 여 7 + MC 1 = 본인), **남팀 vs 여팀**, MC 진행.
+- 행사: 2026-12-26(토) 1박 2일, 17명(남 9 + 여 8, MC = 본인, 8 vs 8 — 10-06 변경), **남팀 vs 여팀**, MC 진행.
 - 목적: 노래맞추기는 평상시대로 두고, 그 옆에 드라마·애니·게임·인물 같은 **대분류**를 세워 각자 잘하는 분야가 한 번씩은 나오게 한다.
 - 상태: **설계 결정 완료(§0).** §8 은 기본값으로 둔 세부값 목록. 다음은 집 PC 에서 P-2 구현.
 
@@ -169,7 +169,7 @@ CREATE TABLE party_item (
 - **소리**: HDMI 연결 시 Windows 기본 출력이 TV 로 바뀐다(안 바뀌면 소리 설정에서 TV 선택). 출력은 시스템 전체 설정이라 어느 창의 소리든 TV 스피커로 나간다. TV 스피커가 약하면 블루투스 스피커를 기본 출력으로 — 같은 원리. 리허설 확인 항목.
 
 ### 4-2. 라운드 — 진행 패턴 3종
-1. 대분류 → 중분류(노래는 5년 묶음·전체, 나머지는 DISTINCT·전체) 선택 → [랜덤 뽑기] → 서버가 이번 게임 미출제 항목 중 랜덤 1개(0 이면 선택 불가). **뒤로가기(10-06 확정)**: 대분류·중분류 선택 자체는 서버 상태를 안 바꾸므로 [랜덤 뽑기] 전엔 그냥 다른 걸 고르면 된다. 뽑힌 뒤에도 [보드에 띄우기] 전까지는 TV 가 '준비 중'이라 [다시 뽑기] 또는 [대분류 변경]으로 취소할 수 있고, **취소된 항목은 미출제로 돌아간다**(참가자가 못 봤으므로 나중에 다시 나올 수 있음). 띄운 뒤에는 취소 없이 [못 맞힘]으로 넘긴다.
+1. 대분류 → 중분류(노래는 5년 묶음·전체, 나머지는 DISTINCT·전체) 선택 → [랜덤 뽑기] → 서버가 이번 게임 미출제 항목 중 랜덤 1개(0 이면 선택 불가). **뒤로가기(10-06 확정)**: 대분류·중분류 선택 자체는 서버 상태를 안 바꾸므로 [랜덤 뽑기] 전엔 그냥 다른 걸 고르면 된다. 뽑힌 뒤(READY)에도 [보드에 띄우기] 전까지는 TV 가 '준비 중'이라 다른 대분류로 [다시 뽑기]하면 되고, **앞 항목은 미출제로 돌아간다**(구현 `releaseUnshown`, 참가자가 못 봤으므로 나중에 다시 나올 수 있음). 띄운 뒤에는 [못 맞힘]으로 넘기거나, 영상·사진이 안 나올 때만 [거두기](`/cancel`)로 거둔다 — 거둔 항목은 소모된다.
 2. 제시 방식이 패턴을 정한다:
 
 | 패턴 | 대분류 | 흐름 |
@@ -185,7 +185,7 @@ CREATE TABLE party_item (
 ### 4-3. 상태·복구
 **게임 상태는 로그인 세션이 아니라 서버 전체에 1개**(`PartyGameHolder` 싱글턴 빈이 `PartyGameState` 를 들고 있음. 스피드퀴즈도 같은 방식). 파티는 한 번에 한 판이므로 "현재 게임"은 하나뿐이고, 어느 관리자 계정·어느 기기로 들어와도 같은 게임을 본다 — 콘솔과 보드가 다른 계정·다른 기기여도 된다(§4-1 예비 구성의 전제). v1~v7 의 `HttpSession` 안은 같은 브라우저 두 창에서만 우연히 되는 구조라 폐기.
 - 복구: 상태가 바뀔 때마다 JSON 스냅샷을 노트북 파일(`party-state.json`, 업로드 폴더 옆)에 쓰고, 기동 시 있으면 읽어 복원한다. 콘솔·보드 새로고침은 물론 **앱 재시작·노트북 재부팅 뒤에도 이어서 진행**. DB 저장 없음.
-- **출제 이력과 연습경기(10-06)**: 상태는 두 층이다. ① 이번 판(라운드·점수·현재 항목) ② **누적 출제 이력**(참가자에게 띄운 `party_item` id·`song` id 집합 — 취소된 항목은 제외). [새 게임]은 두 가지: **[새 게임 · 이력 유지]** = ①만 초기화, ②는 남김 → 연습경기에서 보여준 문제는 본게임에 안 나온다 / **[전부 초기화]** = ①② 모두 삭제(리허설 뒤 행사 당일 시작 전에 한 번). 연습경기는 별도 화면이 아니라 그냥 한 판을 하고 [새 게임 · 이력 유지]로 본게임을 시작하는 것. 콘솔 헤더에 "이번 판 n · 누적 m · 남은 x"를 보여 주고, 남은 개수는 누적 이력을 뺀 값이다. 스피드퀴즈는 별도(설정 저장 때 제시어 이력 초기화, 그대로).
+- **출제 이력과 연습경기(10-06)**: 상태는 두 층이다. ① 이번 판(라운드·점수·현재 항목) ② **누적 출제 이력**(참가자에게 띄운 `party_item` id·`song` id 집합 — 취소된 항목은 제외). [새 게임]은 두 가지(구현 완료 `newGame(keepUsed)`, `/new` 의 `keepUsed` 필수): **[새 게임 · 이력 유지]** = `keepUsed=true`, ①만 초기화, ②는 남김 → 연습경기에서 보여준 문제는 본게임에 안 나온다 / **[전부 초기화]** = `keepUsed=false`, ①② 모두 삭제(리허설 뒤 행사 당일 시작 전에 한 번). 연습경기는 별도 화면이 아니라 그냥 한 판을 하고 [새 게임 · 이력 유지]로 본게임을 시작하는 것. 콘솔 헤더에 "이번 판 n · 누적 m · 남은 x"를 보여 주고, 남은 개수는 누적 이력을 뺀 값이다. 스피드퀴즈는 별도(설정 저장 때 제시어 이력 초기화, 그대로).
 - 동시성: 콘솔은 하나뿐이라 락은 필요 없고, 홀더 갱신은 `synchronized` 한 줄이면 충분하다. 보드는 읽기만 한다.
 
 ### 4-4. 하지 않을 것
@@ -331,7 +331,7 @@ CREATE TABLE party_item (
     "reveal":null,"player":{"seq":12,"cmd":"PLAY"},"timerStartedAt":"2026-12-26T20:11:03"}
    ```
    `phase` = WAIT / SHOW / REVEAL / SCORES / END. `reveal` = `{answer, detail, source, scoringTeam}` 는 REVEAL 에만. `player.seq` 가 바뀌면 플레이어(콘솔 내장 또는 플레이어 창)가 `cmd`(PLAY/PAUSE/RESTART)를 실행. 보드는 `version` 이 같으면 다시 그리지 않는다.
-2. **콘솔 액션 POST**(fetch 래퍼 CSRF): `/admin/party/pick`(category, subCategory) · `/cancel`(뽑은 항목 취소 → 미출제 복귀) · `/show` · `/play` · `/pause` · `/restart` · `/hint` · `/wrong`(team) · `/correct`(team) · `/miss` · `/score`(team, delta) · `/next` · `/scores` · `/wait` · `/new`(keepHistory=true|false — 연습경기 뒤 본게임은 true) · `/end`. 스피드는 `/admin/party/speed/{setup,start,correct,pass,undo,finish,reset}` + `GET /admin/party/speed/state`.
+2. **콘솔 액션 POST**(fetch 래퍼 CSRF): `/admin/party/pick`(category, subCategory) · `/cancel`(**띄운 뒤** 영상·사진이 죽었을 때 거두기 — 그 항목은 소모됨. 띄우기 전 취소는 `/pick` 을 다시 하면 앞 항목이 복귀) · `/show` · `/play` · `/pause` · `/restart` · `/hint` · `/wrong`(team) · `/correct`(team) · `/miss` · `/score`(team, delta) · `/next` · `/scores` · `/wait` · `/new`(keepHistory=true|false — 연습경기 뒤 본게임은 true) · `/end`. 스피드는 `/admin/party/speed/{setup,start,correct,pass,undo,finish,reset}` + `GET /admin/party/speed/state`.
 3. **이미지 폴더**: 새 속성 `party.image-dir`(dev 기본 `../party-images` = 저장소 밖). 리소스 핸들러 `/admin/party/images/**` 를 party 패키지의 `PartyWebConfig` 에 등록 → `WebConfig` 무변경, `/admin/**` 규칙이 그대로 걸려 이미지도 관리자만 본다. `.gitignore` 에 `party-images/` 추가.
 4. **보드용 두 번째 관리자 계정**(휴대폰 콘솔 예비 구성용): 코드 변경 없이 로컬 DB 에서 `DataInitializer` 가 만든 dev 회원 하나를 승격 — `UPDATE member SET role='ADMIN' WHERE email='test1@test.com';`. 기본 구성(노트북 콘솔 + 확장 디스플레이)에서는 필요 없음.
 5. **스냅샷 파일**: `party.state-file`(dev 기본 `../party-images/party-state.json`, 이미지 폴더와 같이 USB 백업). 스피드퀴즈는 `party-speed-state.json`.

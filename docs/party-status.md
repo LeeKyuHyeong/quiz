@@ -113,6 +113,13 @@
 1. ~~카톡 설문~~ 안 함(10-06). 밸런스는 MC 의 중분류 선택으로.
 2. `비고` 검색어로 클립·이미지 수집 → URL·시작초·이미지파일명 채우기.
 3. TV 프로그램 △ 6개·조건부 3개 듣고 결정. 게임 대사 원문 확인. 인물 결정 2건.
+4. **집 PC 리허설(10-06 계획)**: 듀얼 모니터 중 하나를 빼고 Win+P **확장**으로 콘솔(첫 화면)·보드(둘째 화면 F11) 분리 확인 — 정답 카드가 둘째 화면에 안 보이면 통과. 모니터를 뺐다 꽂으면 Windows 가 복제로 바꿀 때가 있어 매번 확인. 노트북 + TV 로 같은 절차를 한 번 더.
+5. **예비 관리자 계정**: 새로 만들지 않고 dev `DataInitializer` 가 넣는 `test1@test.com` 을 승격 — 관리자로 로그인 → 회원 관리 → 역할 ADMIN(`POST /admin/member/update-role/{id}`). 노트북은 `member` 를 안 가져오므로 거기서도 한 번 더. 확인: 노트북 브라우저 관리자 A = 보드, 휴대폰 test1 = 콘솔, 서로 로그아웃 안 되고 콘솔 조작이 1초 안에 보드에 반영.
+6. **Windows 방화벽 8082 인바운드(휴대폰 콘솔 예비 구성)** — 관리자 PowerShell 에서 한 줄:
+   ```powershell
+   New-NetFirewallRule -DisplayName "quiz dev 8082" -Direction Inbound -Protocol TCP -LocalPort 8082 -Action Allow -Profile Private
+   ```
+   GUI 로는 `wf.msc` → 인바운드 규칙 → 새 규칙 → 포트 → TCP 8082 → 연결 허용 → 프로필 **개인**만 → 이름. 핫스팟 네트워크가 "공용"으로 잡혀 있으면 설정 → 네트워크 → 해당 Wi-Fi → **개인 네트워크**로 바꿔야 규칙이 먹는다(또는 `-Profile Private,Public`). 확인은 휴대폰 브라우저에서 `http://노트북IP:8082`(IP 는 `ipconfig`, 핫스팟이면 보통 `172.20.10.x`). 행사 뒤 삭제: `Remove-NetFirewallRule -DisplayName "quiz dev 8082"`.
 
 ## 다음 단계
 - 콘텐츠 검토: screen·anime·game 확정, **person 결정 2건**이 남음. 판정 공통 규칙("정식 이름?")은 README 표. `anime.tsv` 12행(로보카 폴리)은 IMAGE 인데 이미지파일명이 비어 있다.

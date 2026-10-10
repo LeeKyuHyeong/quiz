@@ -368,4 +368,28 @@ class PartyItemImportTest {
         assertThat(partyItemRepository.findByCategoryAndAnswer(PartyCategory.SOUND, "무한도전").orElseThrow()
                 .getDetail()).isEqualTo("\"무한~\" 외침 · \"도전\"");
     }
+
+    @Test
+    @DisplayName("[정상] 다시 올린 파일의 대분류에 있는데 파일에 없는 기존 문제를 알려 준다 — 숨기지는 않는다")
+    void reportsItemsMissingFromFile() {
+        importService.importTsv(tsv(
+                row("QUIZ", "초성 · 과자", "TEXT", "포카칩", "", "", "", "", "", "", "[과자] ㅍ ㅋ ㅊ"),
+                row("QUIZ", "초성 · 과자", "TEXT", "새우깡", "", "", "", "", "", "", "[과자] ㅅ ㅇ ㄲ"),
+                row("QUIZ", "초성 · 과자", "TEXT", "홈런볼", "", "", "", "", "", "", "[과자] ㅎ ㄹ ㅂ"),
+                row("SPEED", "동물", "TEXT", "코끼리")));
+        PartyItem hidden = partyItemRepository.findByCategoryAndAnswer(PartyCategory.QUIZ, "홈런볼").orElseThrow();
+        hidden.setUseYn("N");
+        partyItemRepository.save(hidden);
+
+        // 새우깡을 지우고 꼬깔콘을 넣은 파일. 포카칩 줄은 값이 틀려 거부되지만 파일에 있으므로 "빠진 문제"가 아니다
+        PartyImportResult result = importService.importTsv(tsv(
+                row("QUIZ", "초성 · 과자", "TEXT", "포카칩", "", "", "", "", "", "", ""),
+                row("QUIZ", "초성 · 과자", "TEXT", "꼬깔콘", "", "", "", "", "", "", "[과자] ㄲ ㄲ ㅋ")));
+
+        assertThat(result.errors()).hasSize(1);
+        assertThat(result.missing()).extracting(PartyImportResult.Missing::answer).containsExactly("새우깡");
+        assertThat(result.missing().get(0).category()).isEqualTo("QUIZ");
+        assertThat(partyItemRepository.findByCategoryAndAnswer(PartyCategory.QUIZ, "새우깡").orElseThrow().getUseYn())
+                .isEqualTo("Y");
+    }
 }

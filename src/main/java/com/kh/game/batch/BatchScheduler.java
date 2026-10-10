@@ -5,6 +5,7 @@ import com.kh.game.entity.BatchExecutionHistory;
 import com.kh.game.service.BatchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.TaskScheduler;
@@ -51,6 +52,13 @@ public class BatchScheduler {
 
     private final Map<String, ScheduledFuture<?>> scheduledTasks = new ConcurrentHashMap<>();
 
+    /**
+     * false 면 어떤 배치도 스케줄에 올리지 않는다(관리자 수동 실행은 그대로). 파티 행사 노트북용 —
+     * 오프라인에서 YouTube 검사 배치가 네트워크 오류를 삭제된 영상으로 보고 노래를 끄지 않게.
+     */
+    @Value("${game.batch.schedule-enabled:true}")
+    private boolean scheduleEnabled;
+
     @EventListener(ApplicationReadyEvent.class)
     public void init() {
         log.info("애플리케이션 시작 완료 - 배치 스케줄 초기화");
@@ -87,6 +95,10 @@ public class BatchScheduler {
 
     private void scheduleTask(BatchConfig config) {
         String batchId = config.getBatchId();
+        if (!scheduleEnabled) {
+            log.info("배치 스케줄 꺼짐(game.batch.schedule-enabled=false) - 건너뜀: {}", batchId);
+            return;
+        }
         String cronExpression = config.getCronExpression();
 
         try {

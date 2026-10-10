@@ -6,8 +6,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -46,17 +48,20 @@ public class PartyItemImportService {
         String[] header = lines[0].split("\t", -1);
         if (header.length != COLUMN_COUNT || !FIRST_HEADER.equals(header[0].trim())) {
             errors.add(new PartyImportResult.RowError(1, "머리글이 19열 형식이 아닙니다"));
-            return new PartyImportResult(0, 0, errors);
+            return new PartyImportResult(0, 0, errors, List.of());
         }
 
         int created = 0;
         int updated = 0;
         // 이 파일에서 이미 쓴 행. 같은 대분류·정답이 또 나오면 앞 줄을 조용히 덮어쓰지 않고 거부한다
         Set<Long> writtenIds = new HashSet<>();
+        // 파일에 나온 (대분류, 정답) — 거부된 줄도 포함. 이 대분류의 기존 문제 중 여기 없는 것을 알린다
+        Map<String, Set<String>> answersInFile = new HashMap<>();
         for (int i = 1; i < lines.length; i++) {
             if (lines[i].isBlank()) {
                 continue;
             }
+            rememberKey(lines[i], answersInFile);
             int lineNo = i + 1;
             try {
                 if (apply(lines[i].split("\t", -1), writtenIds)) {
@@ -68,8 +73,34 @@ public class PartyItemImportService {
                 errors.add(new PartyImportResult.RowError(lineNo, e.getMessage()));
             }
         }
-        log.info("Party item import: created={} updated={} rejected={}", created, updated, errors.size());
-        return new PartyImportResult(created, updated, errors);
+        List<PartyImportResult.Missing> missing = missingFrom(answersInFile);
+        log.info("Party item import: created={} updated={} rejected={} missing={}",
+                created, updated, errors.size(), missing.size());
+        return new PartyImportResult(created, updated, errors, missing);
+    }
+
+    private static void rememberKey(String line, Map<String, Set<String>> answersInFile) {
+        String[] cells = line.split("\t", -1);
+        if (cells.length <= ANSWER) {
+            return;
+        }
+        String category = unwrapExcelQuotes(cells[CATEGORY].trim()).trim();
+        String answer = unwrapExcelQuotes(cells[ANSWER].trim()).trim();
+        answersInFile.computeIfAbsent(category, key -> new HashSet<>()).add(normalizeKey(answer));
+    }
+
+    /** DB 는 대소문자·끝 공백을 같은 값으로 찾으므로(유니크 키) 비교도 같게. */
+    private static String normalizeKey(String answer) {
+        return answer.strip().toLowerCase(Locale.ROOT);
+    }
+
+    private List<PartyImportResult.Missing> missingFrom(Map<String, Set<String>> answersInFile) {
+        return partyItemRepository.findAll().stream()
+                .filter(item -> "Y".equals(item.getUseYn()))
+                .filter(item -> answersInFile.containsKey(item.getCategory().name()))
+                .filter(item -> !answersInFile.get(item.getCategory().name()).contains(normalizeKey(item.getAnswer())))
+                .map(item -> new PartyImportResult.Missing(item.getId(), item.getCategory().name(), item.getAnswer()))
+                .toList();
     }
 
     /**

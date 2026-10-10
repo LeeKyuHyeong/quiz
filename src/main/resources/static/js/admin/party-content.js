@@ -18,6 +18,7 @@
     let filter = 'ALL';
     let rows = [];
     let busy = false;
+    let missingRows = [];
 
     const $ = (id) => document.getElementById(id);
 
@@ -80,9 +81,51 @@
         const list = $('pcUploadErrors');
         list.replaceChildren();
         data.errors.forEach((error) => {
-            list.append(el('li', '', error.line + '번째 줄: ' + error.message));
+            list.append(el('li', '', error.line + '번째 줄: ' + error.reason));
         });
         list.hidden = data.errors.length === 0;
+        renderMissing(data.missing || []);
+    }
+
+    /** 이 파일의 대분류에 있는데 파일에 없는 켜진 문제 — TSV 에서 지웠거나 정답을 고치기 전의 옛 행일 수 있다. */
+    function renderMissing(missing) {
+        missingRows = missing;
+        $('pcMissing').hidden = missing.length === 0;
+        if (missing.length === 0) return;
+        $('pcMissingTitle').textContent = '이 파일에 없는 기존 문제 ' + missing.length
+            + '개 — 그대로 두면 계속 출제됩니다. TSV 에서 지웠거나 정답을 고친 것이라면 숨기세요.';
+        const list = $('pcMissingList');
+        list.replaceChildren();
+        missing.forEach((item) => {
+            list.append(el('li', '', (CATEGORY_LABEL[item.category] || item.category) + ' · ' + item.answer));
+        });
+        $('pcHideMissing').disabled = false;
+    }
+
+    async function hideMissing() {
+        if (busy || missingRows.length === 0) return;
+        if (!window.confirm(missingRows.length + '개 문제를 숨길까요? 목록에서 다시 켤 수 있습니다.')) return;
+        busy = true;
+        $('pcHideMissing').disabled = true;
+        let failed = 0;
+        try {
+            for (const item of missingRows) {
+                const data = await request('POST', BASE + item.id + '/use', { useYn: 'N' });
+                if (!data || data.success === false) failed++;
+            }
+        } finally {
+            busy = false;
+        }
+        if (failed > 0) {
+            showNotice(failed + '개는 숨기지 못했습니다 — 목록에서 확인하세요');
+            $('pcHideMissing').disabled = false;
+        } else {
+            hideNotice();
+            missingRows = [];
+            $('pcMissing').hidden = true;
+        }
+        await loadSummary();
+        if (category) await loadList();
     }
 
     // ---------- 현황 ----------
@@ -210,6 +253,7 @@
         $('pcUpload').disabled = !$('pcFile').files[0];
     });
     $('pcUpload').addEventListener('click', upload);
+    $('pcHideMissing').addEventListener('click', hideMissing);
     document.querySelectorAll('#pcFilters [data-filter]').forEach((chip) => {
         chip.addEventListener('click', () => {
             filter = chip.dataset.filter;

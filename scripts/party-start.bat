@@ -1,12 +1,13 @@
 @echo off
-chcp 65001 >nul
 setlocal
 rem ============================================================
-rem  파티 퀴즈 실행 (행사 노트북) — party 브랜치 전용, 운영과 무관
-rem  사진·상태 파일 폴더를 늘 같은 곳으로 고정한다 (O-030 ③).
-rem  처음 한 번 아래 두 줄을 노트북에 맞게 고친다. 경로에 공백이 없어야 한다.
-rem  사용: party-start.bat            (아래 PARTY_DIR 사용)
-rem        party-start.bat D:\다른폴더  (이번만 다른 폴더 — 점검용)
+rem  Party quiz launcher (event laptop) - party branch only, not production.
+rem  Pins the photo/state folder so it never depends on where you start from (O-030 3).
+rem  Edit the two lines below once for the laptop. No spaces in PARTY_DIR.
+rem  Usage: party-start.bat             (uses PARTY_DIR below)
+rem         party-start.bat D:\other    (this run only, absolute path - for checks)
+rem  Run it once while online first: Maven must cache its files to start offline.
+rem  ASCII only on purpose: non-ASCII text in .bat files can make cmd misread lines.
 rem ============================================================
 set "PARTY_DIR=C:\party"
 set "JAVA_HOME=C:\Program Files\Java\jdk-17"
@@ -14,23 +15,43 @@ set "JAVA_HOME=C:\Program Files\Java\jdk-17"
 if not "%~1"=="" set "PARTY_DIR=%~1"
 
 if not exist "%JAVA_HOME%\bin\java.exe" (
-    echo [오류] JDK 17 을 찾을 수 없습니다: %JAVA_HOME%
-    echo        이 파일의 JAVA_HOME 줄을 노트북의 JDK 17 경로로 고치세요.
+    echo [ERROR] JDK 17 not found: %JAVA_HOME%
+    echo         Fix the JAVA_HOME line in this file.
     pause
     exit /b 1
 )
 if not "%PARTY_DIR%"=="%PARTY_DIR: =%" (
-    echo [오류] 폴더 경로에 공백이 있습니다: %PARTY_DIR%
+    echo [ERROR] PARTY_DIR must not contain spaces: %PARTY_DIR%
     pause
     exit /b 1
 )
 if not exist "%PARTY_DIR%" mkdir "%PARTY_DIR%"
+rem If the state file cannot be written the app still starts but loses restart recovery silently.
+echo ok> "%PARTY_DIR%\.write-test" 2>nul
+if not exist "%PARTY_DIR%\.write-test" (
+    echo [ERROR] Cannot write to %PARTY_DIR%
+    pause
+    exit /b 1
+)
+del "%PARTY_DIR%\.write-test"
 
-rem 저장소 루트에서 실행한다. 현재 폴더 실행 파일을 찾지 않는 PC 도 있어 .\mvnw.cmd 로 경로를 적는다
+set "LOG=%PARTY_DIR%\party-app.log"
+if exist "%LOG%" move /y "%LOG%" "%PARTY_DIR%\party-app.prev.log" >nul
+
+rem Run from the repo root. Some PCs do not search the current folder for programs, hence .\mvnw.cmd
 cd /d "%~dp0.."
-echo 사진·상태 폴더: %PARTY_DIR%
-echo 사진 파일은 이 폴더에 바로 넣는다 (TSV 의 이미지파일명과 같은 이름).
-echo 브라우저: http://localhost:8082/admin/party/console  (보드는 /admin/party/board)
+echo Photo/state folder : %PARTY_DIR%
+echo   (put photo files here, named as in the TSV image column)
+echo App log            : %LOG%
 echo.
-call .\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=dev,session-jdbc "-Dspring-boot.run.arguments=--party.image-dir=%PARTY_DIR% --party.state-file=%PARTY_DIR%\party-state.json --party.speed-state-file=%PARTY_DIR%\party-speed-state.json"
+echo In 1-2 minutes open:
+echo   console  http://localhost:8082/admin/party/console
+echo   board    http://localhost:8082/admin/party/board
+echo.
+echo Closing this window stops the app. To stop: Ctrl+C here.
+rem Logs go to a file, not this window: clicking the window pauses its output and every request that logs would hang.
+rem Batch schedules are off: offline at night the YouTube check batch would mark every song as deleted.
+call .\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=dev,session-jdbc "-Dspring-boot.run.arguments=--party.image-dir=%PARTY_DIR% --party.state-file=%PARTY_DIR%\party-state.json --party.speed-state-file=%PARTY_DIR%\party-speed-state.json --game.batch.schedule-enabled=false --spring.jpa.show-sql=false --logging.level.org.hibernate.SQL=INFO" > "%LOG%" 2>&1
+echo.
+echo The app has stopped. See the end of the log: %LOG%
 pause

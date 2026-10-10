@@ -57,11 +57,12 @@ public class PartyItemImportService {
         Set<Long> writtenIds = new HashSet<>();
         // 파일에 나온 (대분류, 정답) — 거부된 줄도 포함. 이 대분류의 기존 문제 중 여기 없는 것을 알린다
         Map<String, Set<String>> answersInFile = new HashMap<>();
+        Set<String> unreliableCategories = new HashSet<>();
         for (int i = 1; i < lines.length; i++) {
             if (lines[i].isBlank()) {
                 continue;
             }
-            rememberKey(lines[i], answersInFile);
+            rememberKey(lines[i], answersInFile, unreliableCategories);
             int lineNo = i + 1;
             try {
                 if (apply(lines[i].split("\t", -1), writtenIds)) {
@@ -73,18 +74,24 @@ public class PartyItemImportService {
                 errors.add(new PartyImportResult.RowError(lineNo, e.getMessage()));
             }
         }
-        List<PartyImportResult.Missing> missing = missingFrom(answersInFile);
+        List<PartyImportResult.Missing> missing = missingFrom(answersInFile, unreliableCategories);
         log.info("Party item import: created={} updated={} rejected={} missing={}",
                 created, updated, errors.size(), missing.size());
         return new PartyImportResult(created, updated, errors, missing);
     }
 
-    private static void rememberKey(String line, Map<String, Set<String>> answersInFile) {
+    /**
+     * 열 수가 틀린 줄은 정답 칸이 어긋나 있을 수 있다 — 그 대분류는 빠진 문제를 알리지 않는다
+     * (멀쩡한 문제를 빠졌다고 해서 [모두 숨기기]로 숨기지 않게).
+     */
+    private static void rememberKey(String line, Map<String, Set<String>> answersInFile,
+                                    Set<String> unreliableCategories) {
         String[] cells = line.split("\t", -1);
-        if (cells.length <= ANSWER) {
+        String category = unwrapExcelQuotes(cells[CATEGORY].trim()).trim();
+        if (cells.length != COLUMN_COUNT) {
+            unreliableCategories.add(category);
             return;
         }
-        String category = unwrapExcelQuotes(cells[CATEGORY].trim()).trim();
         String answer = unwrapExcelQuotes(cells[ANSWER].trim()).trim();
         answersInFile.computeIfAbsent(category, key -> new HashSet<>()).add(normalizeKey(answer));
     }
@@ -94,10 +101,12 @@ public class PartyItemImportService {
         return answer.strip().toLowerCase(Locale.ROOT);
     }
 
-    private List<PartyImportResult.Missing> missingFrom(Map<String, Set<String>> answersInFile) {
+    private List<PartyImportResult.Missing> missingFrom(Map<String, Set<String>> answersInFile,
+                                                       Set<String> unreliableCategories) {
         return partyItemRepository.findAll().stream()
                 .filter(item -> "Y".equals(item.getUseYn()))
                 .filter(item -> answersInFile.containsKey(item.getCategory().name()))
+                .filter(item -> !unreliableCategories.contains(item.getCategory().name()))
                 .filter(item -> !answersInFile.get(item.getCategory().name()).contains(normalizeKey(item.getAnswer())))
                 .map(item -> new PartyImportResult.Missing(item.getId(), item.getCategory().name(), item.getAnswer()))
                 .toList();

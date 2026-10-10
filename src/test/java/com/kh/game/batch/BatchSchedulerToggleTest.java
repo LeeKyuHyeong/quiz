@@ -13,9 +13,14 @@ import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.Trigger;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
+import java.util.Properties;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -41,7 +46,7 @@ class BatchSchedulerToggleTest {
         BatchConfig config = new BatchConfig();
         config.setBatchId(SessionCleanupBatch.BATCH_ID);
         config.setCronExpression("0 0 2 * * *");
-        when(batchService.findEnabledAndImplemented()).thenReturn(List.of(config));
+        lenient().when(batchService.findEnabledAndImplemented()).thenReturn(List.of(config));
     }
 
     @Test
@@ -62,5 +67,15 @@ class BatchSchedulerToggleTest {
         scheduler.refreshAllSchedules();
 
         verify(taskScheduler, never()).schedule(any(Runnable.class), any(Trigger.class));
+    }
+
+    @Test
+    @DisplayName("[정상] party 브랜치의 dev 프로필은 배치 스케줄이 꺼져 있다 — 실행 배치 파일이 아닌 방법(mvnw·IDE)으로 띄워도")
+    void devProfileTurnsSchedulesOff() throws IOException {
+        Properties dev = new Properties();
+        try (InputStream in = getClass().getClassLoader().getResourceAsStream("application-dev.properties")) {
+            dev.load(in);
+        }
+        assertThat(dev.getProperty("game.batch.schedule-enabled")).isEqualTo("false");
     }
 }

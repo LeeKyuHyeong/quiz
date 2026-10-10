@@ -392,4 +392,25 @@ class PartyItemImportTest {
         assertThat(partyItemRepository.findByCategoryAndAnswer(PartyCategory.QUIZ, "새우깡").orElseThrow().getUseYn())
                 .isEqualTo("Y");
     }
+
+    @Test
+    @DisplayName("[경계] 열 수가 틀린 줄이 있는 대분류는 빠진 문제를 알리지 않는다 — 엉뚱한 칸을 정답으로 읽어 멀쩡한 문제를 빠졌다고 하지 않게")
+    void skipsMissingReportWhenColumnsAreBroken() {
+        importService.importTsv(tsv(
+                row("SCREEN", "로맨스·멜로", "IMAGE", "도깨비", "쓸쓸하고 찬란하신"),
+                row("SCREEN", "로맨스·멜로", "IMAGE", "응답하라 1988", ""),
+                row("QUIZ", "초성 · 과자", "TEXT", "포카칩", "", "", "", "", "", "", "[과자] ㅍ ㅋ ㅊ"),
+                row("QUIZ", "초성 · 과자", "TEXT", "새우깡", "", "", "", "", "", "", "[과자] ㅅ ㅇ ㄲ")));
+
+        // SCREEN: 도깨비 줄에서 중분류 탭이 빠져 18열(정답 칸에 인정답안이 온다) / QUIZ: 새우깡을 지운 정상 파일
+        String brokenScreen = "SCREEN	IMAGE	도깨비	쓸쓸하고 찬란하신" + "	".repeat(14);
+        PartyImportResult screen = importService.importTsv(tsv(brokenScreen,
+                row("SCREEN", "로맨스·멜로", "IMAGE", "응답하라 1988", "")));
+        PartyImportResult quiz = importService.importTsv(tsv(
+                row("QUIZ", "초성 · 과자", "TEXT", "포카칩", "", "", "", "", "", "", "[과자] ㅍ ㅋ ㅊ")));
+
+        assertThat(screen.errors()).hasSize(1);
+        assertThat(screen.missing()).isEmpty();
+        assertThat(quiz.missing()).extracting(PartyImportResult.Missing::answer).containsExactly("새우깡");
+    }
 }

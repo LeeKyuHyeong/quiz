@@ -11,6 +11,7 @@
 
 | 일자 | 기록 | 유형 | 우선순위 | 판정 |
 |---|---|---|---|---|
+| 2026-10-10 | [랭킹 첫 목록 쿼리 인덱스 — `member (status, guess_score)` (career 【확인 42】)](records/2026-10-10_member-ranking-index.md) | 신규 (DB 구조) + 문서 | P2 (운영 반영은 P0 규칙) | 조건부 — 코드·로컬 DB ALTER·EXPLAIN 전후 ✅ · 운영 ALTER·EXPLAIN 🙋 O-032 · 백업 사본 재실험 ⬜ O-033 · 회귀 497 ✅(Redis 11 Skipped, Docker 부재) |
 | 2026-10-02 | [quiz 운영 도구 MCP 서버 — 곡 신고·배치·회원 조회 + confirm 뒤 신고 처리 (Spring AI 1.1.8)](records/2026-10-02_mcp-ops.md) | 신규 | P1 (운영 비활성은 P0) | 수용 가능 — 497 ✅(481 + 16, 0 Skipped) · 실전송 4종 ✅ · 운영 배포 run 36998084920 + Smoke `/sse` 404 ✅(O-031 CLOSED) · Claude Code 대화 ✅(단 confirm 을 모델이 스스로 채운 실측 — §9) |
 | 2026-09-23 | [AWS 시연 — EC2 2대 + ALB + RDS + ElastiCache 실기동 (`session-redis`)](records/2026-09-23_aws-demo.md) | 인프라 | P1 | 수용 가능 — 세션 외부화 양방향 실측 ✅ · RDS TLS 강제 충돌 해소 · 시연 범위는 로그인 세션 한정 |
 | 2026-09-22 | [AWS 시연용 세션 저장소 프로파일 `session-redis`](records/2026-09-22_session-redis-profile.md) | 기능 추가 | P1 (prod 무영향은 P0) | 수용 가능 — 481 ✅(CI 도 Redis 포함) · 재시작 유지 ✅ · 운영 배포 run 35740318687 Smoke ✅ |

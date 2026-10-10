@@ -241,3 +241,18 @@ docker exec "quiz-app-$ACTIVE" date     # KST
 - **세션에 실리는 클래스를 바꾸는 배포**(`CustomUserDetails` 필드, 솔로 게임 세션 속성 타입 등): JDK 직렬화라 기존 행을 못 읽어 그 사용자는 쿠키를 지울 때까지 오류. 전환 직전 `TRUNCATE SPRING_SESSION_ATTRIBUTES; TRUNCATE SPRING_SESSION;` (= 전원 로그아웃 1회).
 - 만료 행은 앱이 매분 지운다(`spring.session.jdbc.cleanup-cron`). 세션이 끝난 WebSocket 은 앱 로그 `WebSocket closed: HTTP session ended` 로 확인.
 - 확인: `SELECT SESSION_ID, PRINCIPAL_NAME, FROM_UNIXTIME(LAST_ACCESS_TIME/1000) la FROM SPRING_SESSION ORDER BY la DESC;`
+
+## 10. 인덱스 추가 — 가산 DDL 선반영 (2026-10-10, `member.idx_member_status_guess_score`)
+
+`ddl-auto=validate` 는 컬럼·타입만 보고 **인덱스는 검사하지 않는다**. 그래서 인덱스가 없어도 새 색은 기동하지만, `sql/schema.sql` 이 단일 출처이므로 운영 DB 를 schema.sql 과 같게 맞춘 뒤 push 한다(§9 와 같은 순서). 운영 테이블이 작으면 `ALTER TABLE … ADD INDEX` 는 즉시 끝난다(InnoDB 온라인 DDL, 읽기·쓰기 차단 없음).
+
+```bash
+# 1) 전: 인덱스 목록과 실행계획 (읽기만)
+docker exec quiz-db sh -c 'mariadb -uroot -p"$MYSQL_ROOT_PASSWORD" song -e "SHOW INDEX FROM member; EXPLAIN SELECT * FROM member WHERE status='"'"'ACTIVE'"'"' AND guess_games>0 ORDER BY guess_score DESC LIMIT 20;"'
+# 2) 추가 (가산 DDL — 데이터 변경 없음, 되돌리기는 DROP INDEX)
+docker exec quiz-db sh -c 'mariadb -uroot -p"$MYSQL_ROOT_PASSWORD" song -e "ALTER TABLE member ADD INDEX idx_member_status_guess_score (status, guess_score);"'
+# 3) 후: 같은 명령으로 인덱스 2행(Seq 1 status · 2 guess_score)과 실행계획 변화 확인 → push
+```
+
+- 되돌리기: `ALTER TABLE member DROP INDEX idx_member_status_guess_score;` (앱은 인덱스 유무와 무관하게 기동)
+- 대상 쿼리는 랭킹 첫 목록 `findTopGuessRankingByScore`(`MemberRepository`) 하나. 다른 랭킹 정렬 열(multi_score·weekly_*·best_*)에는 인덱스를 두지 않았다 — 이유·실행계획은 `docs/verification/records/2026-10-10_member-ranking-index.md`.

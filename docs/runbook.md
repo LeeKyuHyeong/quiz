@@ -247,11 +247,16 @@ docker exec "quiz-app-$ACTIVE" date     # KST
 `ddl-auto=validate` 는 컬럼·타입만 보고 **인덱스는 검사하지 않는다**. 그래서 인덱스가 없어도 새 색은 기동하지만, `sql/schema.sql` 이 단일 출처이므로 운영 DB 를 schema.sql 과 같게 맞춘 뒤 push 한다(§9 와 같은 순서). 운영 테이블이 작으면 `ALTER TABLE … ADD INDEX` 는 즉시 끝난다(InnoDB 온라인 DDL, 읽기·쓰기 차단 없음).
 
 ```bash
-# 1) 전: 인덱스 목록과 실행계획 (읽기만)
-docker exec quiz-db sh -c 'mariadb -uroot -p"$MYSQL_ROOT_PASSWORD" song -e "SHOW INDEX FROM member; EXPLAIN SELECT * FROM member WHERE status='"'"'ACTIVE'"'"' AND guess_games>0 ORDER BY guess_score DESC LIMIT 20;"'
+# 1) 전: 인덱스 목록과 실행계획 (읽기만) — SQL 은 stdin 으로 넘긴다(따옴표·히스토리 확장 문제 없음)
+docker exec -i quiz-db sh -c 'mariadb -uroot -p"$MYSQL_ROOT_PASSWORD" song' <<'SQL'
+SHOW INDEX FROM member;
+EXPLAIN SELECT * FROM member WHERE status='ACTIVE' AND guess_games>0 ORDER BY guess_score DESC LIMIT 20;
+SQL
 # 2) 추가 (가산 DDL — 데이터 변경 없음, 되돌리기는 DROP INDEX)
-docker exec quiz-db sh -c 'mariadb -uroot -p"$MYSQL_ROOT_PASSWORD" song -e "ALTER TABLE member ADD INDEX idx_member_status_guess_score (status, guess_score);"'
-# 3) 후: 같은 명령으로 인덱스 2행(Seq 1 status · 2 guess_score)과 실행계획 변화 확인 → push
+docker exec -i quiz-db sh -c 'mariadb -uroot -p"$MYSQL_ROOT_PASSWORD" song' <<'SQL'
+ALTER TABLE member ADD INDEX idx_member_status_guess_score (status, guess_score);
+SQL
+# 3) 후: 1) 을 다시 실행 → 인덱스 2행 추가(Seq 1 status · 2 guess_score)와 실행계획 변화 확인 → push
 ```
 
 - 되돌리기: `ALTER TABLE member DROP INDEX idx_member_status_guess_score;` (앱은 인덱스 유무와 무관하게 기동)

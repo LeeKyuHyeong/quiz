@@ -554,6 +554,7 @@ CREATE TABLE `member` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_member_email` (`email`),
   KEY `selected_badge_id` (`selected_badge_id`),
+  KEY `idx_member_status_guess_score` (`status`,`guess_score`),
   CONSTRAINT `member_ibfk_1` FOREIGN KEY (`selected_badge_id`) REFERENCES `badge` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

@@ -8,7 +8,9 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "member")
+// 랭킹 첫 목록(findTopGuessRankingByScore: status='ACTIVE' AND guess_games>0 ORDER BY guess_score DESC)용 복합 인덱스 — 등치 열(status) → 정렬 열(guess_score) 순.
+// 스키마의 단일 출처는 sql/schema.sql(동일 KEY 정의). ddl-auto=validate 는 인덱스를 검사하지 않으므로 운영 반영은 runbook §10.
+@Table(name = "member", indexes = @Index(name = "idx_member_status_guess_score", columnList = "status, guess_score"))
 @Getter
 @Setter
 @NoArgsConstructor

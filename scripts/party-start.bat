@@ -11,6 +11,10 @@ rem  ASCII only on purpose: non-ASCII text in .bat files can make cmd misread li
 rem ============================================================
 set "PARTY_DIR=C:\party"
 set "JAVA_HOME=C:\Program Files\Java\jdk-17"
+rem ALLOW_LAN=0: only this laptop can open the app (default). The seed admin password is in the public repo,
+rem so anyone on the same Wi-Fi could log in, read answers and kick the MC out.
+rem ALLOW_LAN=1: phones on the same network can connect (backup phone console). Use only on a locked hotspot.
+set "ALLOW_LAN=0"
 
 if not "%~1"=="" set "PARTY_DIR=%~1"
 
@@ -35,6 +39,9 @@ if not exist "%PARTY_DIR%\.write-test" (
 )
 del "%PARTY_DIR%\.write-test"
 
+set "BIND=--server.address=127.0.0.1"
+if "%ALLOW_LAN%"=="1" set "BIND="
+
 set "LOG=%PARTY_DIR%\party-app.log"
 if exist "%LOG%" move /y "%LOG%" "%PARTY_DIR%\party-app.prev.log" >nul
 
@@ -48,10 +55,15 @@ echo In 1-2 minutes open:
 echo   console  http://localhost:8082/admin/party/console
 echo   board    http://localhost:8082/admin/party/board
 echo.
+if "%ALLOW_LAN%"=="1" (
+    echo [WARNING] ALLOW_LAN=1 - phones on this network can reach the app. Keep the hotspot locked.
+) else (
+    echo Only this laptop can open the app. For the backup phone console set ALLOW_LAN=1 in this file.
+)
 echo Closing this window stops the app. To stop: Ctrl+C here.
 rem Logs go to a file, not this window: clicking the window pauses its output and every request that logs would hang.
 rem Batch schedules are off: offline at night the YouTube check batch would mark every song as deleted.
-call .\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=dev,session-jdbc "-Dspring-boot.run.arguments=--party.image-dir=%PARTY_DIR% --party.state-file=%PARTY_DIR%\party-state.json --party.speed-state-file=%PARTY_DIR%\party-speed-state.json --game.batch.schedule-enabled=false --spring.jpa.show-sql=false --logging.level.org.hibernate.SQL=INFO" > "%LOG%" 2>&1
+call .\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=dev,session-jdbc "-Dspring-boot.run.arguments=--party.image-dir=%PARTY_DIR% --party.state-file=%PARTY_DIR%\party-state.json --party.speed-state-file=%PARTY_DIR%\party-speed-state.json --game.batch.schedule-enabled=false --spring.jpa.show-sql=false --logging.level.org.hibernate.SQL=INFO %BIND%" > "%LOG%" 2>&1
 echo.
 echo The app has stopped. See the end of the log: %LOG%
 pause

@@ -1,4 +1,4 @@
-# 12-26 파티 퀴즈 — 한 장 현황 (2026-10-06 밤 기준 — P-2 완료 · 10-06 규칙 확정 · P-3 콘솔·보드 완료)
+# 12-26 파티 퀴즈 — 한 장 현황 (2026-10-06 밤 기준 — P-2 완료 · 10-06 규칙 확정 · P-3 콘솔·보드·문제 관리 완료, 10-10 결정 반영)
 
 > 진입점. 근거·배경은 `party-quiz-plan.md`, 문제 목록은 `party-content/`, 화면은 `party-mockup/index.html`. **`party` 브랜치**에만 커밋한다(main 에 올리면 `.tsv`·`.html` 이 CI 필터 밖이라 배포가 돈다).
 
@@ -27,9 +27,11 @@
 | ④ | `/admin/party/**` 컨트롤러 3개 + 사진 경로 + 공격·수정 3회(결함 20여 건 수정, R-034~R-049) | **완료**(이 커밋) | 전체 591 통과 · 실제 MySQL 에 347행 · 재시작 뒤 이어짐 |
 | P-3 ① | 콘솔 `/admin/party/console` + `youtube-player.js` 크기 옵션 + 사이드바 1줄 + 서버 `freeChallenge`(양 팀 오답 = 자유 도전, R-052) | **완료**(10-06 밤) | 전체 613 통과 · 실제 로그인 브라우저로 한 판(records/2026-10-06_party-console.md) |
 | P-3 ② | 보드(TV) `/admin/party/board` — 항상 다크, 플레이어 없음(노래 MV 가 정답 노출) | **완료**(10-06 밤) | 전체 615 통과 · 탭 2개로 콘솔 조작 → 1초 안 반영, 공개 전 정답 미노출(records/2026-10-06_party-board.md) |
-| P-3 ③ | 플레이어 창 → 스피드 콘솔·보드 + 사진 올리기·문제 목록 | **다음** | |
+| P-3 ③ | 10-10 결정 반영: 팀 이름 변경 · 문제 관리 `/admin/party/content`(TSV 올리기·현황·목록·숨기기·빠진 문제 알림) · 엑셀 따옴표 풀기 · 실행 배치 `scripts/party-start.bat` · 배치 스케줄 끔 + 점검 3회(심각 5건 수정) | **완료**(10-10) | 전체 630 통과(Docker 꺼짐 → Redis 11 Skipped) · bat 실제 실행 4회 · records/2026-10-10_party-decisions-review.md |
+| P-3 ④ | 플레이어 창 → 스피드 콘솔·보드 | **다음** | |
+| (나중) | 사진 업로드 — 남은 개발을 다 한 뒤 여유가 있으면(10-10). 그 전까지는 사진을 폴더에 직접 복사 | 보류 | |
 
-전체 테스트 수: **615**(기존 481 + MCP 16 + 파티 118), 0 Skipped(Docker 켠 집 PC, 10-06 밤 — main 의 MCP 를 party 에 merge). Docker 없는 회사 PC 는 Redis 13건이 Skipped 로 나오는 것이 정상.
+전체 테스트 수: **630**(기존 481 + MCP 16 + 파티 130 + 배치 스케줄 3), Docker 켠 집 PC 는 0 Skipped(10-10 실측은 Docker 꺼짐 → Redis 11 Skipped). Docker 없는 회사 PC 는 Redis 13건이 Skipped 로 나오는 것이 정상.
 
 ## 이어서 할 일 — P-3 화면 (콘솔·보드 완료, 다음은 플레이어 창)
 보드에서 정한 것: 플레이어 없음(소리는 콘솔·플레이어 창) · 소리 문제에 "무엇을 말하면 정답" 한 줄(README 판정 규칙의 참가자용 요약 — 규칙이 바뀌면 README·콘솔 JS·보드 JS 세 곳) · 잠긴 힌트 수는 안 보임 · 연결 끊김은 구석 작게. 못 본 것은 O-033.
@@ -49,7 +51,9 @@
 **조작(POST, CSRF 헤더, 모든 요청에 `version` = 화면이 마지막으로 받은 버전)**
 - 본게임 `/admin/party/` + `pick`(category, subCategory — `SONG` 이면 노래) · `show` · `cancel` · `play` · `pause` · `restart` · `hint` · `wrong`(team) · `correct`(team) · `miss` · `score`(team, delta) · `next` · `scores` · `wait` · `new`(**keepUsed** 필수) · `end`
 - 스피드 `/admin/party/speed/` + `setup`(topic 여러 개 가능, limitA, limitB, mode, **wordOnBoard** 필수) · `start`(team) · `correct` · `pass` · `undo` · `finish` · `rematch` · `reset`
-- 올리기 `POST /admin/party/items/import`(multipart `file`, UTF-8 TSV) · 사진 `GET /admin/party/images/<파일명>`
+- 팀 이름 `POST /admin/party/teams`(version, nameA, nameB — 1~10자, 서로 다르게. 새 게임·재시작 뒤에도 유지)
+- 올리기 `POST /admin/party/items/import`(multipart `file`, UTF-8 TSV) → `{created, updated, errors:[{line, reason}], missing:[{id, category, answer}]}` · 사진 `GET /admin/party/images/<파일명>`
+- 문제 목록 `GET /admin/party/items/list?category=`(정답 포함 — MC 전용, `status` PLAYABLE·OFF·INCOMPLETE + `reason`) · 숨기기 `POST /admin/party/items/{id}/use`(useYn=Y|N, version 없음 — 게임 상태가 아님)
 - 성공 200 `{success:true, state:<콘솔 상태>, remaining|topics:{…}}` · 값이 틀림 400 · 지금 할 수 없음 409 `{success:false, message}` · 화면이 낡음 409 `{…, stale:true}`
 
 **화면 구현 규칙**
@@ -72,6 +76,15 @@
 - 스피드퀴즈: **두 팀이 다른 주제로 붙는다** — 턴 사이에 설정을 바꿔 팀마다 주제를 고른다. 주제 여러 개 가능(떨어지면 다른 주제로 이어감) · [재대결](결과만)과 [초기화](전부) · 서버 시계로 판정, 여유 1초는 정답·패스에만 · 0.3초 안의 두 번째 정답·패스는 거부 · 되돌리기 1단계 · 이번 턴 제시어 기록을 콘솔에 제공 · 팀 이름·"다음 출제자!" 안내는 화면 몫.
 - 상태 파일: 바뀔 때마다 저장, 비울 때 `.bak-버전`, 못 읽으면 `.bad-시각` 으로 남김. 버전은 절대 줄지 않는다.
 - 설정: `party.image-dir` · `party.state-file` · `party.speed-state-file`(dev 만, `../party-images` 아래, 비어 있으면 메모리·사진 없음) · `party.speed-min-answer-interval-ms`(기본 300).
+- **10-10 결정**: 팀 이름은 게임 기록이 아니라 설정 — [새 게임] 두 종류 모두 남긴다 · 문제는 지우지 않고 숨긴다(`use_yn`, 목록에서 다시 켬). TSV 다시 올리기는 숨김을 풀지 않는다 · 올리기 결과의 `missing` = 이 파일에 나온 대분류의 켜진 문제 중 파일에 없는 것(TSV 에서 지웠거나 정답을 고치기 전 옛 행). 자동으로 숨기지 않고 [모두 숨기기] 버튼만(일부만 올린 파일일 수 있음). 열 수가 틀린 줄이 있는 대분류는 `missing` 을 계산하지 않는다 · 엑셀이 `"…""…"` 로 감싼 칸은 그 모양일 때만 원래 글자로 · 결과 JSON 은 안 만든다 · **배치 스케줄은 끈다**(`game.batch.schedule-enabled=false` — party 의 dev 프로필 기본값 + bat. 오프라인 새벽 YouTube 검사가 네트워크 오류를 삭제로 보고 노래를 전부 끄기 때문. 수동 실행은 됨).
+
+## 행사 노트북 실행 — `scripts/party-start.bat` (10-10)
+- **처음 한 번 파일 맨 위 세 줄을 고친다**: `PARTY_DIR`(사진·상태 파일 폴더, 공백 없는 절대 경로, 기본 `C:\party`) · `JAVA_HOME`(JDK 17) · `ALLOW_LAN`(기본 0).
+- 더블클릭 → 폴더 쓰기 시험 → `dev,session-jdbc` 로 기동. 앱 로그는 창이 아니라 `PARTY_DIR\party-app.log`(직전 것은 `.prev.log`) — 창을 클릭하면 Windows 가 창 출력을 멈추고 그 사이 로그를 쓰는 요청이 전부 멈추기 때문. 1~2분 뒤 브라우저로 콘솔·보드. 창을 닫으면 앱이 꺼진다.
+- **`ALLOW_LAN=0`(기본) = 이 노트북에서만 열린다.** 시드 관리자(`a@a.com`) 비밀번호가 공개 저장소의 코드에 있어서, 같은 와이파이의 누구나 로그인해 정답을 보고 MC 를 로그아웃시킬 수 있다. 휴대폰 예비 콘솔이 필요할 때만 `1` — 잠근 핫스팟에서만, 가능하면 관리자 비밀번호를 바꾼 뒤(노트북에는 비밀번호 바꾸는 화면이 없다 — O-034).
+- **첫 실행은 인터넷이 될 때** — Maven 이 필요한 파일을 받아 둬야 오프라인에서도 뜬다(집 PC 에서 원격 저장소를 끊고 기동 확인, 10-10).
+- 노트북 DB: dev 설정의 `localhost:3306/song`(root, 비밀번호는 `application-dev.properties`)에 맞춰 만든다. **`schema.sql` 은 빈 DB 에서만 실행** — `DROP TABLE IF EXISTS` 가 31개라 문제·노래를 넣은 뒤 다시 돌리면 전부 지워진다.
+- 배치 파일은 ASCII 로만 쓴다 — UTF-8 한글 + `chcp 65001` 이면 cmd 가 줄을 잘못 읽어 주석 일부를 명령으로 실행했다(10-10 실측).
 
 ## PC 별 주의
 | | 집 PC | 회사 PC |
@@ -121,7 +134,7 @@
 3. TV 프로그램 △ 6개·조건부 3개 듣고 결정. 게임 대사 원문 확인. 인물 결정 2건.
 4. **집 PC 리허설(10-06 계획)**: 듀얼 모니터 중 하나를 빼고 Win+P **확장**으로 콘솔(첫 화면)·보드(둘째 화면 F11) 분리 확인 — 정답 카드가 둘째 화면에 안 보이면 통과. 모니터를 뺐다 꽂으면 Windows 가 복제로 바꿀 때가 있어 매번 확인. 노트북 + TV 로 같은 절차를 한 번 더.
 5. **예비 관리자 계정**: 새로 만들지 않고 dev `DataInitializer` 가 넣는 `test1@test.com` 을 승격 — 관리자로 로그인 → 회원 관리 → 역할 ADMIN(`POST /admin/member/update-role/{id}`). 노트북은 `member` 를 안 가져오므로 거기서도 한 번 더. 확인: 노트북 브라우저 관리자 A = 보드, 휴대폰 test1 = 콘솔, 서로 로그아웃 안 되고 콘솔 조작이 1초 안에 보드에 반영.
-6. **Windows 방화벽 8082 인바운드(휴대폰 콘솔 예비 구성)** — 관리자 PowerShell 에서 한 줄:
+6. **Windows 방화벽 8082 인바운드(휴대폰 콘솔 예비 구성)** — 10-10 부터 배치 파일 기본값은 노트북 안에서만 열림(`ALLOW_LAN=0`). 휴대폰 확인 때는 `ALLOW_LAN=1` 로 바꿔 띄운다 — 관리자 PowerShell 에서 한 줄:
    ```powershell
    New-NetFirewallRule -DisplayName "quiz dev 8082" -Direction Inbound -Protocol TCP -LocalPort 8082 -Action Allow -Profile Private
    ```

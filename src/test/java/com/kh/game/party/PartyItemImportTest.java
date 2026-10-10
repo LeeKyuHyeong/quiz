@@ -340,4 +340,32 @@ class PartyItemImportTest {
         assertThat(result.errors()).extracting(PartyImportResult.RowError::line).containsExactly(1);
         assertThat(partyItemRepository.count()).isZero();
     }
+
+    @Test
+    @DisplayName("[정상] 엑셀이 따옴표 든 칸을 감싸고 안의 따옴표를 두 번 쓴 것을 원래 글자로 되돌린다")
+    void unwrapsExcelQuotedCells() {
+        PartyImportResult result = importService.importTsv(tsv(
+                row("GAME", "리그 오브 레전드", "AUDIO", "가렌", "",
+                        "\"픽 \"\"내 검과 심장은 데마시아의 것이다!\"\" · 대사\"", "", "", "", "", "",
+                        "탑", "\"회전 \"\"심판\"\"\"", "ㄱㄹ")));
+
+        assertThat(result.errors()).isEmpty();
+        PartyItem garen = partyItemRepository.findByCategoryAndAnswer(PartyCategory.GAME, "가렌").orElseThrow();
+        assertThat(garen.getDetail()).isEqualTo("픽 \"내 검과 심장은 데마시아의 것이다!\" · 대사");
+        assertThat(garen.getHint2()).isEqualTo("회전 \"심판\"");
+    }
+
+    @Test
+    @DisplayName("[경계] 엑셀을 거치지 않은 따옴표는 그대로 둔다 — 감싼 따옴표 안에 짝 없는 따옴표가 있거나 두 번 쓴 따옴표가 없으면")
+    void keepsPlainQuotes() {
+        PartyImportResult result = importService.importTsv(tsv(
+                row("SOUND", "예능 시그널", "AUDIO", "VJ 특공대", "", "\"VJ 특공대!\"", "", "", "", "", ""),
+                row("SOUND", "예능 시그널", "AUDIO", "무한도전", "", "\"무한~\" 외침 · \"도전\"", "", "", "", "", "")));
+
+        assertThat(result.errors()).isEmpty();
+        assertThat(partyItemRepository.findByCategoryAndAnswer(PartyCategory.SOUND, "VJ 특공대").orElseThrow()
+                .getDetail()).isEqualTo("\"VJ 특공대!\"");
+        assertThat(partyItemRepository.findByCategoryAndAnswer(PartyCategory.SOUND, "무한도전").orElseThrow()
+                .getDetail()).isEqualTo("\"무한~\" 외침 · \"도전\"");
+    }
 }

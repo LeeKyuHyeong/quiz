@@ -68,4 +68,16 @@ class PartyPageControllerTest {
         mockMvc.perform(get("/admin/party/board").with(user("user@test.com").roles("USER")))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    @DisplayName("[정상·권한] 문제 관리 화면 — 관리자 200(올리기·목록 스크립트), 비로그인은 로그인 화면, 일반 회원 403")
+    void contentPageNeedsAdmin() throws Exception {
+        mockMvc.perform(get("/admin/party/content").with(user("admin@test.com").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("/js/admin/party-content.js")))
+                .andExpect(content().string(containsString("id=\"partyContent\"")));
+        mockMvc.perform(get("/admin/party/content")).andExpect(status().is3xxRedirection());
+        mockMvc.perform(get("/admin/party/content").with(user("user@test.com").roles("USER")))
+                .andExpect(status().isForbidden());
+    }
 }

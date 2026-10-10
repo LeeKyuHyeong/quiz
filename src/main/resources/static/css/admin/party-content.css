@@ -1,0 +1,128 @@
+/* ========================================
+   파티 문제 관리 (/admin/party/content) - 기본 스타일 (라이트 모드 + PC)
+   카드·버튼·칩은 party-console.css 를 같이 쓴다. 여기는 표와 상태 표시만.
+   ======================================== */
+.pc-guide {
+    margin: 0.75rem 0 0;
+    padding-left: 1.25rem;
+    display: grid;
+    gap: 0.25rem;
+}
+
+.pc-errors {
+    margin: 0.5rem 0 0;
+    padding-left: 1.25rem;
+    max-height: 15rem;
+    overflow-y: auto;
+    color: var(--danger-color);
+    font-size: 0.85rem;
+}
+
+.pc-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.pc-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.pc-table th,
+.pc-table td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    text-align: left;
+    vertical-align: top;
+}
+
+.pc-table th {
+    color: var(--text-secondary);
+    background: var(--table-header-bg);
+    font-weight: 600;
+}
+
+.pc-table tr.pc-click {
+    cursor: pointer;
+}
+
+.pc-table tr.pc-click:hover,
+.pc-table tr.pc-click.on {
+    background: var(--table-row-hover);
+}
+
+.pc-table tr.pc-off td {
+    color: var(--text-muted);
+}
+
+.pc-answer-cell {
+    font-weight: 600;
+    word-break: keep-all;
+}
+
+.pc-warn-text {
+    color: var(--danger-color);
+    font-weight: 600;
+}
+
+.pc-chip.st-playable {
+    background: var(--badge-success-bg);
+    color: var(--badge-success-text);
+    border-color: transparent;
+}
+
+.pc-chip.st-incomplete {
+    background: var(--badge-warning-bg);
+    color: var(--badge-warning-text);
+    border-color: transparent;
+}
+
+.pc-chip.st-off {
+    background: var(--badge-gray-bg);
+    color: var(--badge-gray-text);
+    border-color: transparent;
+}
+
+/* ========================================
+   파티 문제 관리 - 다크 모드 (변수가 전환된다 — 표 머리만 명시)
+   ======================================== */
+[data-theme="dark"] .pc-table th {
+    background: var(--table-header-bg);
+}
+
+[data-theme="dark"] .pc-chip.st-playable {
+    background: var(--badge-success-bg);
+}
+
+[data-theme="dark"] .pc-chip.st-incomplete {
+    background: var(--badge-warning-bg);
+}
+
+/* ========================================
+   파티 문제 관리 - 태블릿 (768px 이하)
+   ======================================== */
+@media (max-width: 768px) {
+    .pc-table th,
+    .pc-table td {
+        padding: 0.5rem;
+    }
+}
+
+/* ========================================
+   파티 문제 관리 - 모바일 (480px 이하)
+   ======================================== */
+@media (max-width: 480px) {
+    .pc-table {
+        font-size: 0.8rem;
+    }
+
+    .pc-table th,
+    .pc-table td {
+        padding: 0.375rem 0.25rem;
+    }
+
+    .pc-guide {
+        padding-left: 1rem;
+    }
+}

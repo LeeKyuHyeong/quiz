@@ -32,6 +32,7 @@ public class PartyGameService {
 
     public static final String SONG = "SONG";
     public static final String ALL = "전체";
+    static final int TEAM_NAME_MAX = 10;
     private static final String IMAGE_URL_PREFIX = "/admin/party/images/";
 
     private final PartyItemRepository partyItemRepository;
@@ -283,12 +284,43 @@ public class PartyGameService {
     public synchronized void newGame(boolean keepUsed) {
         PartyGameState previous = holder.get();
         holder.reset();
+        PartyGameState state = holder.get();
+        boolean carried = false;
         if (keepUsed) {
-            PartyGameState state = holder.get();
             state.getUsedItemIds().addAll(previous.getUsedItemIds());
             state.getUsedSongIds().addAll(previous.getUsedSongIds());
+            carried = true;
+        }
+        // 팀 이름은 게임 기록이 아니라 설정이다 — 어느 새 게임에서도 남긴다
+        if (!state.getTeamNames().equals(previous.getTeamNames())) {
+            state.getTeamNames().putAll(previous.getTeamNames());
+            carried = true;
+        }
+        if (carried) {
             commit(state);
         }
+    }
+
+    /** 팀 이름(앞뒤 공백 제거 후 1~10자, 두 팀이 달라야 함). 어느 단계에서든 바꿀 수 있다. */
+    public synchronized void renameTeams(String nameA, String nameB) {
+        String a = teamName(nameA);
+        String b = teamName(nameB);
+        if (a.equals(b)) {
+            throw new PartyInputException("두 팀 이름이 같습니다");
+        }
+        PartyGameState state = holder.get();
+        state.getTeamNames().put(PartyTeam.A, a);
+        state.getTeamNames().put(PartyTeam.B, b);
+        commit(state);
+    }
+
+    private static String teamName(String raw) {
+        String name = raw == null ? "" : raw.strip();
+        int length = name.codePointCount(0, name.length());
+        if (length < 1 || length > TEAM_NAME_MAX) {
+            throw new PartyInputException("팀 이름은 1~" + TEAM_NAME_MAX + "자로 정해 주세요");
+        }
+        return name;
     }
 
     /**

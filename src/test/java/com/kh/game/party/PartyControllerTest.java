@@ -461,4 +461,85 @@ class PartyControllerTest {
                 .andExpect(jsonPath("$[?(@.category=='SPEED')].playable").value(1))
                 .andExpect(jsonPath("$[?(@.category=='ANIME')].total").value(0));
     }
+
+    @Test
+    @DisplayName("[정상] 팀 이름 바꾸기 — 관리자만, 응답 상태와 보드에 바로 보인다")
+    void renamesTeams() throws Exception {
+        mockMvc.perform(post("/admin/party/teams").param("version", String.valueOf(version()))
+                        .param("nameA", "불꽃팀").param("nameB", "물결팀").with(admin()).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.state.board.teamNames.A").value("불꽃팀"));
+        mockMvc.perform(get("/admin/party/state").with(admin()))
+                .andExpect(jsonPath("$.teamNames.B").value("물결팀"));
+
+        mockMvc.perform(post("/admin/party/teams").param("version", String.valueOf(version()))
+                        .param("nameA", "x").param("nameB", "y").with(member()).with(csrf()))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/admin/party/teams").param("version", String.valueOf(version()))
+                        .param("nameA", "같은팀").param("nameB", "같은팀").with(admin()).with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+        mockMvc.perform(get("/admin/party/state").with(admin()))
+                .andExpect(jsonPath("$.teamNames.A").value("불꽃팀"));
+    }
+
+    @Test
+    @DisplayName("[정상] 문제 목록은 대분류별로 상태(낼 수 있음·꺼짐·미완성과 이유)를 보여 준다")
+    void listsItemsWithStatus() throws Exception {
+        upload(row("SOUND", "CM송", "AUDIO", "초코파이"),
+                row("SOUND", "CM송", "AUDIO", "너구리", "", "", "https://youtu.be/abcdefghijk"),
+                row("PERSON", "공통", "IMAGE", "유재석", "", "", "", "", "", "person_01.jpg"));
+
+        mockMvc.perform(get("/admin/party/items/list").param("category", "SOUND").with(admin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[?(@.answer=='너구리')].status").value("PLAYABLE"))
+                .andExpect(jsonPath("$[?(@.answer=='초코파이')].status").value("INCOMPLETE"))
+                .andExpect(jsonPath("$[?(@.answer=='초코파이')].reason").value("YouTube URL 없음"));
+        mockMvc.perform(get("/admin/party/items/list").param("category", "PERSON").with(admin()))
+                .andExpect(jsonPath("$[0].reason").value("사진 파일 없음: person_01.jpg"));
+        mockMvc.perform(get("/admin/party/items/list").param("category", "NOPE").with(admin()))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/admin/party/items/list").param("category", "SOUND").with(member()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("[정상] 사용 안 함으로 숨긴 문제는 출제·남은 수에서 빠지고, 다시 켜면 돌아온다")
+    void hidesAndRestoresItem() throws Exception {
+        upload(row("QUIZ", "초성 · 과자", "TEXT", "포카칩", "", "", "", "", "", "", "[과자] ㅍ ㅋ ㅊ"),
+                row("QUIZ", "초성 · 과자", "TEXT", "새우깡", "", "", "", "", "", "", "[과자] ㅅ ㅇ ㄲ"));
+        long id = partyItemRepository.findByCategoryAndAnswer(PartyCategory.QUIZ, "포카칩").orElseThrow().getId();
+
+        mockMvc.perform(post("/admin/party/items/" + id + "/use").param("useYn", "N").with(admin()).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.item.status").value("OFF"));
+        assertThat(gameService.remaining().get("QUIZ")).containsEntry("전체", 1);
+        for (int i = 0; i < 3; i++) {
+            gameService.pick(PartyCategory.QUIZ, "초성 · 과자");
+            assertThat(gameService.consoleView().card().answer()).isEqualTo("새우깡");
+        }
+        gameService.newGame();  // 뽑아 둔 새우깡을 내려놓는다(남은 수 비교를 숨김 여부만으로)
+
+        mockMvc.perform(post("/admin/party/items/" + id + "/use").param("useYn", "Y").with(admin()).with(csrf()))
+                .andExpect(jsonPath("$.item.status").value("PLAYABLE"));
+        assertThat(gameService.remaining().get("QUIZ")).containsEntry("전체", 2);
+    }
+
+    @Test
+    @DisplayName("[예외] 사용 여부 바꾸기 — 값이 Y/N 이 아니거나 없는 문제면 400, 일반 회원·CSRF 없음은 403")
+    void useToggleRejectsBadRequests() throws Exception {
+        upload(row("SPEED", "동물", "TEXT", "코끼리"));
+        long id = partyItemRepository.findByCategoryAndAnswer(PartyCategory.SPEED, "코끼리").orElseThrow().getId();
+
+        mockMvc.perform(post("/admin/party/items/" + id + "/use").param("useYn", "X").with(admin()).with(csrf()))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/admin/party/items/999999/use").param("useYn", "N").with(admin()).with(csrf()))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/admin/party/items/" + id + "/use").param("useYn", "N").with(member()).with(csrf()))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/admin/party/items/" + id + "/use").param("useYn", "N").with(admin()))
+                .andExpect(status().isForbidden());
+        assertThat(partyItemRepository.findById(id).orElseThrow().getUseYn()).isEqualTo("Y");
+    }
 }

@@ -146,6 +146,11 @@
 
                     <section class="pc-card">
                         <h3>설정</h3>
+                        <div class="pc-names">
+                            <input type="text" id="pcNameA" maxlength="10" aria-label="A팀 이름">
+                            <input type="text" id="pcNameB" maxlength="10" aria-label="B팀 이름">
+                            <button type="button" class="pc-btn sm" id="pcNamesSave">팀 이름 저장</button>
+                        </div>
                         <label class="pc-toggle">
                             <span>재생 담당</span>
                             <select id="pcPlayerMode">
@@ -163,6 +168,9 @@
                         <div class="pc-row">
                             <button type="button" class="pc-btn danger sm" data-act="end"
                                     data-confirm="게임을 종료할까요? 보드에 최종 점수가 뜹니다.">게임 종료</button>
+                        </div>
+                        <div class="pc-row">
+                            <a class="pc-btn sm" href="/admin/party/content">문제 관리 (TSV 올리기 · 숨기기)</a>
                         </div>
                     </section>
                 </aside>

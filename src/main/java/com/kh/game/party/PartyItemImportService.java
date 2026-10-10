@@ -83,7 +83,7 @@ public class PartyItemImportService {
             throw new InvalidRowException("열 수가 " + cells.length + "개입니다(19개여야 함)");
         }
         for (int i = 0; i < cells.length; i++) {
-            cells[i] = cells[i].trim();
+            cells[i] = unwrapExcelQuotes(cells[i].trim()).trim();
         }
 
         PartyCategory category = parseEnum(PartyCategory.class, cells[CATEGORY], "대분류");
@@ -157,6 +157,21 @@ public class PartyItemImportService {
             return "제시가 TEXT 인데 문제텍스트가 비어 있습니다";
         }
         return null;
+    }
+
+    /**
+     * 엑셀은 따옴표가 든 칸을 "…" 로 감싸고 안의 따옴표를 "" 로 두 번 쓴다. 정확히 그 모양일 때만 되돌린다 —
+     * 감싼 안에 두 번 쓴 따옴표가 없거나 짝 없는 따옴표가 있으면 손으로 쓴 따옴표라 그대로 둔다.
+     */
+    static String unwrapExcelQuotes(String cell) {
+        if (cell.length() < 2 || !cell.startsWith("\"") || !cell.endsWith("\"")) {
+            return cell;
+        }
+        String inner = cell.substring(1, cell.length() - 1);
+        if (!inner.contains("\"\"") || inner.replace("\"\"", "").contains("\"")) {
+            return cell;
+        }
+        return inner.replace("\"\"", "\"");
     }
 
     private static <E extends Enum<E>> E parseEnum(Class<E> type, String value, String column) {

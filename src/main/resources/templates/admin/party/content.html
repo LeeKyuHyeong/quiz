@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{common/fragments/head :: adminHead('파티 문제 관리')}"></head>
+<body class="admin-page">
+<link rel="stylesheet" th:href="@{/css/admin/party-console.css}">
+<link rel="stylesheet" th:href="@{/css/admin/party-content.css}">
+<div class="admin-container">
+    <th:block th:replace="~{admin/layout/sidebar :: sidebar}"></th:block>
+
+    <main class="main-content">
+        <div class="party-console" id="partyContent">
+            <div class="pc-banner" id="pcBanner" hidden></div>
+            <div class="pc-notice" id="pcNotice" role="status" hidden></div>
+
+            <section class="pc-card pc-head">
+                <div class="pc-head-info">
+                    <span class="pc-chip on">문제 관리</span>
+                    <span class="pc-muted">정답이 보이는 화면 — TV 에 띄우지 마세요</span>
+                </div>
+                <a class="pc-btn" href="/admin/party/console">← 콘솔</a>
+            </section>
+
+            <!-- TSV 올리기 -->
+            <section class="pc-card">
+                <h3>TSV 올리기 (docs/party-content 19열)</h3>
+                <div class="pc-row">
+                    <input type="file" id="pcFile" accept=".tsv,.txt,text/tab-separated-values,text/plain">
+                    <button type="button" class="pc-btn primary" id="pcUpload" disabled>올리기</button>
+                </div>
+                <ul class="pc-muted pc-guide">
+                    <li>UTF-8 파일만 받습니다. 엑셀로 저장한 파일(CP949·UTF-16)은 거부되니 VS Code·메모장에서 UTF-8 로 저장하세요.</li>
+                    <li>같은 대분류 + 정답이면 덮어씁니다. <b>빈 칸은 기존 값을 지우지 않습니다.</b></li>
+                    <li>TSV 에서 지운 문제나 정답 표기를 고치기 전의 옛 문제는 DB 에 남습니다 — 아래 목록에서 [숨기기].</li>
+                </ul>
+                <div class="pc-status" id="pcUploadResult" hidden></div>
+                <ul class="pc-errors" id="pcUploadErrors" hidden></ul>
+            </section>
+
+            <!-- 현황 -->
+            <section class="pc-card">
+                <h3>대분류별 현황 (눌러서 목록 보기)</h3>
+                <div class="pc-table-wrap">
+                    <table class="pc-table" id="pcSummary">
+                        <thead>
+                        <tr><th>대분류</th><th>전체</th><th>낼 수 있음</th><th>미완성</th><th>숨김</th></tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 목록 -->
+            <section class="pc-card" id="pcListCard" hidden>
+                <h3 id="pcListTitle">목록</h3>
+                <div class="pc-row" id="pcFilters">
+                    <button type="button" class="pc-chip on" data-filter="ALL">전체</button>
+                    <button type="button" class="pc-chip" data-filter="PLAYABLE">낼 수 있음</button>
+                    <button type="button" class="pc-chip" data-filter="INCOMPLETE">미완성</button>
+                    <button type="button" class="pc-chip" data-filter="OFF">숨김</button>
+                </div>
+                <div class="pc-table-wrap">
+                    <table class="pc-table" id="pcList">
+                        <thead>
+                        <tr><th>중분류</th><th>정답</th><th>제시</th><th>상태</th><th></th></tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </main>
+</div>
+
+<script th:src="@{/js/admin/party-content.js}" defer></script>
+</body>
+</html>

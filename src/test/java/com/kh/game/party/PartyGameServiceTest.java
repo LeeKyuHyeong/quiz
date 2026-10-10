@@ -809,6 +809,46 @@ class PartyGameServiceTest {
     }
 
     @Test
+    @DisplayName("[정상] 팀 이름을 바꾸면 보드·콘솔에 보이고, 앞뒤 공백은 지운다")
+    void renamesTeams() {
+        service.renameTeams("  불꽃팀 ", "물결팀");
+
+        assertThat(service.boardView().teamNames()).containsEntry("A", "불꽃팀").containsEntry("B", "물결팀");
+        assertThat(service.consoleView().board().teamNames()).containsEntry("A", "불꽃팀");
+    }
+
+    @Test
+    @DisplayName("[예외] 팀 이름은 1~10자이고 두 팀이 같을 수 없다 — 거부되면 이름이 바뀌지 않는다")
+    void rejectsBadTeamNames() {
+        assertThatThrownBy(() -> service.renameTeams(" ", "물결팀")).isInstanceOf(PartyInputException.class);
+        assertThatThrownBy(() -> service.renameTeams(null, "물결팀")).isInstanceOf(PartyInputException.class);
+        assertThatThrownBy(() -> service.renameTeams("가나다라마바사아자차카", "물결팀"))
+                .isInstanceOf(PartyInputException.class);
+        assertThatThrownBy(() -> service.renameTeams("같은팀", " 같은팀 ")).isInstanceOf(PartyInputException.class);
+
+        assertThat(service.boardView().teamNames()).containsEntry("A", "남팀").containsEntry("B", "여팀");
+        service.renameTeams("가나다라마바사아자차", "B");
+        assertThat(service.boardView().teamNames()).containsEntry("A", "가나다라마바사아자차");
+    }
+
+    @Test
+    @DisplayName("[정상] 팀 이름은 설정이라 새 게임(이력 유지·전부 초기화 모두)과 재시작 뒤에도 남는다")
+    void teamNamesSurviveNewGameAndRestart() {
+        Path file = tempDir.resolve("names/party-state.json");
+        PartyGameService first = serviceOn(file);
+        first.renameTeams("불꽃팀", "물결팀");
+        first.adjustScore(PartyTeam.A, 1);
+
+        first.newGame(true);
+        assertThat(first.boardView().teamNames()).containsEntry("A", "불꽃팀");
+        first.newGame(false);
+        assertThat(first.boardView().teamNames()).containsEntry("B", "물결팀");
+        assertThat(first.boardView().scores()).containsEntry("A", 0);
+
+        assertThat(serviceOn(file).boardView().teamNames()).containsEntry("A", "불꽃팀").containsEntry("B", "물결팀");
+    }
+
+    @Test
     @DisplayName("[정상] 앱을 다시 켜도 자유 도전 상태가 이어진다")
     void restoresFreeChallengeAfterRestart() {
         text("초성 · 과자", "포카칩");

@@ -54,6 +54,7 @@
     let loggedOut = false;
     let lastPlayerSeq = null;
     let playerMode = loadPlayerMode();
+    let namesDirty = false;  // 팀 이름 칸을 고치는 중이면 폴링이 덮어쓰지 않는다
 
     // YouTube 플레이어 — 처음 필요할 때 만든다
     let ytStarted = false;
@@ -102,23 +103,26 @@
         renderPick();
     }
 
+    /** @returns 적용됐으면 true */
     async function act(action, params) {
-        if (busy || !state || loggedOut) return;
+        if (busy || !state || loggedOut) return false;
         setBusy(true);
         try {
             const data = await request('POST', BASE + action,
                 Object.assign({ version: state.board.version }, params || {}));
-            if (!data) return;
+            if (!data) return false;
             if (data.success) {
                 hideNotice();
                 if (data.remaining) remaining = data.remaining;
                 applyState(data.state);
                 renderPick();
+                return true;
             } else {
                 showNotice(data.stale
                     ? '다른 창에서 먼저 바뀌었습니다 — 최신 상태로 다시 그렸습니다. 필요하면 다시 누르세요.'
                     : (data.message || '처리하지 못했습니다'));
                 await refreshState();
+                return false;
             }
         } finally {
             setBusy(false);
@@ -146,6 +150,7 @@
             $('pcScore' + team).textContent = board.scores[team];
             $('pcCorrect' + team).textContent = teamName(team) + ' 정답';
             $('pcWrong' + team).textContent = teamName(team) + ' 오답';
+            if (!namesDirty) $('pcName' + team).value = teamName(team);
         });
 
         $('pcPick').hidden = !PICKABLE.includes(phase);
@@ -542,6 +547,20 @@
         if (button.dataset.delta) params.delta = button.dataset.delta;
         if (button.dataset.keepUsed) params.keepUsed = button.dataset.keepUsed;
         act(action, params);
+    });
+
+    ['pcNameA', 'pcNameB'].forEach((id) => {
+        $(id).addEventListener('input', () => {
+            namesDirty = true;
+        });
+    });
+    $('pcNamesSave').addEventListener('click', async () => {
+        const saved = await act('teams', { nameA: $('pcNameA').value, nameB: $('pcNameB').value });
+        if (saved) {
+            namesDirty = false;
+            render();
+            showNotice('팀 이름을 저장했습니다 — 보드에 바로 반영됩니다');
+        }
     });
 
     $('pcPreviewPlay').addEventListener('click', previewPlay);

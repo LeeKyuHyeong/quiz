@@ -117,6 +117,12 @@ public class PartyController {
         return act(version, () -> gameService.newGame(keepUsed));
     }
 
+    @PostMapping("/teams")
+    public Map<String, Object> renameTeams(@RequestParam long version, @RequestParam String nameA,
+                                           @RequestParam String nameB) {
+        return act(version, () -> gameService.renameTeams(nameA, nameB));
+    }
+
     /** 띄운 문제를 정답 공개 없이 거둔다(죽은 영상·깨진 사진). */
     @PostMapping("/cancel")
     public Map<String, Object> cancel(@RequestParam long version) {

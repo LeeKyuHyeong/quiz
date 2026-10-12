@@ -129,11 +129,12 @@ CREATE TABLE party_item (
 
 ### 2-3. 로컬 실행 환경 (노트북) — 노래 데이터는 운영에서 가져와야 한다
 
-- 노트북: JDK 17 + MariaDB 11 + 저장소 클론(또는 WAR). 집 PC 개발 DB 는 **MySQL 8.0.46**(MariaDB 아님, 10-06 확인)이고 같은 MariaDB 드라이버로 기동·`validate`·TSV 적재가 된다 — 노트북도 MySQL 이면 아래 `mariadb` 명령을 `mysql` 로 바꾸고 덤프 적재를 리허설 1 에서 확인. `application-dev.properties` 가 `localhost:3306/song`(root) 를 보므로 노트북 로컬 DB 를 같은 이름·계정으로 만들면 설정 변경 없음. 기동 `./mvnw spring-boot:run -Dspring-boot.run.profiles=dev` → 8082.
+- 노트북: JDK 17 + **MariaDB 11**(10-12 결정 — 운영과 같은 계열이라 운영 덤프를 그대로 넣는다) + 저장소 클론. 집 PC 개발 DB 는 MySQL 8.0.46 이지만 노트북과는 무관. `application-dev.properties` 가 `localhost:3306/song`(root) 를 보므로 노트북 로컬 DB 를 같은 이름·계정으로 만들면 설정 변경 없음. 기동은 `scripts/party-start.bat`(`dev,session-jdbc`, 사진·상태 폴더 고정) → 8082.
 - **노래 데이터(질문의 답: 필요하다)**: 운영 DB 에서 `genre`·`song` **두 테이블 데이터만** 덤프해 로컬에 적재한다. 나머지 테이블은 `schema.sql` 로 빈 구조만 만든다(`validate` 통과용). `member` 를 안 가져오므로 회원 개인정보가 노트북에 남지 않고, 회원 0명이면 `DataInitializer` 가 관리자 `a@a.com` 을 만들어 준다(비밀번호는 코드). `song_answer` 는 텍스트 판정을 안 하므로 불필요.
   ```bash
   # 서버 (runbook §4-1 과 같은 컨테이너). 'song genre song' = DB song 의 genre·song 테이블
-  docker exec quiz-db sh -c 'mariadb-dump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --no-create-info song genre song' \
+  # --complete-insert: INSERT 에 열 이름을 싣는다 — 운영 테이블은 ALTER 를 거쳐 열 순서가 schema.sql 과 다를 수 있다
+  docker exec quiz-db sh -c 'mariadb-dump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --no-create-info --complete-insert song genre song' \
     | gzip > /root/backup/party-songs-$(date +%Y%m%d).sql.gz
   # 노트북
   mariadb -uroot -p -e "CREATE DATABASE song CHARACTER SET utf8mb4"
@@ -141,8 +142,10 @@ CREATE TABLE party_item (
   gunzip -c party-songs-YYYYMMDD.sql.gz | mariadb -uroot -p song        # genre → song 순서로 적재
   ```
   덤프는 리허설 1 전에 한 번, 12월 첫 주 동결 때 한 번 더(그 사이 운영에 곡이 추가됐을 수 있음). 두 번째는 `TRUNCATE song; TRUNCATE genre;` 뒤 재적재(FK 순서 주의).
-- 행사 전 재검증: 로컬 관리자에서 `YouTubeVideoCheckBatch` 수동 실행 → `is_youtube_valid=0` 곡은 파티 조회에서 제외. 배치 설정은 `BatchService` 가 로컬에서도 seed 한다.
-- 이미지 폴더: `WebConfig` 리소스 핸들러가 쓰는 업로드 경로(dev 속성) 아래 `party/`. **저장소 밖 경로**로 잡고 `.gitignore` 에도 넣는다. 등록 폼 업로드는 확장자 화이트리스트(jpg·png·webp) + UUID 파일명.
+  **운영 영향(10-12 확인)**: 덤프는 읽기만 한다 — 두 테이블 모두 InnoDB 라 `--single-transaction` 이 쓰기를 막지 않는 스냅샷으로 읽는다. 곡 수천 행이라 수 초. 사람이 적은 시간에 한다. `party` 브랜치 push 는 배포를 돌리지 않는다(`deploy.yml` 은 main 만 — Actions 기록에 party 실행 없음).
+  **`schema.sql` 은 빈 DB 에서 한 번만** — `DROP TABLE IF EXISTS` 31개라 다시 돌리면 노래·문제가 지워진다. 파티 문제(`party_item`)는 덤프하지 않는다 — 앱을 띄운 뒤 문제 관리(`/admin/party/content`)에서 TSV 7개를 올린다.
+- 행사 전 재검증: 로컬 관리자에서 `YouTubeVideoCheckBatch` 수동 실행 → `is_youtube_valid=0` 곡은 파티 조회에서 제외. 배치 설정은 `BatchService` 가 로컬에서도 seed 한다. **인터넷이 안정적일 때만** — 이 배치는 네트워크 오류도 "영상 없음"으로 보고 곡을 꺼 버린다(O-035, 자동 복구 없음). 그래서 실행 배치 파일은 스케줄을 끈다(10-10). 끝나면 꺼진 곡 수가 갑자기 많지 않은지 본다.
+- 사진 폴더: 실행 배치 파일의 `PARTY_DIR`(기본 `C:\party`, 저장소 밖) — 사진 파일을 TSV `이미지파일명` 그대로 직접 복사한다. 앱은 `/admin/party/images/**`(관리자만)로 이 폴더를 읽는다(`PartyWebConfig`). 화면 업로드는 보류(10-10, 남은 개발 뒤 여유 있으면).
 - **USB 백업**: 로컬 DB 덤프(`party_item` 포함) + 이미지 폴더 + WAR + 기동 배치 파일. 목표는 "노트북이 죽으면 다른 PC 에 30분 안에 복구" → 리허설 2 에서 복구 리허설 1회.
 - 코드 관리: 파티 코드는 **`party` 브랜치**에 둔다. `PartyItem` 엔티티가 main 에 올라가 배포되면 운영 DB 에 `party_item` 이 없어 `validate` 가 실패하기 때문. 나중에 운영에 올리고 싶으면 운영 DB CREATE 후 병합.
 

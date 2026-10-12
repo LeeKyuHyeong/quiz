@@ -30,6 +30,8 @@
     // 설정 초안 — 고치는 중이면 폴링이 덮어쓰지 않는다
     let draft = null;
     let dirty = false;
+    // 초안을 고치기 시작할 때의 서버 설정 — 그 사이 다른 창이 바꿨으면 낡은 초안으로 덮어쓰지 않는다
+    let draftBase = null;
 
     const $ = (id) => document.getElementById(id);
     const root = $('partySpeedConsole');
@@ -124,8 +126,9 @@
         const turnTeam = board.turnTeam;
         $('spTurnCard').hidden = phase === 'RESULT';
 
-        $('spTurnTitle').textContent = phase === 'WAIT' ? '턴 — 시작할 팀을 고르세요'
-            : running ? name(turnTeam) + ' 진행 중 · ' + MODE_LABEL[board.mode] + ' 설명'
+        const tv = state.setup.wordOnBoard ? 'TV 에 제시어 보임' : 'TV 에 제시어 숨김';
+        $('spTurnTitle').textContent = phase === 'WAIT' ? '턴 — 시작할 팀을 고르세요 · ' + tv
+            : running ? name(turnTeam) + ' 진행 중 · ' + MODE_LABEL[board.mode] + ' 설명 · ' + tv
                 : phase === 'OVER' ? name(turnTeam) + ' 턴 끝' : '턴';
 
         ['A', 'B'].forEach((team) => {
@@ -236,12 +239,30 @@
         };
     }
 
+    /** 설정 비교용. 주제 순서는 재시작 뒤 바뀔 수 있어 정렬한다. */
+    function setupKey(setup) {
+        return JSON.stringify(Object.assign({}, setup, { topics: [...(setup.topics || [])].sort() }));
+    }
+
     function markDirty() {
+        if (!dirty) draftBase = setupKey(state.setup);
         dirty = true;
         renderSetup();
     }
 
+    /** @returns 저장됐거나 바꾼 것이 없으면 true */
     async function saveSetup() {
+        if (!dirty) {
+            showNotice('바꾼 설정이 없습니다');
+            return true;
+        }
+        if (setupKey(state.setup) !== draftBase) {
+            dirty = false;
+            draft = draftFrom(state.setup);
+            renderSetup();
+            showNotice('다른 창에서 설정이 바뀌었습니다 — 바뀐 설정을 확인하고 다시 고르세요');
+            return false;
+        }
         const body = new URLSearchParams();
         draft.topics.forEach((topic) => body.append('topic', topic));
         body.set('limitA', $('spLimitA').value);
@@ -253,7 +274,9 @@
             draft = draftFrom(state.setup);
             renderSetup();
             showNotice('설정을 저장했습니다');
+            return true;
         }
+        return false;
     }
 
     // ---------- 도우미 ----------
@@ -309,16 +332,22 @@
 
     // ---------- 시작 ----------
 
-    root.addEventListener('click', (event) => {
+    root.addEventListener('click', async (event) => {
         const button = event.target.closest('[data-act]');
         if (!button || button.disabled) return;
         if (button.dataset.confirm && !window.confirm(button.dataset.confirm)) return;
+        // 서버는 저장된 설정으로 턴을 돌린다 — 저장 안 한 "콘솔에만" 으로 시작하면 제시어가 TV 에 뜬다
+        if (button.dataset.act === 'start' && dirty) {
+            if (!window.confirm('저장 안 된 설정이 있습니다. 저장하고 시작할까요?\n(취소하면 시작하지 않습니다)')) return;
+            if (!(await saveSetup())) return;
+        }
         const params = {};
         if (button.dataset.team) params.team = button.dataset.team;
         act(button.dataset.act, params).then((applied) => {
             if (applied && button.dataset.act === 'reset') {
                 dirty = false;
                 draft = draftFrom(state.setup);
+                renderSetup();
                 loadTopics();
             }
         });

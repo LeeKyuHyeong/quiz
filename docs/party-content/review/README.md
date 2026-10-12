@@ -9,6 +9,7 @@ YouTube 플레이어는 `file://` 에서 안 돌아서 로컬 서버로 연다(�
 python -m http.server 8090 --bind 127.0.0.1 --directory docs/party-content/review
 ```
 브라우저로 `http://localhost:8090` (창을 닫으려면 그 터미널에서 Ctrl+C).
+**일반 Chrome 으로 연다** — Claude 데스크톱 앱의 내장 브라우저에서는 YouTube 임베드가 "플레이어 구성 오류 153"으로 막혀 플레이어의 onReady 가 안 오고 ▶ 를 눌러도 영상이 안 실린다(10-12 확인, 페이지 코드 문제 아님). 검수는 **데스크탑에서** 이어간다(행사 노트북은 사양이 낮아 검수에 안 씀) — 결과가 그 브라우저에만 저장되니 한 PC 에서 끝낸다(10-12 결정).
 
 ## 쓰는 법
 1. 위에서 대분류(SOUND·ANIME·GAME) 선택 → 후보의 ▶.

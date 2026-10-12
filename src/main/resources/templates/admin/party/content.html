@@ -17,7 +17,7 @@
                     <span class="pc-chip on">문제 관리</span>
                     <span class="pc-muted">정답이 보이는 화면 — TV 에 띄우지 마세요</span>
                 </div>
-                <a class="pc-btn" href="/admin/party/console">← 콘솔</a>
+                <span class="pc-muted">콘솔은 열어 둔 탭으로 돌아가세요 — 이 탭은 닫아도 됩니다 (콘솔을 두 개 열면 소리가 겹칠 수 있음)</span>
             </section>
 
             <!-- TSV 올리기 -->
@@ -31,9 +31,16 @@
                     <li>UTF-8 파일만 받습니다. 엑셀로 저장한 파일(CP949·UTF-16)은 거부되니 VS Code·메모장에서 UTF-8 로 저장하세요.</li>
                     <li>같은 대분류 + 정답이면 덮어씁니다. <b>빈 칸은 기존 값을 지우지 않습니다.</b></li>
                     <li>TSV 에서 지운 문제나 정답 표기를 고치기 전의 옛 문제는 DB 에 남습니다 — 아래 목록에서 [숨기기].</li>
+                    <li>정답 표기를 고치면 새 문제가 됩니다 — 연습경기 이력이 막지 못하니 표기는 연습경기 <b>전에</b> 고치세요.</li>
+                    <li>숨긴 문제는 다시 올려도 숨김 그대로입니다. 지금 보드에 띄운·뽑아 둔 문제는 숨겨도 이번 라운드는 그대로 — 콘솔에서 [거두기]·다시 뽑기.</li>
                 </ul>
                 <div class="pc-status" id="pcUploadResult" hidden></div>
                 <ul class="pc-errors" id="pcUploadErrors" hidden></ul>
+                <div class="pc-status free" id="pcUnchecked" hidden></div>
+                <div class="pc-missing" id="pcStillHidden" hidden>
+                    <div class="pc-status" id="pcStillHiddenTitle"></div>
+                    <ul class="pc-missing-list" id="pcStillHiddenList"></ul>
+                </div>
                 <div class="pc-missing" id="pcMissing" hidden>
                     <div class="pc-status free" id="pcMissingTitle"></div>
                     <ul class="pc-missing-list" id="pcMissingList"></ul>

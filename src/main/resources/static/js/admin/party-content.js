@@ -59,6 +59,7 @@
             const data = await request('POST', BASE + 'import', form);
             if (!data) return;
             if (data.success === false) {
+                clearUploadResult();
                 showNotice(data.message || '올리지 못했습니다');
                 return;
             }
@@ -85,6 +86,37 @@
         });
         list.hidden = data.errors.length === 0;
         renderMissing(data.missing || []);
+        renderUnchecked(data.unchecked || []);
+        renderStillHidden(data.hidden || []);
+    }
+
+    /** 앞 파일의 결과가 이번 실패한 올리기의 결과처럼 보이지 않게 지운다. */
+    function clearUploadResult() {
+        ['pcUploadResult', 'pcUploadErrors', 'pcMissing', 'pcUnchecked', 'pcStillHidden'].forEach((id) => {
+            $(id).hidden = true;
+        });
+        missingRows = [];
+    }
+
+    /** 열 수가 틀린 줄이 있어 빠진 문제 검사를 건너뛴 대분류. */
+    function renderUnchecked(categories) {
+        const box = $('pcUnchecked');
+        box.hidden = categories.length === 0;
+        box.textContent = categories.map((c) => CATEGORY_LABEL[c] || c).join(', ')
+            + ' — 열 수가 틀린 줄이 있어 "이 파일에 없는 문제" 검사를 건너뛰었습니다. 거부된 줄을 고친 뒤 다시 올리세요.';
+    }
+
+    /** 이 파일에 있지만 숨김 상태인 문제 — 올리기는 숨김을 풀지 않는다. */
+    function renderStillHidden(items) {
+        $('pcStillHidden').hidden = items.length === 0;
+        if (items.length === 0) return;
+        $('pcStillHiddenTitle').textContent = '이 파일에 있지만 숨김 상태인 문제 ' + items.length
+            + '개 — 다시 내려면 목록의 [숨김] 필터에서 [다시 켜기].';
+        const list = $('pcStillHiddenList');
+        list.replaceChildren();
+        items.forEach((item) => {
+            list.append(el('li', '', (CATEGORY_LABEL[item.category] || item.category) + ' · ' + item.answer));
+        });
     }
 
     /** 이 파일의 대분류에 있는데 파일에 없는 켜진 문제 — TSV 에서 지웠거나 정답을 고치기 전의 옛 행일 수 있다. */
@@ -109,9 +141,14 @@
         $('pcHideMissing').disabled = true;
         let failed = 0;
         try {
-            for (const item of missingRows) {
-                const data = await request('POST', BASE + item.id + '/use', { useYn: 'N' });
-                if (!data || data.success === false) failed++;
+            for (let i = 0; i < missingRows.length; i++) {
+                const data = await request('POST', BASE + missingRows[i].id + '/use', { useYn: 'N' });
+                if (!data) {
+                    // 로그아웃·서버 응답 없음 — 남은 것도 실패로 세고 멈춘다
+                    failed += missingRows.length - i;
+                    break;
+                }
+                if (data.success === false) failed++;
             }
         } finally {
             busy = false;

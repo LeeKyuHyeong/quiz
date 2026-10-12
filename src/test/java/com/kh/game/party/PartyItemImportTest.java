@@ -413,4 +413,36 @@ class PartyItemImportTest {
         assertThat(screen.missing()).isEmpty();
         assertThat(quiz.missing()).extracting(PartyImportResult.Missing::answer).containsExactly("새우깡");
     }
+
+    @Test
+    @DisplayName("[정상] 다시 올린 파일에 있지만 숨김 상태인 문제를 알려 준다 — 올리기는 숨김을 풀지 않는다")
+    void reportsItemsStillHidden() {
+        String file = tsv(
+                row("QUIZ", "초성 · 과자", "TEXT", "포카칩", "", "", "", "", "", "", "[과자] ㅍ ㅋ ㅊ"),
+                row("QUIZ", "초성 · 과자", "TEXT", "새우깡", "", "", "", "", "", "", "[과자] ㅅ ㅇ ㄲ"));
+        importService.importTsv(file);
+        PartyItem hidden = partyItemRepository.findByCategoryAndAnswer(PartyCategory.QUIZ, "포카칩").orElseThrow();
+        hidden.setUseYn("N");
+        partyItemRepository.save(hidden);
+
+        PartyImportResult result = importService.importTsv(file);
+
+        assertThat(result.hidden()).extracting(PartyImportResult.Missing::answer).containsExactly("포카칩");
+        assertThat(result.hidden().get(0).category()).isEqualTo("QUIZ");
+        assertThat(partyItemRepository.findByCategoryAndAnswer(PartyCategory.QUIZ, "포카칩").orElseThrow().getUseYn())
+                .isEqualTo("N");
+    }
+
+    @Test
+    @DisplayName("[경계] 열 수가 틀린 줄 때문에 빠진 문제 검사를 건너뛴 대분류를 알려 준다 — 대분류가 아닌 칸은 빼고")
+    void reportsCategoriesSkippedForMissingCheck() {
+        String brokenScreen = "SCREEN	IMAGE	도깨비	쓸쓸하고 찬란하신" + "	".repeat(14);
+        PartyImportResult result = importService.importTsv(tsv(brokenScreen,
+                row("SCREEN", "로맨스·멜로", "IMAGE", "응답하라 1988", ""),
+                row("QUIZ", "초성 · 과자", "TEXT", "포카칩", "", "", "", "", "", "", "[과자] ㅍ ㅋ ㅊ"),
+                "엉터리	한 칸"));
+
+        assertThat(result.errors()).hasSize(2);
+        assertThat(result.unchecked()).containsExactly("SCREEN");
+    }
 }

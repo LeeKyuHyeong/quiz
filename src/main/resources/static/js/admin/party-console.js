@@ -7,7 +7,7 @@
  *   공통 fetch 래퍼가 {success:false} 오류를 200 으로 바꾸므로 상태 코드가 아니라 본문으로 판단한다.
  *   실패하면(낡은 화면 stale 포함) 상태를 다시 받는다.
  * - 남은 문제 수(/remaining)는 DB 를 읽으므로 폴링하지 않는다 — 화면을 열 때, 조작 응답,
- *   다른 창이 상태를 바꾼 것을 폴링이 알아챘을 때만 받는다.
+ *   다른 창이 상태를 바꾼 것을 폴링이 알아챘을 때, 이 창으로 돌아왔을 때(문제 관리 탭에서 숨기기)만 받는다.
  * - 응답이 JSON 이 아니면(로그인 화면으로 넘어감) "로그아웃됨".
  * 사용자 입력·문제 내용은 전부 textContent 로만 넣는다.
  */
@@ -471,6 +471,7 @@
         root.querySelectorAll('[data-act]').forEach((button) => {
             button.disabled = busy || loggedOut || button.dataset.off === '1';
         });
+        $('pcNamesSave').disabled = busy || loggedOut;
     }
 
     function countOf(category, sub) {
@@ -551,7 +552,8 @@
 
     ['pcNameA', 'pcNameB'].forEach((id) => {
         $(id).addEventListener('input', () => {
-            namesDirty = true;
+            // 원래 이름으로 되돌리면 다시 다른 창의 변경을 따라간다
+            namesDirty = !state || ['A', 'B'].some((team) => $('pcName' + team).value !== teamName(team));
         });
     });
     $('pcNamesSave').addEventListener('click', async () => {
@@ -579,6 +581,14 @@
             // 저장 못 해도 이번 화면에서는 적용된다
         }
         if (playerMode !== 'here' && ytReady) YouTubePlayerManager.pause();
+    });
+
+    // 문제 관리 탭에서 숨기거나 켠 것을 남은 수에 반영 — 폴링은 DB 를 읽지 않으므로 돌아올 때 한 번
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && state && !loggedOut) loadRemaining();
+    });
+    window.addEventListener('focus', () => {
+        if (state && !loggedOut) loadRemaining();
     });
 
     refreshState().then(loadRemaining);

@@ -51,7 +51,8 @@ public class PartyItemController {
             result = importService.importTsv(content);
         }
         return Map.of("success", true, "created", result.created(), "updated", result.updated(),
-                "errors", result.errors(), "missing", result.missing());
+                "errors", result.errors(), "missing", result.missing(),
+                "hidden", result.hidden(), "unchecked", result.unchecked());
     }
 
     /**

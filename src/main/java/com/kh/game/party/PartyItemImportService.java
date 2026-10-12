@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -48,7 +49,7 @@ public class PartyItemImportService {
         String[] header = lines[0].split("\t", -1);
         if (header.length != COLUMN_COUNT || !FIRST_HEADER.equals(header[0].trim())) {
             errors.add(new PartyImportResult.RowError(1, "머리글이 19열 형식이 아닙니다"));
-            return new PartyImportResult(0, 0, errors, List.of());
+            return new PartyImportResult(0, 0, errors, List.of(), List.of(), List.of());
         }
 
         int created = 0;
@@ -58,6 +59,8 @@ public class PartyItemImportService {
         // 파일에 나온 (대분류, 정답) — 거부된 줄도 포함. 이 대분류의 기존 문제 중 여기 없는 것을 알린다
         Map<String, Set<String>> answersInFile = new HashMap<>();
         Set<String> unreliableCategories = new HashSet<>();
+        // 이 파일에 있지만 숨김 상태인 문제 — 올리기는 숨김을 풀지 않으므로 알린다(O-034 ④)
+        List<PartyImportResult.Missing> hidden = new ArrayList<>();
         for (int i = 1; i < lines.length; i++) {
             if (lines[i].isBlank()) {
                 continue;
@@ -65,7 +68,7 @@ public class PartyItemImportService {
             rememberKey(lines[i], answersInFile, unreliableCategories);
             int lineNo = i + 1;
             try {
-                if (apply(lines[i].split("\t", -1), writtenIds)) {
+                if (apply(lines[i].split("\t", -1), writtenIds, hidden)) {
                     created++;
                 } else {
                     updated++;
@@ -77,7 +80,7 @@ public class PartyItemImportService {
         List<PartyImportResult.Missing> missing = missingFrom(answersInFile, unreliableCategories);
         log.info("Party item import: created={} updated={} rejected={} missing={}",
                 created, updated, errors.size(), missing.size());
-        return new PartyImportResult(created, updated, errors, missing);
+        return new PartyImportResult(created, updated, errors, missing, hidden, checkedNot(unreliableCategories));
     }
 
     /**
@@ -101,6 +104,13 @@ public class PartyItemImportService {
         return answer.strip().toLowerCase(Locale.ROOT);
     }
 
+    /** 빠진 문제 검사를 건너뛴 대분류 — 대분류 칸이 아닌 값(열이 어긋난 줄)은 뺀다. */
+    private static List<String> checkedNot(Set<String> unreliableCategories) {
+        return Arrays.stream(PartyCategory.values()).map(Enum::name)
+                .filter(unreliableCategories::contains)
+                .toList();
+    }
+
     private List<PartyImportResult.Missing> missingFrom(Map<String, Set<String>> answersInFile,
                                                        Set<String> unreliableCategories) {
         return partyItemRepository.findAll().stream()
@@ -118,7 +128,7 @@ public class PartyItemImportService {
      *
      * @return 새로 만들었으면 true, 기존 행을 덮어썼으면 false
      */
-    private boolean apply(String[] cells, Set<Long> writtenIds) {
+    private boolean apply(String[] cells, Set<Long> writtenIds, List<PartyImportResult.Missing> hidden) {
         if (cells.length != COLUMN_COUNT) {
             throw new InvalidRowException("열 수가 " + cells.length + "개입니다(19개여야 함)");
         }
@@ -179,7 +189,11 @@ public class PartyItemImportService {
         ifPresent(hint3, item::setHint3);
         ifPresent(source, item::setSourceNote);
         ifPresent(difficulty, item::setDifficulty);
-        writtenIds.add(partyItemRepository.save(item).getId());
+        PartyItem saved = partyItemRepository.save(item);
+        writtenIds.add(saved.getId());
+        if (!"Y".equals(saved.getUseYn())) {
+            hidden.add(new PartyImportResult.Missing(saved.getId(), category.name(), saved.getAnswer()));
+        }
         return isNew;
     }
 

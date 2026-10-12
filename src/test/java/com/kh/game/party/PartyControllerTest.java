@@ -417,6 +417,25 @@ class PartyControllerTest {
     }
 
     @Test
+    @DisplayName("[정상] 올리기 결과에 숨김 상태로 남은 문제와 빠진 문제 검사를 건너뛴 대분류가 실린다")
+    void importReportsHiddenAndUnchecked() throws Exception {
+        String tsv = HEADER + "\n" + row("SPEED", "동물", "TEXT", "코끼리") + "\n";
+        upload(row("SPEED", "동물", "TEXT", "코끼리"));
+        PartyItem item = partyItemRepository.findByCategoryAndAnswer(PartyCategory.SPEED, "코끼리").orElseThrow();
+        item.setUseYn("N");
+        partyItemRepository.save(item);
+        String again = tsv + "SPEED\t동물\tTEXT\n";
+
+        mockMvc.perform(multipart("/admin/party/items/import")
+                        .file(new MockMultipartFile("file", "a.tsv", "text/plain", again.getBytes(StandardCharsets.UTF_8)))
+                        .with(admin()).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.hidden", hasSize(1)))
+                .andExpect(jsonPath("$.hidden[0].answer").value("코끼리"))
+                .andExpect(jsonPath("$.unchecked[0]").value("SPEED"));
+    }
+
+    @Test
     @DisplayName("[예외] 빈 파일, UTF-8 이 아닌 파일, file 이 빠진 요청은 400 이고 아무것도 저장되지 않는다")
     void importRejectsBadFile() throws Exception {
         byte[] cp949 = (HEADER + "\n" + row("SPEED", "동물", "TEXT", "코끼리")).getBytes(Charset.forName("MS949"));

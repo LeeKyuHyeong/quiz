@@ -306,6 +306,8 @@
         if (board.freeChallenge) {
             status.classList.add('free');
             status.textContent = '양 팀 모두 오답 → 자유 도전 (보드에 표시됨) · 먼저 맞히는 팀이 득점, 끝까지 안 나오면 [못 맞힘]';
+        } else if (board.bothWrong) {
+            status.textContent = '양 팀 모두 오답 → [못 맞힘] 으로 정답 공개 (정지형은 자유 도전 없음)';
         } else if (board.wrongTeam) {
             status.textContent = teamName(board.wrongTeam) + ' 오답 → ' + teamName(otherTeam(board.wrongTeam))
                 + ' 기회 (보드에 표시됨 · 점수 무관)';

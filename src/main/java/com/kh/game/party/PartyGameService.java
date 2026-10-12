@@ -355,6 +355,9 @@ public class PartyGameService {
                     name(state.getScoringTeam()));
         }
 
+        // 두 팀 모두 오답: 재생형은 끝까지 들으며 자유 도전, 정지형은 MC 가 [못 맞힘] (plan §4-2)
+        boolean bothWrong = onBoard && state.getWrongTeams().size() == PartyTeam.values().length;
+
         Map<String, String> teamNames = new LinkedHashMap<>();
         Map<String, Integer> scores = new LinkedHashMap<>();
         for (PartyTeam team : PartyTeam.values()) {
@@ -364,8 +367,8 @@ public class PartyGameService {
         return new PartyBoardView(state.getVersion(),
                 (phase == PartyPhase.READY ? PartyPhase.WAIT : phase).name(),
                 state.getRound(), teamNames, scores, item, hints,
-                onBoard ? name(state.getWrongTeam()) : null,
-                onBoard && state.getWrongTeams().size() == PartyTeam.values().length, reveal,
+                onBoard ? name(state.getWrongTeam()) : null, bothWrong,
+                bothWrong && question.getPresentation() == PartyPresentation.AUDIO, reveal,
                 new PartyBoardView.Player(state.getPlayerSeq(), onBoard ? state.getPlayerCmd() : null),
                 onBoard ? state.getTimerStartedAt() : null,
                 onBoard && state.getTimerStartedAt() != null

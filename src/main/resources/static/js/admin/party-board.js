@@ -58,7 +58,7 @@
             $('pbBigName' + team).textContent = names[team];
             $('pbBigScore' + team).textContent = state.scores[team];
             $('pbTeam' + team).classList.toggle('dim',
-                phase === 'SHOW' && !state.freeChallenge && state.wrongTeam === team);
+                phase === 'SHOW' && !state.freeChallenge && (state.bothWrong || state.wrongTeam === team));
         });
 
         $('pbCat').textContent = headerOf(state);
@@ -96,6 +96,10 @@
             turn.hidden = false;
             turn.classList.add('free');
             turn.textContent = '양 팀 오답 — 자유 도전!';
+        } else if (state.bothWrong) {
+            // 정지형은 자유 도전 없음 — MC 가 [못 맞힘]으로 정답 공개
+            turn.hidden = false;
+            turn.textContent = '양 팀 오답';
         } else if (state.wrongTeam) {
             const other = state.wrongTeam === 'A' ? 'B' : 'A';
             turn.hidden = false;
@@ -163,9 +167,9 @@
     function footerOf(state) {
         switch (state.phase) {
             case 'SHOW':
-                return state.freeChallenge
-                    ? '자유 도전 — 먼저 맞히는 팀이 득점'
-                    : '먼저 손 든 사람만 · 오답이면 상대 팀 기회';
+                return state.freeChallenge ? '자유 도전 — 먼저 맞히는 팀이 득점'
+                    : state.bothWrong ? '곧 정답 공개'
+                        : '먼저 손 든 사람만 · 오답이면 상대 팀 기회';
             case 'REVEAL':
             case 'SCORES':
                 return '다음 대분류는 MC 가';

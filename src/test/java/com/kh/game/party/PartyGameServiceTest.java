@@ -431,24 +431,50 @@ class PartyGameServiceTest {
     }
 
     @Test
-    @DisplayName("[정상] 두 팀이 모두 오답이면 자유 도전이 되고, 다음 문제에서 풀린다")
+    @DisplayName("[정상] 재생형에서 두 팀이 모두 오답이면 자유 도전이 되고, 다음 문제에서 풀린다")
     void bothWrongMeansFreeChallenge() {
-        text("초성 · 과자", "포카칩");
-        text("초성 · 과자", "새우깡");
-        showQuiz("초성 · 과자");
+        save(item(PartyCategory.SOUND, "CM송", PartyPresentation.AUDIO, "초코파이"));
+        save(item(PartyCategory.SOUND, "CM송", PartyPresentation.AUDIO, "새우깡"));
+        service.pick(PartyCategory.SOUND, "CM송");
+        service.show();
 
         service.wrong(PartyTeam.A);
         assertThat(service.boardView().freeChallenge()).isFalse();
         service.wrong(PartyTeam.A);
         assertThat(service.boardView().freeChallenge()).isFalse();
+        assertThat(service.boardView().bothWrong()).isFalse();
 
         service.wrong(PartyTeam.B);
         assertThat(service.boardView().freeChallenge()).isTrue();
+        assertThat(service.boardView().bothWrong()).isTrue();
         assertThat(service.consoleView().board().freeChallenge()).isTrue();
 
         service.correct(PartyTeam.A);
         service.next();
+        service.pick(PartyCategory.SOUND, "CM송");
+        service.show();
+        assertThat(service.boardView().freeChallenge()).isFalse();
+        assertThat(service.boardView().bothWrong()).isFalse();
+    }
+
+    @Test
+    @DisplayName("[정상] 정지형(텍스트·사진)은 두 팀이 모두 오답이어도 자유 도전이 아니다 — 양 팀 오답만 알리고 MC 가 [못 맞힘] (plan §4-2)")
+    void staticBothWrongIsNotFreeChallenge() {
+        text("초성 · 과자", "포카칩");
+        text("초성 · 과자", "새우깡");
+
         showQuiz("초성 · 과자");
+        service.wrong(PartyTeam.A);
+        service.wrong(PartyTeam.B);
+        assertThat(service.boardView().bothWrong()).isTrue();
+        assertThat(service.boardView().freeChallenge()).isFalse();
+        service.miss();
+
+        service.next();
+        showQuiz("초성 · 과자");
+        service.wrong(PartyTeam.B);
+        service.wrong(PartyTeam.A);
+        assertThat(service.boardView().bothWrong()).isTrue();
         assertThat(service.boardView().freeChallenge()).isFalse();
     }
 
@@ -851,11 +877,11 @@ class PartyGameServiceTest {
     @Test
     @DisplayName("[정상] 앱을 다시 켜도 자유 도전 상태가 이어진다")
     void restoresFreeChallengeAfterRestart() {
-        text("초성 · 과자", "포카칩");
+        save(item(PartyCategory.SOUND, "CM송", PartyPresentation.AUDIO, "초코파이"));
         Path file = tempDir.resolve("state/party-state.json");
 
         PartyGameService first = serviceOn(file);
-        first.pick(PartyCategory.QUIZ, "초성 · 과자");
+        first.pick(PartyCategory.SOUND, "CM송");
         first.show();
         first.wrong(PartyTeam.A);
         first.wrong(PartyTeam.B);

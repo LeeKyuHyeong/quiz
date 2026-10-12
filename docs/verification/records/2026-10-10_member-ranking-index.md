@@ -2,7 +2,7 @@
 - 일자: 2026-10-10
 - 유형: 신규 (DB 구조 — 가산 DDL) + 문서
 - 우선순위: P2 (운영 반영 절차는 P0 규칙: schema.sql 과 운영 DB 일치)
-- 판정: 조건부 — 코드·로컬 DB·회귀 ✅, 운영 ALTER·운영 EXPLAIN 🙋(O-032), 운영 백업 사본(MariaDB 11.8) 재실험 ⬜(O-033)
+- 판정: 조건부 — 코드·로컬 DB·회귀 ✅, **운영 ALTER·전후 EXPLAIN ✅(O-032, 2026-10-13)**, 배포 Smoke 🙋(push 뒤), 운영 백업 사본 재실험 ⬜→ O-032 로 대체(O-033 CLOSED)
 
 ## 1. 요청과 목적
 - 사용자가 원한 것: career `04-gap-analysis-java3y-261006.md` §4-1 【확인 42】 — 랭킹 쿼리에 `EXPLAIN` 전후를 남기며 인덱스를 추가하고, "왜 이 하나만 / 왜 30개는 안 만드나" 를 본인 말로 답할 수 있게 한다. 서류 문장은 실행계획 변화로만, 시간 수치는 쓰지 않는다.
@@ -43,16 +43,19 @@
 | 로컬 DB 후(선택도) | `WHERE status='INACTIVE'`(1행) | **ref · rows 1 · Backward index scan** — 걸러지는 값이면 자율로도 인덱스를 쓴다 | ✅ |
 | 운영 백업 사본(MariaDB 11.8) | 10-06 밤 실험(career 05-fund 02 ②-결과): `(status, total_score)` 추가 시 range·filesort 제거 | **total_score 는 죽은 쿼리라 이번 대상과 열이 다름** — `(status, guess_score)` 로 재실험 필요. 10-10 집 PC Docker 데몬 기동 실패로 미실행 | ⬜ O-033 |
 | 빌드·전체 회귀 | `JAVA_HOME=jdk-17 ./mvnw test`(Docker 없음) | **497 run · 0 failures · 0 errors · 11 Skipped**(`SessionLifecycleRedisContractTest`·`SessionStoreProfileTest$Redis` — Testcontainers, Docker 부재) · surefire 리포트 132 | ✅ |
-| 운영 | runbook §10 (본인 SSH) | — | 🙋 O-032 |
+| 운영 DB 전(2026-10-13, 본인 SSH) | runbook §10 1) — `docker exec -i quiz-db … mariadb` heredoc | **MariaDB 11.8.9** · member 46행(**ACTIVE 22 · INACTIVE 24**) · 인덱스 PRIMARY·uk_member_email·selected_badge_id 뿐 · `EXPLAIN`: **type ALL · key NULL · rows 46 · Using where; Using filesort** | ✅ |
+| 운영 DB ALTER(2026-10-13) | runbook §10 2) `ALTER TABLE member ADD INDEX idx_member_status_guess_score (status, guess_score)` | 출력 없음(즉시 완료) · `SHOW INDEX … WHERE Key_name=…` 2행: Seq 1 `status`(Cardinality 2) · Seq 2 `guess_score`(23) | ✅ |
+| 운영 DB 후(2026-10-13, 자율) | runbook §10 3) 같은 `EXPLAIN` | **type range · possible_keys/key idx_member_status_guess_score · key_len 2 · rows 22 · Using where** — `Using filesort` 사라짐. 로컬 MySQL(ACTIVE 45/46)과 달리 FORCE INDEX 없이 옵티마이저가 고름 | ✅ |
+| 운영 배포 Smoke | push → Actions deploy → `/ranking` 200 + 랭킹 목록 동일 | — | 🙋 (push 뒤) |
 
 ## 6. 관찰 — ③ 답의 재료 (해석은 본인이 career 05-fund 02 ③ 에)
 1. **옵티마이저가 인덱스를 알고도 안 쓴 이유 후보**: `status='ACTIVE'` 가 46행 중 45행이라 걸러지는 게 없고, 45행 정렬은 메모리에서 끝난다. 같은 인덱스로 `status='INACTIVE'`(1행)는 바로 쓴다 — **선택도**가 인덱스 사용을 가른다(10-06 실험 3 `is_correct` 1%:99% 와 같은 현상). TREE 비용이 인덱스 쪽이 낮은데도 스캔을 고른 건 MySQL 8 의 소규모 테이블·`LIMIT`+`ORDER BY` 휴리스틱 영향으로 보이나 **근거 문서로 확인하지 않았다 — 추정이라고 말한다**.
-2. 10-06 운영 백업(ACTIVE 23 / INACTIVE 23)에서는 MariaDB 가 `range` 로 골랐다 — 분포가 반반이면 걸러지는 값이 있어 인덱스가 선택됨. **운영은 로컬과 분포가 다르다 → 운영 EXPLAIN 을 봐야 "운영에서 인덱스를 탄다" 를 말할 수 있다**(O-032 전엔 말하지 않는다).
+2. 10-06 운영 백업(ACTIVE 23 / INACTIVE 23)에서는 MariaDB 가 `range` 로 골랐다 — 분포가 반반이면 걸러지는 값이 있어 인덱스가 선택됨. **운영은 로컬과 분포가 다르다 → 운영 EXPLAIN 을 봐야 "운영에서 인덱스를 탄다" 를 말할 수 있다**(O-032 전엔 말하지 않는다). **→ 2026-10-13 운영 EXPLAIN(ACTIVE 22/46): `ALL + filesort` → `range · rows 22 · filesort 없음`. 이제 "운영에서 인덱스를 탄다" 고 말할 수 있다(§5). 로컬 MySQL 8 과 운영 MariaDB 11.8 의 차이는 엔진 차이가 아니라 분포(45/46 vs 22/46) 차이로 보는 게 맞다 — 로컬도 걸러지는 값(INACTIVE 1행)엔 인덱스를 썼으므로.**
 3. 서류 문장 후보(claims 신설 전, 운영 EXPLAIN 뒤 확정): "랭킹 조회가 `ALL + filesort` 로 돌던 것에 등치 열 → 정렬 열 순 복합 인덱스 하나를 추가해 인덱스 역순 읽기로 바꿈 — 정렬 식이 `CASE` 인 쿼리와 행 수가 작은 나머지 정렬 열에는 두지 않음". ❌ 시간 수치 · ❌ "성능 N% 개선" · ❌ "30개 쿼리 튜닝".
 4. 죽은 코드: `findTopByTotalScore`·`findTopByAccuracy`·`findTopByTotalGames`(+ `MemberService.getTopRanking*` 3개) 호출처 0 — 별도 정리 대상(언급만).
 
 ## 7. 미검증 · 열린 항목
-- 🙋 O-032 운영 ALTER 선반영 + 전후 EXPLAIN(runbook §10) → 결과를 이 기록 §5 에 추가 → push → 배포 Smoke(`/ranking` 200, 랭킹 목록 동일).
-- ⬜ O-033 운영 백업 사본(MariaDB 11.8, Docker)으로 `(status, guess_score)` 전후 재실험 — 10-10 집 PC Docker 데몬 미기동(`dockerDesktopLinuxEngine` 파이프 없음). 운영 EXPLAIN(O-032)이 있으면 대체 가능.
+- ✅ O-032 운영 ALTER 선반영 + 전후 EXPLAIN — 2026-10-13 완료, §5 운영 행 3개. 남은 것: 🙋 main ff 머지 → push → 배포 Smoke(`/ranking` 200, 랭킹 목록 동일).
+- ⬜→CLOSED O-033 운영 백업 사본 재실험 — 운영 EXPLAIN(O-032, 같은 MariaDB 11.8·같은 분포)이 나왔으므로 대체. 별도 Docker 재실험 안 함.
 - ⬜ dev 기동 `validate` 통과 확인(인덱스는 비검사라 결과가 뻔하지만 기록상 1회).
 - 전체 회귀: 497 ✅(0 실패, Redis 11 Skipped — Docker 부재. CI 에서는 실행됨)

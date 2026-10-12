@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>클립 듣기 검수</title>
+<style>
+:root { --bg:#f6f7f9; --card:#fff; --text:#1d2330; --muted:#6b7280; --line:#e3e6eb; --accent:#2563eb; --ok:#15803d; --no:#b91c1c; --warn:#b45309; }
+@media (prefers-color-scheme: dark) { :root { --bg:#14161b; --card:#1d2027; --text:#e6e8ec; --muted:#9aa1ad; --line:#2c303a; --accent:#60a5fa; --ok:#4ade80; --no:#f87171; --warn:#fbbf24; } }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 system-ui, "Malgun Gothic", sans-serif; }
+header { position:sticky; top:0; z-index:10; background:var(--card); border-bottom:1px solid var(--line); padding:.5rem 1rem; display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; }
+header h1 { font-size:1rem; margin:0 1rem 0 0; }
+.wrap { display:grid; grid-template-columns: minmax(0,1fr) 30rem; gap:1rem; padding:1rem; }
+@media (max-width: 900px) { .wrap { grid-template-columns: 1fr; } .player-col { order:-1; } }
+.player-col { position:sticky; top:3.5rem; align-self:start; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:.75rem; padding:.75rem; margin-bottom:.75rem; }
+.card.cur { outline:2px solid var(--accent); }
+.card.ok { border-left:4px solid var(--ok); } .card.no { border-left:4px solid var(--no); }
+.row-head { display:flex; gap:.5rem; align-items:baseline; flex-wrap:wrap; }
+.ans { font-weight:700; font-size:1.05rem; }
+.muted { color:var(--muted); font-size:.85rem; }
+.note { color:var(--warn); font-size:.85rem; }
+.cands { display:flex; flex-direction:column; gap:.25rem; margin-top:.5rem; }
+.cand { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; font-size:.85rem; }
+button, select, input { font:inherit; color:inherit; background:var(--bg); border:1px solid var(--line); border-radius:.5rem; padding:.25rem .6rem; }
+button { cursor:pointer; } button:hover { border-color:var(--accent); }
+button.pri { background:var(--accent); color:#fff; border-color:var(--accent); }
+.chip { font-size:.75rem; padding:0 .4rem; border-radius:.5rem; border:1px solid var(--line); }
+.c-상 { color:var(--ok); } .c-하 { color:var(--no); }
+#player { width:100%; aspect-ratio:16/9; background:#000; border-radius:.5rem; }
+.ctl { display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.5rem; align-items:center; }
+.big { font-size:1.4rem; font-variant-numeric:tabular-nums; font-weight:700; }
+textarea { width:100%; min-height:6rem; font:12px monospace; color:inherit; background:var(--bg); border:1px solid var(--line); border-radius:.5rem; }
+.sel { font-weight:700; }
+</style>
+</head>
+<body>
+<header>
+  <h1>클립 듣기 검수</h1>
+  <select id="cat"></select>
+  <select id="filter"><option value="all">전체</option><option value="todo">남은 것</option><option value="ok">채택</option><option value="no">없음</option></select>
+  <span class="muted" id="progress"></span>
+  <button id="export">결과 TSV 보기</button>
+</header>
+<div class="wrap">
+  <main id="list"></main>
+  <aside class="player-col">
+    <div class="card">
+      <div id="player"></div>
+      <div class="ctl"><span class="big" id="now">0.0</span><span class="muted">초</span>
+        <button data-seek="-5">−5</button><button data-seek="-1">−1</button><button data-seek="1">+1</button><button data-seek="5">+5</button>
+        <button id="playpause">▶/⏸</button></div>
+      <div class="ctl">
+        <button class="pri" id="markStart">지금 = 시작</button>
+        <button class="pri" id="markEnd">지금 = 끝</button>
+        <button id="playClip">구간 재생</button>
+      </div>
+      <div class="ctl"><span>시작</span><input id="start" type="number" min="0" step="1" style="width:5rem"><span>길이</span><input id="len" type="number" min="1" step="1" style="width:5rem"><span class="muted">초</span></div>
+      <div class="ctl">
+        <button class="pri" id="accept" style="background:var(--ok);border-color:var(--ok)">✅ 이 영상 채택</button>
+        <button id="reject">❌ 후보 없음</button>
+      </div>
+      <div class="ctl" style="width:100%"><input id="memo" placeholder="메모 (예: 2절 버전, 다른 후보 URL 붙여넣기)" style="flex:1"></div>
+      <div class="ctl"><input id="custom" placeholder="다른 영상 URL/ID 직접 넣기" style="flex:1"><button id="loadCustom">불러오기</button></div>
+      <div class="muted" id="curInfo"></div>
+    </div>
+    <div class="card" id="exportBox" hidden>
+      <div class="muted">아래를 통째로 복사해 Claude 에게 붙여 주세요 (브라우저에 자동 저장됨)</div>
+      <textarea id="out" readonly></textarea>
+      <button id="copy">복사</button>
+    </div>
+  </aside>
+</div>
+<script src="data.js"></script>
+<script>
+(function () {
+  'use strict';
+  const KEY = 'party-clip-review-v1';
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { saved = {}; }
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (e) {} };
+  const $ = (id) => document.getElementById(id);
+  const cats = Object.keys(DATA);
+  let cat = cats[0], cur = null, curVid = null, player = null, ready = false, clipTimer = null;
+
+  cats.forEach((c) => { const o = document.createElement('option'); o.value = c; o.textContent = c + ' (' + DATA[c].length + ')'; $('cat').append(o); });
+  $('cat').addEventListener('change', () => { cat = $('cat').value; render(); });
+  $('filter').addEventListener('change', render);
+
+  const keyOf = (row) => cat + ':' + row.line;
+  function el(tag, cls, text) { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; }
+
+  function render() {
+    const list = $('list'); list.replaceChildren();
+    const f = $('filter').value;
+    let done = 0;
+    DATA[cat].forEach((row) => {
+      const s = saved[keyOf(row)];
+      if (s) done++;
+      if (f === 'todo' && s) return;
+      if (f === 'ok' && !(s && s.status === 'ok')) return;
+      if (f === 'no' && !(s && s.status === 'no')) return;
+      const card = el('div', 'card' + (s ? ' ' + s.status : '') + (cur && cur.line === row.line ? ' cur' : ''));
+      const head = el('div', 'row-head');
+      head.append(el('span', 'muted', '#' + row.line), el('span', 'ans', row.answer), el('span', 'muted', row.sub));
+      if (s) head.append(el('span', 'chip', s.status === 'ok' ? '✅ ' + s.videoId + ' ' + s.start + 's/' + s.len + 's' : '❌'));
+      card.append(head);
+      if (row.info) card.append(el('div', 'muted', row.info));
+      if (row.cut) card.append(el('div', 'note', row.cut));
+      const box = el('div', 'cands');
+      row.cands.forEach((c) => {
+        const line = el('div', 'cand');
+        const b = el('button', curVid === c.videoId && cur && cur.line === row.line ? 'pri' : '', '▶ ' + (c.rank || ''));
+        b.addEventListener('click', () => select(row, c.videoId, c.start_hint));
+        line.append(b, el('span', 'chip c-' + c.confidence, c.confidence || '?'), el('span', '', c.title), el('span', 'muted', c.channel + ' · ' + c.length + (c.start_hint ? ' · 시작 힌트 ' + c.start_hint + 's' : '')));
+        if (c.note) line.append(el('span', 'note', c.note));
+        box.append(line);
+      });
+      if (!row.cands.length) box.append(el('div', 'muted', '후보 없음 — 직접 찾아 "다른 영상" 칸에'));
+      card.append(box);
+      card.addEventListener('click', (e) => { if (e.target.tagName !== 'BUTTON') selectRow(row); });
+      list.append(card);
+    });
+    $('progress').textContent = done + ' / ' + DATA[cat].length + ' 검수';
+  }
+
+  function selectRow(row) {
+    cur = row;
+    const s = saved[keyOf(row)];
+    $('start').value = s && s.start != null ? s.start : '';
+    $('len').value = s && s.len != null ? s.len : '';
+    $('memo').value = s && s.memo || '';
+    $('curInfo').textContent = '#' + row.line + ' ' + row.answer;
+    render();
+  }
+
+  function select(row, vid, hint) {
+    if (!cur || cur.line !== row.line) selectRow(row);
+    curVid = vid;
+    const s = saved[keyOf(row)];
+    const start = $('start').value !== '' ? Number($('start').value) : (hint ? Number(hint) : 0);
+    if ($('start').value === '' && hint) $('start').value = hint;
+    $('curInfo').textContent = '#' + row.line + ' ' + row.answer + ' · ' + vid;
+    if (ready) player.loadVideoById({ videoId: vid, startSeconds: start });
+    render();
+  }
+
+  function parseId(text) {
+    const m = String(text).match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([A-Za-z0-9_-]{11})/);
+    return m ? m[1] : (/^[A-Za-z0-9_-]{11}$/.test(text.trim()) ? text.trim() : null);
+  }
+  $('loadCustom').addEventListener('click', () => {
+    const id = parseId($('custom').value);
+    if (!cur) return alert('먼저 왼쪽에서 문제를 고르세요');
+    if (!id) return alert('YouTube URL 또는 11자리 ID');
+    select(cur, id, null);
+  });
+
+  const now = () => (ready && player.getCurrentTime ? player.getCurrentTime() : 0);
+  setInterval(() => { $('now').textContent = now().toFixed(1); }, 200);
+  document.querySelectorAll('[data-seek]').forEach((b) => b.addEventListener('click', () => { if (ready) player.seekTo(Math.max(0, now() + Number(b.dataset.seek)), true); }));
+  $('playpause').addEventListener('click', () => { if (!ready) return; player.getPlayerState() === 1 ? player.pauseVideo() : player.playVideo(); });
+  $('markStart').addEventListener('click', () => { $('start').value = Math.floor(now()); });
+  $('markEnd').addEventListener('click', () => { const st = Number($('start').value || 0); $('len').value = Math.max(1, Math.round(now() - st)); });
+  $('playClip').addEventListener('click', () => {
+    if (!ready || !curVid) return;
+    const st = Number($('start').value || 0), ln = Number($('len').value || 0);
+    player.seekTo(st, true); player.playVideo();
+    clearTimeout(clipTimer);
+    if (ln > 0) clipTimer = setTimeout(() => player.pauseVideo(), ln * 1000);
+  });
+  $('accept').addEventListener('click', () => {
+    if (!cur || !curVid) return alert('후보를 ▶ 로 불러온 뒤 채택하세요');
+    saved[keyOf(cur)] = { status: 'ok', videoId: curVid, start: Number($('start').value || 0), len: $('len').value === '' ? null : Number($('len').value), memo: $('memo').value };
+    save(); next();
+  });
+  $('reject').addEventListener('click', () => {
+    if (!cur) return;
+    saved[keyOf(cur)] = { status: 'no', memo: $('memo').value };
+    save(); next();
+  });
+  function next() {
+    const rows = DATA[cat]; const i = rows.findIndex((r) => r.line === cur.line);
+    const n = rows.slice(i + 1).find((r) => !saved[keyOf(r)]);
+    if (n) { selectRow(n); if (n.cands[0]) select(n, n.cands[0].videoId, n.cands[0].start_hint); } else render();
+  }
+  $('export').addEventListener('click', () => {
+    const lines = ['대분류\tline\t정답\tstatus\tvideoId\t시작초\t길이\t메모'];
+    cats.forEach((c) => DATA[c].forEach((row) => {
+      const s = saved[c + ':' + row.line]; if (!s) return;
+      lines.push([c, row.line, row.answer, s.status, s.videoId || '', s.start ?? '', s.len ?? '', (s.memo || '').replace(/\t/g, ' ')].join('\t'));
+    }));
+    $('out').value = lines.join('\n'); $('exportBox').hidden = false;
+  });
+  $('copy').addEventListener('click', () => { $('out').select(); navigator.clipboard && navigator.clipboard.writeText($('out').value); });
+
+  window.onYouTubeIframeAPIReady = () => {
+    player = new YT.Player('player', { width: '100%', height: '100%', playerVars: { rel: 0, playsinline: 1, origin: location.origin },
+      events: { onReady: () => { ready = true; } } });
+  };
+  const tag = document.createElement('script'); tag.src = 'https://www.youtube.com/iframe_api'; document.body.append(tag);
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{common/fragments/head :: adminHead('파티 플레이어')}"></head>
+<body class="admin-page party-player-page">
+<link rel="stylesheet" th:href="@{/css/admin/party-console.css}">
+<link rel="stylesheet" th:href="@{/css/admin/party-player.css}">
+<div class="party-console party-player" id="partyPlayer">
+    <div class="pc-banner" id="pcBanner" hidden></div>
+
+    <section class="pc-card">
+        <h3>플레이어 창</h3>
+        <p class="pc-muted">
+            휴대폰을 콘솔로 쓸 때 노트북에서 소리를 내는 창입니다. 콘솔의 [재생]·[일시정지]·[처음부터]를 1초 안에 따라갑니다.
+            <b>콘솔 설정의 "재생 담당"을 "플레이어 창"으로</b> 바꾸세요(둘 다 "이 창"이면 소리가 두 번 납니다).
+            노래 영상은 정답을 보여 줄 수 있으니 TV 에 보이지 않는 화면에 두세요.
+        </p>
+
+        <div class="pp-start" id="ppStart">
+            <button type="button" class="pc-btn primary big" id="ppStartBtn">▶ 플레이어 시작</button>
+            <span class="pc-muted">브라우저 자동 재생 정책 때문에 처음 한 번 눌러야 합니다.</span>
+        </div>
+
+        <div class="pc-player"><div id="ppYoutube"></div></div>
+        <div class="pc-status" id="ppStatus">시작 전</div>
+        <div class="pc-muted" id="ppItem"></div>
+        <div class="pc-warn" id="ppWarn" hidden></div>
+    </section>
+</div>
+
+<script th:src="@{/js/common/youtube-player.js}" defer></script>
+<script th:src="@{/js/admin/party-player.js}" defer></script>
+</body>
+</html>

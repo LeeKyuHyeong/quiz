@@ -1,0 +1,55 @@
+/* ========================================
+   파티 플레이어 창 (/admin/party/player) - 기본 스타일 (라이트 모드 + PC)
+   카드·버튼·플레이어 틀은 party-console.css 를 같이 쓴다. 사이드바 없는 한 장짜리 창.
+   ======================================== */
+.party-player-page {
+    margin: 0;
+    background: var(--bg-base);
+}
+
+.party-player {
+    max-width: 34rem;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+.party-player .pc-player {
+    margin-top: 0.75rem;
+}
+
+.party-player .pc-status {
+    margin-top: 0.75rem;
+}
+
+.pp-start {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+/* ========================================
+   파티 플레이어 창 - 다크 모드 (변수가 전환된다 — 배경만 명시)
+   ======================================== */
+[data-theme="dark"] .party-player-page {
+    background: var(--bg-base);
+}
+
+/* ========================================
+   파티 플레이어 창 - 태블릿 (768px 이하)
+   ======================================== */
+@media (max-width: 768px) {
+    .party-player {
+        padding: 0.75rem;
+    }
+}
+
+/* ========================================
+   파티 플레이어 창 - 모바일 (480px 이하)
+   ======================================== */
+@media (max-width: 480px) {
+    .party-player {
+        padding: 0.5rem;
+    }
+}

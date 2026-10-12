@@ -80,4 +80,18 @@ class PartyPageControllerTest {
         mockMvc.perform(get("/admin/party/content").with(user("user@test.com").roles("USER")))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    @DisplayName("[정상·권한] 플레이어 창 — 관리자 200(보드 상태만 읽는 스크립트, 콘솔 스크립트 없음), 비로그인은 로그인 화면, 일반 회원 403")
+    void playerPageNeedsAdmin() throws Exception {
+        mockMvc.perform(get("/admin/party/player").with(user("admin@test.com").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("/js/admin/party-player.js")))
+                .andExpect(content().string(containsString("/js/common/youtube-player.js")))
+                .andExpect(content().string(not(containsString("party-console.js"))))
+                .andExpect(content().string(containsString("id=\"partyPlayer\"")));
+        mockMvc.perform(get("/admin/party/player")).andExpect(status().is3xxRedirection());
+        mockMvc.perform(get("/admin/party/player").with(user("user@test.com").roles("USER")))
+                .andExpect(status().isForbidden());
+    }
 }

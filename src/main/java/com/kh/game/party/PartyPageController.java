@@ -25,6 +25,15 @@ public class PartyPageController {
         return "admin/party/content";
     }
 
+    /**
+     * 플레이어 창 — 휴대폰을 콘솔로 쓸 때 노트북에서 소리를 내는 창. 보드 상태만 읽고(정답 없음)
+     * 서버의 재생 명령(seq)을 따라간다.
+     */
+    @GetMapping("/player")
+    public String player() {
+        return "admin/party/player";
+    }
+
     /** TV 보드. 보드 상태(/admin/party/state)만 읽으므로 정답은 공개 뒤에만 보인다. */
     @GetMapping("/board")
     public String board() {

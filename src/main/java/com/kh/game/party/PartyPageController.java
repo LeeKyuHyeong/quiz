@@ -34,6 +34,19 @@ public class PartyPageController {
         return "admin/party/player";
     }
 
+    /** 스피드퀴즈 콘솔(MC). 상태·조작은 /admin/party/speed/** JSON 경로(PartySpeedController). */
+    @GetMapping("/speed")
+    public String speedConsole(Model model) {
+        model.addAttribute("menu", "party");
+        return "admin/party/speed-console";
+    }
+
+    /** 스피드퀴즈 TV 보드. 제시어는 "보드 표시" 설정일 때만 실린다(맞히는 사람은 등을 돌린다). */
+    @GetMapping("/speed/board")
+    public String speedBoard() {
+        return "admin/party/speed-board";
+    }
+
     /** TV 보드. 보드 상태(/admin/party/state)만 읽으므로 정답은 공개 뒤에만 보인다. */
     @GetMapping("/board")
     public String board() {

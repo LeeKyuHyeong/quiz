@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{common/fragments/head :: adminHead('스피드퀴즈 콘솔')}"></head>
+<body class="admin-page">
+<link rel="stylesheet" th:href="@{/css/admin/party-console.css}">
+<link rel="stylesheet" th:href="@{/css/admin/party-speed.css}">
+<div class="admin-container">
+    <th:block th:replace="~{admin/layout/sidebar :: sidebar}"></th:block>
+
+    <main class="main-content">
+        <div class="party-console" id="partySpeedConsole">
+            <div class="pc-banner" id="pcBanner" hidden></div>
+            <div class="pc-notice" id="pcNotice" role="status" hidden></div>
+
+            <section class="pc-card pc-head">
+                <div class="pc-head-info">
+                    <span class="pc-chip on">스피드퀴즈</span>
+                    <span class="pc-muted" id="spPhase"></span>
+                </div>
+                <div class="pc-row sp-links">
+                    <a class="pc-btn sm" href="/admin/party/speed/board" target="_blank" rel="noopener">보드(TV) 열기</a>
+                    <a class="pc-btn sm" href="/admin/party/console">본게임 콘솔 →</a>
+                </div>
+            </section>
+
+            <div class="pc-grid">
+                <div class="pc-main">
+                    <!-- 턴 -->
+                    <section class="pc-card" id="spTurnCard">
+                        <h3 id="spTurnTitle">턴</h3>
+                        <div class="pc-row" id="spStartRow">
+                            <button type="button" class="pc-btn team-a big" data-act="start" data-team="A" id="spStartA">▶ 시작</button>
+                            <button type="button" class="pc-btn team-b big" data-act="start" data-team="B" id="spStartB">▶ 시작</button>
+                            <span class="pc-muted">팀마다 주제를 바꾸려면 시작 전에 설정을 저장하세요.</span>
+                        </div>
+
+                        <div id="spRun" hidden>
+                            <div class="sp-timer" id="spTimer">0:00</div>
+                            <div class="sp-word" id="spWord"></div>
+                            <div class="pc-row sp-center">
+                                <button type="button" class="pc-btn primary big" data-act="correct" id="spCorrect">정답</button>
+                                <button type="button" class="pc-btn big" data-act="pass" id="spPass">패스</button>
+                                <button type="button" class="pc-btn" data-act="undo" id="spUndo">되돌리기</button>
+                                <button type="button" class="pc-btn danger sm" data-act="finish" id="spFinish"
+                                        data-confirm="이 팀의 턴을 지금 끝낼까요?">턴 종료</button>
+                            </div>
+                            <div class="pc-status" id="spOverLine" hidden>시간 종료 — 제시어 멈춤, 정답·패스 잠김. [되돌리기]만 됩니다.</div>
+                            <div class="sp-counts">
+                                <div>정답<b id="spCountCorrect">0</b></div>
+                                <div>패스<b id="spCountPass">0</b></div>
+                                <div>출제<b id="spCountTotal">0</b></div>
+                            </div>
+                            <ul class="sp-log" id="spLog"></ul>
+                        </div>
+                    </section>
+
+                    <!-- 결과 -->
+                    <section class="pc-card" id="spResultCard" hidden>
+                        <h3>결과</h3>
+                        <div class="sp-vs">
+                            <div class="sp-vs-team a"><span id="spResNameA">남팀</span><b id="spResCorrectA">0</b><small id="spResPassA"></small></div>
+                            <div class="sp-vs-mid">VS</div>
+                            <div class="sp-vs-team b"><span id="spResNameB">여팀</span><b id="spResCorrectB">0</b><small id="spResPassB"></small></div>
+                        </div>
+                        <div class="pc-status" id="spFirstPick"></div>
+                        <div class="pc-row">
+                            <button type="button" class="pc-btn" data-act="rematch"
+                                    data-confirm="결과를 비우고 다시 할까요? 이미 나온 제시어는 다시 안 나옵니다.">재대결</button>
+                            <a class="pc-btn primary" href="/admin/party/console">본게임 콘솔로 →</a>
+                        </div>
+                    </section>
+                </div>
+
+                <aside class="pc-side">
+                    <!-- 설정 -->
+                    <section class="pc-card">
+                        <h3>설정 <small class="pc-muted" id="spSetupLock"></small></h3>
+                        <div class="sp-field">
+                            <span class="sp-label">주제 (여러 개 — 안 고르면 전체)</span>
+                            <div class="pc-row sp-topics" id="spTopics"></div>
+                        </div>
+                        <div class="sp-field sp-limits">
+                            <label><span id="spLimitNameA">남팀</span> 제한(초)<input type="number" min="1" max="600" id="spLimitA"></label>
+                            <label><span id="spLimitNameB">여팀</span> 제한(초)<input type="number" min="1" max="600" id="spLimitB"></label>
+                        </div>
+                        <div class="sp-field">
+                            <span class="sp-label">설명 방식</span>
+                            <div class="pc-row">
+                                <button type="button" class="pc-chip" data-mode="TALK">말로</button>
+                                <button type="button" class="pc-chip" data-mode="BODY">몸으로</button>
+                            </div>
+                        </div>
+                        <div class="sp-field">
+                            <span class="sp-label">제시어 표시</span>
+                            <div class="pc-row">
+                                <button type="button" class="pc-chip" data-board="true">보드(TV) — 맞히는 사람은 등 돌림</button>
+                                <button type="button" class="pc-chip" data-board="false">콘솔에만</button>
+                            </div>
+                        </div>
+                        <div class="pc-row">
+                            <button type="button" class="pc-btn primary" id="spSave">설정 저장</button>
+                            <span class="pc-muted" id="spDirty"></span>
+                        </div>
+                        <div class="pc-muted">몸으로 모드면 [몸으로 어려움]·[임산부 출제자 제외] 제시어는 [패스]로 넘깁니다(패스 무제한).</div>
+                        <div class="pc-row">
+                            <button type="button" class="pc-btn danger sm" data-act="reset"
+                                    data-confirm="스피드퀴즈를 전부 초기화할까요? 결과·설정·나온 제시어 기록이 모두 지워집니다.">전부 초기화</button>
+                        </div>
+                    </section>
+                </aside>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script th:src="@{/js/admin/party-speed-console.js}" defer></script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{common/fragments/head :: adminHead('스피드퀴즈 보드')}"></head>
+<body class="game-page party-board-page">
+<link rel="stylesheet" th:href="@{/css/admin/party-board.css}">
+<link rel="stylesheet" th:href="@{/css/admin/party-speed.css}">
+<div class="party-board" id="partySpeedBoard" data-phase="WAIT">
+    <header class="pb-hdr">
+        <div class="pb-cat" id="sbCat">스피드퀴즈</div>
+        <div class="pb-scores" id="sbScore" hidden>
+            <div class="pb-team" id="sbScoreTeam">정답 <b id="sbScoreCorrect">0</b></div>
+        </div>
+    </header>
+
+    <main class="pb-body">
+        <section class="pb-wait" id="sbWait">
+            <div class="pb-big">스피드퀴즈</div>
+            <div class="pb-sub" id="sbWaitSub"></div>
+            <button type="button" class="pb-fullscreen" id="sbFullscreen">전체화면</button>
+        </section>
+
+        <section class="sb-run" id="sbRun" hidden>
+            <div class="sb-time" id="sbTime">0:00</div>
+            <div class="sb-word" id="sbWord"></div>
+            <div class="sb-count">
+                <div>정답<b id="sbCorrect">0</b></div>
+                <div>패스<b id="sbPass">0</b></div>
+            </div>
+        </section>
+
+        <section class="pb-scoreboard" id="sbResult" hidden>
+            <div class="pb-vs-row">
+                <div class="pb-bt a" id="sbBigA"><span id="sbBigNameA">남팀</span><b id="sbBigCorrectA">0</b></div>
+                <div class="pb-vs">VS</div>
+                <div class="pb-bt b" id="sbBigB"><span id="sbBigNameB">여팀</span><b id="sbBigCorrectB">0</b></div>
+            </div>
+            <div class="pb-final" id="sbFirstPick"></div>
+        </section>
+    </main>
+
+    <footer class="pb-ftr">
+        <span id="sbFooter"></span>
+        <span class="pb-conn" id="sbConn" hidden></span>
+    </footer>
+</div>
+
+<script th:src="@{/js/admin/party-speed-board.js}" defer></script>
+</body>
+</html>

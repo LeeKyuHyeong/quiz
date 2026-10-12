@@ -1,0 +1,256 @@
+/* ========================================
+   스피드퀴즈 콘솔·보드 - 기본 스타일 (라이트 모드 + PC)
+   콘솔은 party-console.css(카드·버튼·칩), 보드는 party-board.css(항상 다크 .game-page)와 같이 쓴다.
+   보드 글자는 TV 거리용 vw·vh. 팀 색: A = --info, B = --pink
+   ======================================== */
+
+/* ---------- 콘솔 ---------- */
+.sp-links {
+    margin-top: 0;
+}
+
+.sp-center {
+    justify-content: center;
+}
+
+.sp-timer {
+    text-align: center;
+    font-size: 3.5rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.sp-timer.warn {
+    color: var(--danger-color);
+}
+
+.sp-word {
+    text-align: center;
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin: 0.5rem 0;
+    word-break: keep-all;
+}
+
+.sp-word.over {
+    color: var(--text-muted);
+    font-size: 1.5rem;
+}
+
+.sp-counts {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-top: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.sp-counts div {
+    display: grid;
+    justify-items: center;
+}
+
+.sp-counts b {
+    font-size: 1.75rem;
+    color: var(--text-primary);
+}
+
+.sp-log {
+    list-style: none;
+    margin: 0.75rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.75rem;
+    font-size: 0.85rem;
+}
+
+.sp-log li::before {
+    content: "✓ ";
+    color: var(--success-color);
+}
+
+.sp-log li.pass {
+    color: var(--text-muted);
+    text-decoration: line-through;
+}
+
+.sp-log li.pass::before {
+    content: "→ ";
+    color: var(--text-muted);
+}
+
+.sp-vs {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 1rem;
+    text-align: center;
+}
+
+.sp-vs-team {
+    display: grid;
+    padding: 0.75rem;
+    border-radius: 0.75rem;
+    color: var(--text-on-gradient);
+}
+
+.sp-vs-team.a {
+    background: var(--info);
+}
+
+.sp-vs-team.b {
+    background: var(--pink);
+}
+
+.sp-vs-team b {
+    font-size: 2.5rem;
+}
+
+.sp-vs-mid {
+    color: var(--text-muted);
+    font-weight: 800;
+}
+
+.sp-field {
+    display: grid;
+    gap: 0.25rem;
+    margin-bottom: 0.75rem;
+}
+
+.sp-field .pc-row {
+    margin-top: 0;
+}
+
+.sp-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.sp-limits {
+    grid-template-columns: 1fr 1fr;
+}
+
+.sp-limits label {
+    display: grid;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.sp-limits input {
+    min-width: 0;
+    padding: 0.375rem 0.5rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--input-border);
+    background: var(--input-bg);
+    color: var(--text-primary);
+}
+
+/* ---------- 보드(TV) ---------- */
+.sb-run {
+    display: grid;
+    place-items: center;
+    gap: 2vh;
+}
+
+.sb-time {
+    font-size: 7vw;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.sb-time.warn {
+    color: var(--danger-color);
+}
+
+.sb-word {
+    font-size: 10vw;
+    font-weight: 800;
+    line-height: 1.1;
+    text-align: center;
+    word-break: keep-all;
+}
+
+.sb-word.muted {
+    font-size: 5vw;
+    color: var(--text-muted);
+}
+
+.sb-count {
+    display: flex;
+    gap: 4vw;
+    font-size: 2vw;
+    color: var(--text-secondary);
+}
+
+.sb-count div {
+    display: grid;
+    justify-items: center;
+}
+
+.sb-count b {
+    font-size: 4vw;
+    color: var(--text-primary);
+}
+
+/* ========================================
+   스피드퀴즈 - 다크 모드 (콘솔. 보드는 .game-page 라 늘 다크)
+   ======================================== */
+[data-theme="dark"] .sp-vs-team.a {
+    background: var(--info);
+}
+
+[data-theme="dark"] .sp-vs-team.b {
+    background: var(--pink);
+}
+
+/* ========================================
+   스피드퀴즈 - 태블릿 (768px 이하)
+   ======================================== */
+@media (max-width: 768px) {
+    .sp-timer {
+        font-size: 3rem;
+    }
+
+    .sp-word {
+        font-size: 2rem;
+    }
+
+    .sb-time {
+        font-size: 10vw;
+    }
+
+    .sb-word {
+        font-size: 13vw;
+    }
+
+    .sb-count {
+        font-size: 3vw;
+    }
+}
+
+/* ========================================
+   스피드퀴즈 - 모바일 (480px 이하) — 휴대폰 콘솔 예비 구성
+   ======================================== */
+@media (max-width: 480px) {
+    .sp-timer {
+        font-size: 2.5rem;
+    }
+
+    .sp-word {
+        font-size: 1.75rem;
+    }
+
+    .sp-counts {
+        gap: 1.25rem;
+    }
+
+    .sp-limits {
+        grid-template-columns: 1fr;
+    }
+
+    .sb-count {
+        font-size: 4vw;
+    }
+}

@@ -94,4 +94,22 @@ class PartyPageControllerTest {
         mockMvc.perform(get("/admin/party/player").with(user("user@test.com").roles("USER")))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    @DisplayName("[정상·권한] 스피드퀴즈 콘솔·보드 — 관리자 200, 보드는 항상 다크·콘솔 스크립트 없음, 비로그인은 로그인 화면, 일반 회원 403")
+    void speedPagesNeedAdmin() throws Exception {
+        mockMvc.perform(get("/admin/party/speed").with(user("admin@test.com").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("/js/admin/party-speed-console.js")))
+                .andExpect(content().string(containsString("id=\"partySpeedConsole\"")));
+        mockMvc.perform(get("/admin/party/speed/board").with(user("admin@test.com").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("game-page")))
+                .andExpect(content().string(containsString("/js/admin/party-speed-board.js")))
+                .andExpect(content().string(not(containsString("party-speed-console.js"))));
+        for (String path : java.util.List.of("/admin/party/speed", "/admin/party/speed/board")) {
+            mockMvc.perform(get(path)).andExpect(status().is3xxRedirection());
+            mockMvc.perform(get(path).with(user("user@test.com").roles("USER"))).andExpect(status().isForbidden());
+        }
+    }
 }

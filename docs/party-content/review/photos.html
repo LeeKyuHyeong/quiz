@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>사진 고르기</title>
+<style>
+:root { --bg:#f6f7f9; --card:#fff; --text:#1d2330; --muted:#6b7280; --line:#e3e6eb; --accent:#2563eb; --ok:#15803d; --no:#b91c1c; --warn:#b45309; }
+@media (prefers-color-scheme: dark) { :root { --bg:#14161b; --card:#1d2027; --text:#e6e8ec; --muted:#9aa1ad; --line:#2c303a; --accent:#60a5fa; --ok:#4ade80; --no:#f87171; --warn:#fbbf24; } }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 system-ui, "Malgun Gothic", sans-serif; }
+header { position:sticky; top:0; z-index:10; background:var(--card); border-bottom:1px solid var(--line); padding:.5rem 1rem; display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; }
+header h1 { font-size:1rem; margin:0 1rem 0 0; }
+main { padding:1rem; max-width:80rem; margin:0 auto; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:.75rem; padding:.75rem; margin-bottom:.75rem; }
+.card.ok { border-left:4px solid var(--ok); } .card.no { border-left:4px solid var(--no); }
+.head { display:flex; gap:.5rem; align-items:baseline; flex-wrap:wrap; }
+.ans { font-weight:700; font-size:1.05rem; }
+.muted { color:var(--muted); font-size:.85rem; }
+.hint { color:var(--warn); font-size:.85rem; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(12rem, 1fr)); gap:.5rem; margin-top:.5rem; }
+.pic { border:2px solid var(--line); border-radius:.5rem; overflow:hidden; cursor:pointer; background:var(--bg); display:flex; flex-direction:column; }
+.pic.sel { border-color:var(--ok); box-shadow:0 0 0 2px var(--ok); }
+.pic img { width:100%; aspect-ratio:4/3; object-fit:contain; background:#000; display:block; }
+.pic .cap { padding:.25rem .4rem; font-size:.75rem; color:var(--muted); }
+.pic .cap a { color:var(--accent); }
+.pic .note { color:var(--warn); }
+button, select, input { font:inherit; color:inherit; background:var(--bg); border:1px solid var(--line); border-radius:.5rem; padding:.25rem .6rem; }
+button { cursor:pointer; }
+.row { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; margin-top:.5rem; }
+textarea { width:100%; min-height:8rem; font:12px monospace; color:inherit; background:var(--bg); border:1px solid var(--line); border-radius:.5rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>사진 고르기</h1>
+  <select id="cat"></select>
+  <select id="filter"><option value="all">전체</option><option value="todo">남은 것</option><option value="ok">고름</option><option value="no">없음</option></select>
+  <span class="muted" id="progress"></span>
+  <button id="export">결과 TSV 보기</button>
+  <a class="muted" href="index.html">← 클립 검수</a>
+</header>
+<main>
+  <div class="card" id="exportBox" hidden>
+    <div class="muted">통째로 복사해 Claude 에게 붙여 주세요 (브라우저에 자동 저장됨)</div>
+    <textarea id="out" readonly></textarea>
+    <button id="copy">복사</button>
+  </div>
+  <p class="muted">사진을 누르면 고름 · 다시 누르면 취소 · <b>제목·이름 글자가 사진 안에 보이면 고르지 마세요</b>(정답 노출). 썸네일은 검색 엔진 사본이라 원본은 "원본" 링크로 확인.</p>
+  <div id="list"></div>
+</main>
+<script src="photos.js"></script>
+<script>
+(function () {
+  'use strict';
+  const KEY = 'party-photo-pick-v1';
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { saved = {}; }
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (e) {} };
+  const $ = (id) => document.getElementById(id);
+  const cats = Object.keys(PHOTOS).filter((c) => PHOTOS[c].length);
+  let cat = cats[0];
+  cats.forEach((c) => { const o = document.createElement('option'); o.value = c; o.textContent = c + ' (' + PHOTOS[c].length + ')'; $('cat').append(o); });
+  $('cat').addEventListener('change', () => { cat = $('cat').value; render(); });
+  $('filter').addEventListener('change', render);
+  const keyOf = (row) => cat + ':' + row.line;
+  function el(tag, cls, text) { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; }
+
+  function render() {
+    const list = $('list'); list.replaceChildren();
+    const f = $('filter').value; let done = 0;
+    PHOTOS[cat].forEach((row) => {
+      const s = saved[keyOf(row)]; if (s) done++;
+      if ((f === 'todo' && s) || (f === 'ok' && !(s && s.status === 'ok')) || (f === 'no' && !(s && s.status === 'no'))) return;
+      const card = el('div', 'card' + (s ? ' ' + s.status : ''));
+      const head = el('div', 'head');
+      head.append(el('span', 'muted', '#' + row.line), el('span', 'ans', row.answer), el('span', 'muted', row.sub + ' · ' + (row.file || '파일명 없음')));
+      card.append(head);
+      if (row.info) card.append(el('div', 'muted', row.info));
+      if (row.hint) card.append(el('div', 'hint', row.hint));
+      const grid = el('div', 'grid');
+      row.cands.forEach((c) => {
+        const pic = el('div', 'pic' + (s && s.status === 'ok' && s.img === c.img_url ? ' sel' : ''));
+        const img = el('img'); img.loading = 'lazy'; img.src = c.thumb_url || c.img_url; img.alt = c.title || '';
+        img.addEventListener('error', () => { if (img.src !== c.img_url && c.img_url) img.src = c.img_url; });
+        const cap = el('div', 'cap');
+        cap.append(el('div', '', (c.rank ? c.rank + '. ' : '') + (c.title || '').slice(0, 60)));
+        const meta = el('div', ''); meta.append(document.createTextNode((c.size ? c.size + ' · ' : '')));
+        const a = el('a', '', '원본'); a.href = c.img_url; a.target = '_blank'; a.rel = 'noreferrer';
+        const b = el('a', '', '출처'); b.href = c.source_url; b.target = '_blank'; b.rel = 'noreferrer';
+        meta.append(a, document.createTextNode(' · '), b); cap.append(meta);
+        if (c.note) cap.append(el('div', 'note', c.note));
+        pic.append(img, cap);
+        img.addEventListener('click', () => {
+          if (s && s.status === 'ok' && s.img === c.img_url) delete saved[keyOf(row)];
+          else saved[keyOf(row)] = { status: 'ok', img: c.img_url, source: c.source_url, rank: c.rank };
+          save(); render();
+        });
+        grid.append(pic);
+      });
+      card.append(grid);
+      const ctl = el('div', 'row');
+      const custom = el('input'); custom.placeholder = '다른 이미지 주소 직접 넣기'; custom.style.flex = '1';
+      const use = el('button', '', '이 주소로');
+      use.addEventListener('click', () => { if (!custom.value.trim()) return; saved[keyOf(row)] = { status: 'ok', img: custom.value.trim(), source: '', rank: '직접' }; save(); render(); });
+      const none = el('button', '', '❌ 맞는 사진 없음');
+      none.addEventListener('click', () => { saved[keyOf(row)] = { status: 'no' }; save(); render(); });
+      ctl.append(custom, use, none);
+      if (s && s.status === 'ok') ctl.append(el('span', 'muted', '고름: ' + (s.rank || '') + '번'));
+      card.append(ctl);
+      list.append(card);
+    });
+    $('progress').textContent = done + ' / ' + PHOTOS[cat].length + ' 고름';
+  }
+
+  $('export').addEventListener('click', () => {
+    const lines = ['대분류\tline\t정답\t이미지파일명\tstatus\trank\timg_url\tsource_url'];
+    cats.forEach((c) => PHOTOS[c].forEach((row) => {
+      const s = saved[c + ':' + row.line]; if (!s) return;
+      lines.push([c, row.line, row.answer, row.file, s.status, s.rank || '', s.img || '', s.source || ''].join('\t'));
+    }));
+    $('out').value = lines.join('\n'); $('exportBox').hidden = false; window.scrollTo(0, 0);
+  });
+  $('copy').addEventListener('click', () => { $('out').select(); navigator.clipboard && navigator.clipboard.writeText($('out').value); });
+  render();
+})();
+</script>
+</body>
+</html>

@@ -76,7 +76,7 @@ textarea { width:100%; min-height:6rem; font:12px monospace; color:inherit; back
 <script>
 (function () {
   'use strict';
-  const KEY = 'party-clip-review-v1';
+  const KEY = 'party-clip-review-v2';
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { saved = {}; }
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (e) {} };
@@ -88,7 +88,7 @@ textarea { width:100%; min-height:6rem; font:12px monospace; color:inherit; back
   $('cat').addEventListener('change', () => { cat = $('cat').value; render(); });
   $('filter').addEventListener('change', render);
 
-  const keyOf = (row) => cat + ':' + row.line;
+  const keyOf = (row) => cat + ':' + row.answer;  // 줄 번호는 행을 지우면 바뀐다
   function el(tag, cls, text) { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; }
 
   function render() {
@@ -188,7 +188,7 @@ textarea { width:100%; min-height:6rem; font:12px monospace; color:inherit; back
   $('export').addEventListener('click', () => {
     const lines = ['대분류\tline\t정답\tstatus\tvideoId\t시작초\t길이\t메모'];
     cats.forEach((c) => DATA[c].forEach((row) => {
-      const s = saved[c + ':' + row.line]; if (!s) return;
+      const s = saved[c + ':' + row.answer]; if (!s) return;
       lines.push([c, row.line, row.answer, s.status, s.videoId || '', s.start ?? '', s.len ?? '', (s.memo || '').replace(/\t/g, ' ')].join('\t'));
     }));
     $('out').value = lines.join('\n'); $('exportBox').hidden = false;

@@ -2,7 +2,7 @@
 - 일자: 2026-10-10
 - 유형: 신규 (DB 구조 — 가산 DDL) + 문서
 - 우선순위: P2 (운영 반영 절차는 P0 규칙: schema.sql 과 운영 DB 일치)
-- 판정: 조건부 — 코드·로컬 DB·회귀 ✅, **운영 ALTER·전후 EXPLAIN ✅(O-032, 2026-10-13)**, 배포 Smoke 🙋(push 뒤), 운영 백업 사본 재실험 ⬜→ O-032 로 대체(O-033 CLOSED)
+- 판정: **수용 가능**(2026-10-13) — 코드·로컬 DB·회귀 ✅, 운영 ALTER·전후 EXPLAIN ✅(O-032), main 머지·배포(green→blue)·Smoke ✅, O-033 은 O-032 로 대체 CLOSED
 
 ## 1. 요청과 목적
 - 사용자가 원한 것: career `04-gap-analysis-java3y-261006.md` §4-1 【확인 42】 — 랭킹 쿼리에 `EXPLAIN` 전후를 남기며 인덱스를 추가하고, "왜 이 하나만 / 왜 30개는 안 만드나" 를 본인 말로 답할 수 있게 한다. 서류 문장은 실행계획 변화로만, 시간 수치는 쓰지 않는다.
@@ -46,7 +46,9 @@
 | 운영 DB 전(2026-10-13, 본인 SSH) | runbook §10 1) — `docker exec -i quiz-db … mariadb` heredoc | **MariaDB 11.8.9** · member 46행(**ACTIVE 22 · INACTIVE 24**) · 인덱스 PRIMARY·uk_member_email·selected_badge_id 뿐 · `EXPLAIN`: **type ALL · key NULL · rows 46 · Using where; Using filesort** | ✅ |
 | 운영 DB ALTER(2026-10-13) | runbook §10 2) `ALTER TABLE member ADD INDEX idx_member_status_guess_score (status, guess_score)` | 출력 없음(즉시 완료) · `SHOW INDEX … WHERE Key_name=…` 2행: Seq 1 `status`(Cardinality 2) · Seq 2 `guess_score`(23) | ✅ |
 | 운영 DB 후(2026-10-13, 자율) | runbook §10 3) 같은 `EXPLAIN` | **type range · possible_keys/key idx_member_status_guess_score · key_len 2 · rows 22 · Using where** — `Using filesort` 사라짐. 로컬 MySQL(ACTIVE 45/46)과 달리 FORCE INDEX 없이 옵티마이저가 고름 | ✅ |
-| 운영 배포 Smoke | push → Actions deploy → `/ranking` 200 + 랭킹 목록 동일 | — | 🙋 (push 뒤) |
+| 운영 배포(2026-10-13 07:49~07:56 KST) | main ff `e7cc2ee→4e1bef1` push → Actions `Build and Deploy` 38318846272 | build 5m6s · deploy 1m17s · 이미지 SHA 태그 pull · **green→blue**, 헬스 10번째 시도 OK, 외부 200, green 드레인 후 Exited(143) | ✅ |
+| 운영 Smoke(외부, 브라우저 UA GET) | `GET /ranking` · `GET /` · `GET /api/ranking?mode=guess&type=score` | **200 / 200 / 200**, `/ranking` 0.25s, API 3행 점수 내림차순(id 10: 4870 · 18: 3950 · 8: 0) | ✅ |
+| 운영 Smoke(서버, 본인 SSH 19:00 KST) | `docker ps -a --filter name=quiz-app` · `curl 127.0.0.1:8092/actuator/health` · 같은 조건 `SELECT id, guess_score, guess_games … LIMIT 20` | blue `Up 11 hours (healthy)` · green `Exited (143)` · `{"status":"UP"}` · **DB 3행 = API 3행 동일** | ✅ |
 
 ## 6. 관찰 — ③ 답의 재료 (해석은 본인이 career 05-fund 02 ③ 에)
 1. **옵티마이저가 인덱스를 알고도 안 쓴 이유 후보**: `status='ACTIVE'` 가 46행 중 45행이라 걸러지는 게 없고, 45행 정렬은 메모리에서 끝난다. 같은 인덱스로 `status='INACTIVE'`(1행)는 바로 쓴다 — **선택도**가 인덱스 사용을 가른다(10-06 실험 3 `is_correct` 1%:99% 와 같은 현상). TREE 비용이 인덱스 쪽이 낮은데도 스캔을 고른 건 MySQL 8 의 소규모 테이블·`LIMIT`+`ORDER BY` 휴리스틱 영향으로 보이나 **근거 문서로 확인하지 않았다 — 추정이라고 말한다**.
@@ -55,7 +57,7 @@
 4. 죽은 코드: `findTopByTotalScore`·`findTopByAccuracy`·`findTopByTotalGames`(+ `MemberService.getTopRanking*` 3개) 호출처 0 — 별도 정리 대상(언급만).
 
 ## 7. 미검증 · 열린 항목
-- ✅ O-032 운영 ALTER 선반영 + 전후 EXPLAIN — 2026-10-13 완료, §5 운영 행 3개. 남은 것: 🙋 main ff 머지 → push → 배포 Smoke(`/ranking` 200, 랭킹 목록 동일).
+- ✅ O-032 CLOSED — 운영 ALTER·전후 EXPLAIN·main 머지·배포·Smoke 전부 2026-10-13 완료(§5). 열린 항목 없음.
 - ⬜→CLOSED O-033 운영 백업 사본 재실험 — 운영 EXPLAIN(O-032, 같은 MariaDB 11.8·같은 분포)이 나왔으므로 대체. 별도 Docker 재실험 안 함.
 - ⬜ dev 기동 `validate` 통과 확인(인덱스는 비검사라 결과가 뻔하지만 기록상 1회).
 - 전체 회귀: 497 ✅(0 실패, Redis 11 Skipped — Docker 부재. CI 에서는 실행됨)

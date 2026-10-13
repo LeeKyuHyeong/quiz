@@ -260,4 +260,6 @@ SQL
 ```
 
 - 되돌리기: `ALTER TABLE member DROP INDEX idx_member_status_guess_score;` (앱은 인덱스 유무와 무관하게 기동)
+
+**검증**: 2026-10-13 — 운영 MariaDB 11.8.9 에 1)→2)→3) 순서로 실행(ACTIVE 22/46). EXPLAIN `ALL · rows 46 · Using filesort` → `range · key idx_member_status_guess_score · rows 22 · Using where`. 이후 push → green→blue 배포 → `/ranking` 200. 기록: `docs/verification/records/2026-10-10_member-ranking-index.md` §5.
 - 대상 쿼리는 랭킹 첫 목록 `findTopGuessRankingByScore`(`MemberRepository`) 하나. 다른 랭킹 정렬 열(multi_score·weekly_*·best_*)에는 인덱스를 두지 않았다 — 이유·실행계획은 `docs/verification/records/2026-10-10_member-ranking-index.md`.

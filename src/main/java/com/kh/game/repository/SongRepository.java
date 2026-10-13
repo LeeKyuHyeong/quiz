@@ -3,6 +3,7 @@ package com.kh.game.repository;
 import com.kh.game.entity.Song;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,6 +16,11 @@ import java.util.Set;
 
 @Repository
 public interface SongRepository extends JpaRepository<Song, Long> {
+
+    // 관리자 정답 목록(AdminAnswerController) — 장르 열을 그리므로 genre 를 함께 읽는다
+    @Override
+    @EntityGraph(attributePaths = "genre")
+    Page<Song> findAll(Pageable pageable);
 
     Page<Song> findByUseYn(String useYn, Pageable pageable);
 
@@ -36,6 +42,7 @@ public interface SongRepository extends JpaRepository<Song, Long> {
     @Query("SELECT s FROM Song s WHERE s.useYn = :useYn AND (s.youtubeVideoId IS NOT NULL OR s.filePath IS NOT NULL) AND (s.genre IS NULL OR s.genre.code <> :excludeGenreCode) AND (s.isPopular IS NULL OR s.isPopular = true)")
     List<Song> findPopularSongsForGame(@Param("useYn") String useYn, @Param("excludeGenreCode") String excludeGenreCode);
 
+    @EntityGraph(attributePaths = "genre")
     Page<Song> findByTitleContainingOrArtistContaining(String title, String artist, Pageable pageable);
 
     Page<Song> findByTitleContainingOrArtistContainingAndUseYn(String title, String artist, String useYn, Pageable pageable);
@@ -68,7 +75,16 @@ public interface SongRepository extends JpaRepository<Song, Long> {
     List<String> findArtistsByKeywordExcludingGenre(@Param("keyword") String keyword, @Param("excludeGenreCode") String excludeGenreCode);
 
     // 복합 필터 검색 (관리자용) - 단일 아티스트
-    @Query("SELECT s FROM Song s WHERE " +
+    // 장르 열을 함께 읽는다(LEFT JOIN FETCH — 장르 없는 곡도 포함). countQuery 는 count 에 join 이 끼지 않게 명시
+    // (Spring Data 3.4 는 fetch 를 걷어낸 count 를 스스로 만들기도 한다 — 2026-10-13 실측, 없어도 동작)
+    @Query(value = "SELECT s FROM Song s LEFT JOIN FETCH s.genre WHERE " +
+            "(:keyword IS NULL OR LOWER(s.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(s.artist) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
+            "(:artist IS NULL OR s.artist = :artist) AND " +
+            "(:genreId IS NULL OR s.genre.id = :genreId) AND " +
+            "(:useYn IS NULL OR s.useYn = :useYn) AND " +
+            "(:isSolo IS NULL OR s.isSolo = :isSolo) AND " +
+            "(:releaseYear IS NULL OR s.releaseYear = :releaseYear)",
+           countQuery = "SELECT COUNT(s) FROM Song s WHERE " +
             "(:keyword IS NULL OR LOWER(s.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(s.artist) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
             "(:artist IS NULL OR s.artist = :artist) AND " +
             "(:genreId IS NULL OR s.genre.id = :genreId) AND " +
@@ -85,7 +101,14 @@ public interface SongRepository extends JpaRepository<Song, Long> {
             Pageable pageable);
 
     // 복합 필터 검색 (관리자용) - 다중 아티스트
-    @Query("SELECT s FROM Song s WHERE " +
+    @Query(value = "SELECT s FROM Song s LEFT JOIN FETCH s.genre WHERE " +
+            "(:keyword IS NULL OR LOWER(s.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(s.artist) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
+            "(s.artist IN :artists) AND " +
+            "(:genreId IS NULL OR s.genre.id = :genreId) AND " +
+            "(:useYn IS NULL OR s.useYn = :useYn) AND " +
+            "(:isSolo IS NULL OR s.isSolo = :isSolo) AND " +
+            "(:releaseYear IS NULL OR s.releaseYear = :releaseYear)",
+           countQuery = "SELECT COUNT(s) FROM Song s WHERE " +
             "(:keyword IS NULL OR LOWER(s.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(s.artist) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
             "(s.artist IN :artists) AND " +
             "(:genreId IS NULL OR s.genre.id = :genreId) AND " +

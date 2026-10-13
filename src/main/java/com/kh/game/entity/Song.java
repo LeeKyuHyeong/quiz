@@ -40,7 +40,7 @@ public class Song {
     @Column(name = "play_duration")
     private Integer playDuration;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)   // 목록 쿼리는 SongRepository 에서 fetch join / @EntityGraph (N+1 방지)
     @JoinColumn(name = "genre_id")
     private Genre genre;
 

@@ -28,76 +28,76 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     Optional<Member> findByEmailAndStatus(String email, Member.MemberStatus status);
 
     // 랭킹 조회 (총점 기준)
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.totalGames > 0 ORDER BY m.totalScore DESC")
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.totalGames > 0 ORDER BY m.totalScore DESC")
     List<Member> findTopByTotalScore(Pageable pageable);
 
     // 랭킹 조회 (정답률 기준)
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.totalRounds > 0 ORDER BY (m.totalCorrect * 1.0 / m.totalRounds) DESC")
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.totalRounds > 0 ORDER BY (m.totalCorrect * 1.0 / m.totalRounds) DESC")
     List<Member> findTopByAccuracy(Pageable pageable);
 
     // 랭킹 조회 (게임 수 기준)
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' ORDER BY m.totalGames DESC")
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' ORDER BY m.totalGames DESC")
     List<Member> findTopByTotalGames(Pageable pageable);
 
     // ========== Solo Guess (내가맞추기) 랭킹 조회 ==========
 
     // 1. 누적 총점 기준
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.guessGames > 0 ORDER BY m.guessScore DESC")
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.guessGames > 0 ORDER BY m.guessScore DESC")
     List<Member> findTopGuessRankingByScore(Pageable pageable);
 
     // 2. 평균 정답률 기준
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.guessRounds > 0 ORDER BY (m.guessCorrect * 1.0 / m.guessRounds) DESC")
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.guessRounds > 0 ORDER BY (m.guessCorrect * 1.0 / m.guessRounds) DESC")
     List<Member> findTopGuessRankingByAccuracy(Pageable pageable);
 
     // 3. 평균 점수 기준 (게임당 평균)
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.guessGames > 0 ORDER BY (m.guessScore * 1.0 / m.guessGames) DESC")
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.guessGames > 0 ORDER BY (m.guessScore * 1.0 / m.guessGames) DESC")
     List<Member> findTopGuessRankingByAvgScore(Pageable pageable);
 
     // 4. 최다 정답 기준
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.guessCorrect > 0 ORDER BY m.guessCorrect DESC")
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.guessCorrect > 0 ORDER BY m.guessCorrect DESC")
     List<Member> findTopGuessRankingByCorrect(Pageable pageable);
 
     // 5. 플레이왕 - 게임 수 기준
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.guessGames > 0 ORDER BY m.guessGames DESC")
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.guessGames > 0 ORDER BY m.guessGames DESC")
     List<Member> findTopGuessRankingByGames(Pageable pageable);
 
     // 6. 도전왕 - 라운드 수 기준
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.guessRounds > 0 ORDER BY m.guessRounds DESC")
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.guessRounds > 0 ORDER BY m.guessRounds DESC")
     List<Member> findTopGuessRankingByRounds(Pageable pageable);
 
     // 7. 라운드별 평균점수 기준 (10게임 이상)
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.guessGames >= 10 AND m.guessRounds > 0 ORDER BY (m.guessScore * 1.0 / m.guessRounds) DESC")
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.guessGames >= 10 AND m.guessRounds > 0 ORDER BY (m.guessScore * 1.0 / m.guessRounds) DESC")
     List<Member> findTopGuessRankingByAvgScorePerRound(Pageable pageable);
 
     // 8. 정답률 기준 (10게임 이상)
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.guessGames >= 10 AND m.guessRounds > 0 ORDER BY (m.guessCorrect * 1.0 / m.guessRounds) DESC")
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.guessGames >= 10 AND m.guessRounds > 0 ORDER BY (m.guessCorrect * 1.0 / m.guessRounds) DESC")
     List<Member> findTopGuessRankingByAccuracyMin10(Pageable pageable);
 
     // ========== Retro Game (레트로) 랭킹 조회 ==========
 
     // 1. 누적 총점 기준
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.retroGames > 0 ORDER BY m.retroScore DESC")
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.retroGames > 0 ORDER BY m.retroScore DESC")
     List<Member> findTopRetroRankingByScore(Pageable pageable);
 
     // 2. 평균 정답률 기준
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.retroRounds > 0 ORDER BY (m.retroCorrect * 1.0 / m.retroRounds) DESC")
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.retroRounds > 0 ORDER BY (m.retroCorrect * 1.0 / m.retroRounds) DESC")
     List<Member> findTopRetroRankingByAccuracy(Pageable pageable);
 
     // 3. 게임 수 기준
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.retroGames > 0 ORDER BY m.retroGames DESC")
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.retroGames > 0 ORDER BY m.retroGames DESC")
     List<Member> findTopRetroRankingByGames(Pageable pageable);
 
     // 4. 주간 레트로 총점
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.weeklyRetroGames > 0 ORDER BY m.weeklyRetroScore DESC")
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.weeklyRetroGames > 0 ORDER BY m.weeklyRetroScore DESC")
     List<Member> findTopWeeklyRetroRankingByScore(Pageable pageable);
 
     // 5. 레트로 30곡 최고점 (역대)
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.retroBest30Score IS NOT NULL " +
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.retroBest30Score IS NOT NULL " +
            "ORDER BY m.retroBest30Score DESC, m.retroBest30At ASC")
     List<Member> findRetroBest30Ranking(Pageable pageable);
 
     // 6. 레트로 30곡 주간 최고점
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.weeklyRetroBest30Score IS NOT NULL " +
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.weeklyRetroBest30Score IS NOT NULL " +
            "ORDER BY m.weeklyRetroBest30Score DESC")
     List<Member> findWeeklyRetroBest30Ranking(Pageable pageable);
 
@@ -120,15 +120,15 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     // ========== Multiplayer (멀티게임) 랭킹 조회 ==========
 
     // 총점 기준
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.multiGames > 0 ORDER BY m.multiScore DESC")
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.multiGames > 0 ORDER BY m.multiScore DESC")
     List<Member> findTopMultiRankingByScore(Pageable pageable);
 
     // 정답률 기준
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.multiRounds > 0 ORDER BY (m.multiCorrect * 1.0 / m.multiRounds) DESC")
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.multiRounds > 0 ORDER BY (m.multiCorrect * 1.0 / m.multiRounds) DESC")
     List<Member> findTopMultiRankingByAccuracy(Pageable pageable);
 
     // 게임 수 기준
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.multiGames > 0 ORDER BY m.multiGames DESC")
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.multiGames > 0 ORDER BY m.multiGames DESC")
     List<Member> findTopMultiRankingByGames(Pageable pageable);
 
     // 검색
@@ -143,21 +143,21 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     // ========== 주간 랭킹 조회 ==========
 
     // 주간 내가맞추기 총점
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.weeklyGuessGames > 0 ORDER BY m.weeklyGuessScore DESC")
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.weeklyGuessGames > 0 ORDER BY m.weeklyGuessScore DESC")
     List<Member> findTopWeeklyGuessRankingByScore(Pageable pageable);
 
     // 주간 멀티게임 총점
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.weeklyMultiGames > 0 ORDER BY m.weeklyMultiScore DESC")
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.weeklyMultiGames > 0 ORDER BY m.weeklyMultiScore DESC")
     List<Member> findTopWeeklyMultiRankingByScore(Pageable pageable);
 
     // ========== 최고 기록 랭킹 조회 ==========
 
     // 내가맞추기 최고 점수
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.bestGuessScore > 0 ORDER BY m.bestGuessScore DESC")
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.bestGuessScore > 0 ORDER BY m.bestGuessScore DESC")
     List<Member> findTopGuessBestScore(Pageable pageable);
 
     // 멀티게임 최고 점수
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.bestMultiScore > 0 ORDER BY m.bestMultiScore DESC")
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.bestMultiScore > 0 ORDER BY m.bestMultiScore DESC")
     List<Member> findTopMultiBestScore(Pageable pageable);
 
     // ========== 내 순위 조회 ==========
@@ -173,7 +173,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     // ========== 멀티게임 LP 티어 랭킹 조회 ==========
 
     // 멀티 티어 + LP 기준 (티어 내림차순, 같은 티어면 LP 내림차순)
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.multiGames > 0 " +
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.multiGames > 0 " +
            "ORDER BY CASE m.multiTier " +
            "WHEN com.kh.game.entity.MultiTier.CHALLENGER THEN 6 " +
            "WHEN com.kh.game.entity.MultiTier.MASTER THEN 5 " +
@@ -187,11 +187,11 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     List<Member> findTopMultiTierRanking(Pageable pageable);
 
     // 멀티게임 1등 횟수 기준
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.multiWins > 0 ORDER BY m.multiWins DESC")
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.multiWins > 0 ORDER BY m.multiWins DESC")
     List<Member> findTopMultiWins(Pageable pageable);
 
     // 멀티게임 Top3 횟수 기준
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.multiTop3 > 0 ORDER BY m.multiTop3 DESC")
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.multiTop3 > 0 ORDER BY m.multiTop3 DESC")
     List<Member> findTopMultiTop3(Pageable pageable);
 
     // 내 멀티 티어 순위 (나보다 높은 티어 + LP 가진 사람 수)
@@ -233,17 +233,17 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     // ========== 30곡 최고점 랭킹 조회 ==========
 
     // 주간 30곡 최고점 (점수 내림차순, 같은 점수면 먼저 달성한 사람 우선)
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.weeklyBest30Score IS NOT NULL " +
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.weeklyBest30Score IS NOT NULL " +
            "ORDER BY m.weeklyBest30Score DESC, m.weeklyBest30At ASC")
     List<Member> findWeeklyBest30Ranking(Pageable pageable);
 
     // 월간 30곡 최고점
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.monthlyBest30Score IS NOT NULL " +
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.monthlyBest30Score IS NOT NULL " +
            "ORDER BY m.monthlyBest30Score DESC, m.monthlyBest30At ASC")
     List<Member> findMonthlyBest30Ranking(Pageable pageable);
 
     // 역대 30곡 최고점 (명예의 전당)
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.allTimeBest30Score IS NOT NULL " +
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.allTimeBest30Score IS NOT NULL " +
            "ORDER BY m.allTimeBest30Score DESC, m.allTimeBest30At ASC")
     List<Member> findAllTimeBest30Ranking(Pageable pageable);
 
@@ -288,17 +288,17 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     // ========== 배치용 조회 ==========
 
     // LP Decay 대상: 활성 회원 중 멀티게임 참여 이력이 있고, 마지막 게임이 특정 날짜 이전인 회원
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.multiGames > 0 " +
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.multiGames > 0 " +
            "AND m.lastGamePlayedAt IS NOT NULL AND m.lastGamePlayedAt < :threshold")
     List<Member> findMembersForLpDecay(@org.springframework.data.repository.query.Param("threshold") java.time.LocalDateTime threshold);
 
     // 연속 로그인 리셋 대상: 마지막 로그인 날짜가 어제가 아닌 회원 (스트릭 끊김)
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.loginStreak > 0 " +
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.loginStreak > 0 " +
            "AND (m.lastLoginDate IS NULL OR m.lastLoginDate < :yesterday)")
     List<Member> findMembersToResetLoginStreak(@org.springframework.data.repository.query.Param("yesterday") java.time.LocalDate yesterday);
 
     // 휴면 전환 대상: ACTIVE 상태, 관리자 제외, 마지막 로그인이 threshold 이전 (배치용)
-    @Query("SELECT m FROM Member m WHERE m.status = 'ACTIVE' AND m.role <> 'ADMIN' " +
+    @Query("SELECT m FROM Member m LEFT JOIN FETCH m.selectedBadge WHERE m.status = 'ACTIVE' AND m.role <> 'ADMIN' " +
            "AND ((m.lastLoginAt IS NOT NULL AND m.lastLoginAt < :threshold) " +
            "OR (m.lastLoginAt IS NULL AND m.createdAt < :threshold))")
     List<Member> findInactiveMembers(@org.springframework.data.repository.query.Param("threshold") java.time.LocalDateTime threshold);

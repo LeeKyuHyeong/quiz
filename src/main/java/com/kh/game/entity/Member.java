@@ -228,7 +228,7 @@ public class Member {
 
     // ========== 뱃지 시스템 ==========
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)   // 랭킹 목록 쿼리는 MemberRepository 에서 LEFT JOIN FETCH (N+1 방지)
     @JoinColumn(name = "selected_badge_id")
     private Badge selectedBadge;  // 현재 표시 중인 뱃지
 

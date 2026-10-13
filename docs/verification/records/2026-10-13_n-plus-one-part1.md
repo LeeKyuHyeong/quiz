@@ -2,7 +2,7 @@
 - 일자: 2026-10-13
 - 유형: 수정 (JPA fetch 전략 — 스키마 변경 없음)
 - 우선순위: P2 (관리자 목록·랭킹 조회. 데이터 변경 없음)
-- 판정: 조건부 — 코드·재현 테스트 전후·렌더링 가드·OSIV 실험·전체 회귀 ✅, 운영 배포·Smoke 🙋(push 뒤)
+- 판정: **수용 가능**(2026-10-13 21:30) — 코드·재현 테스트 전후·렌더링 가드·OSIV 실험·전체 회귀 ✅, 운영 배포(blue→green)·Smoke(외부·서버·관리자 화면)·실험 4 ✅
 
 ## 1. 요청과 목적
 - 사용자가 원한 것: career VGA §4-2 【확인 43】 — EAGER 연관 3곳 중 **Part 1 = `Song.genre` + `Member.selectedBadge`** 를 EAGER→LAZY + 목록 쿼리 fetch join 으로 바꾸고, "목록 1 + 행마다 1" 을 **숫자로 재현한 테스트가 수정 전 실패 → 후 통과**하게 한다. `GameRound.song/genre`(호출처 62곳, `Song.genre` 연쇄) 는 Part 2(O-034).
@@ -19,7 +19,7 @@
 | 5 | 경계 | 페이징 `totalElements` 가 fetch join 뒤에도 같다(countQuery 분리) | ✅ | 위 `songWithoutGenre_isStillListed` totalElements 21 + 기존 `SongRepositoryTest` searchWithFilters 11건 통과 |
 | 6 | 연쇄 | LAZY 전환 뒤 OSIV 밖 경로(배치·STOMP·스케줄러)에서 `LazyInitializationException` 없음 | ✅ | §4 호출처 전수표 — 비요청 스레드에서 `getGenre()`/`getSelectedBadge*()` 에 닿는 경로는 전부 클래스/메서드 `@Transactional` 안. 실험 3 에서 수정 대상 4 경로는 OSIV 를 꺼도 200 |
 | 7 | 회귀 | 전체 테스트 통과 | ✅ | **507 run · 0 failures · 0 errors · 0 skipped**(기존 497 + N+1 7 + 가드 3. Docker 기동 중이라 Redis 계약 테스트 포함) (§5) |
-| 8 | 정상 | 운영 배포 뒤 `/admin/song`·`/ranking`·`/api/ranking` 정상, 뱃지·장르 표시 동일 | 🙋 | push → Actions → Smoke(§6) |
+| 8 | 정상 | 운영 배포 뒤 `/admin/song`·`/ranking`·`/api/ranking` 정상, 뱃지·장르 표시 동일 | ✅ | §5 운영 행 — 외부 200, 앱 로그 LazyInit 0, 관리자 곡·정답 목록 장르 열 본인 확인(21:27 KST) |
 
 ## 3. 변경 사항
 - `src/main/java/com/kh/game/entity/Song.java` — `genre` `FetchType.EAGER → LAZY` (+주석: 목록 쿼리는 저장소에서 fetch)
@@ -60,14 +60,18 @@
 | 실험 3 (OSIV 끔) | 일회성 `OsivOffExperimentTest`(`spring.jpa.open-in-view=false`, MockMvc, @Transactional 없음, **커밋 안 함**) | `/admin/song/content` 200 장르명 ✅ · `/admin/answer/content` 200 ✅ · `/api/ranking` 200 뱃지 ✅ · `/ranking` 200(서버 렌더 뱃지 없음, JS 가 API 호출) · **`/board`·`/board/{id}` → `LazyInitializationException: Could not initialize proxy [Member#2] - no session`**(`Board.member`, 이번 변경과 무관한 기존 LAZY) | ✅(관찰) |
 | dev 기동 | `.claude/launch.json` `quiz-dev`(`spring-boot:run -Dspring-boot.run.profiles=dev`, 로컬 MySQL 8.0.46) | `validate` 통과, 헬스 UP, 기동 로그 **`WARN … spring.jpa.open-in-view is enabled by default`** 확인 · `/ranking` 200 · `/api/ranking` 5행, id 17 badgeEmoji 👑 badgeName 만점왕(LAZY 뱃지가 OSIV 안에서 로드) · 관리자 화면은 로컬 DB 관리자 비밀번호가 시드값과 달라 미확인 → MockMvc 가드로 대체 | ✅ |
 | 전체 회귀 | `JAVA_HOME=jdk-17 ./mvnw test`(Docker 기동 중 — Redis 계약 테스트 포함) | **507 run · 0 failures · 0 errors · 0 skipped**(기존 497 + N+1 7 + 가드 3. Docker 기동 중이라 Redis 계약 테스트 포함) | ✅ |
-| 운영 | push → Actions deploy → Smoke(§6) | — | 🙋 |
+| 운영 배포(2026-10-13 19:47~19:55 KST) | main ff `f6f2534→4ea3446` push → Actions `Build and Deploy` 38385851543 | build 4m50s · deploy 1m27s · **blue→green**(:8093), 헬스 12번째 시도 OK, 외부 200, blue 드레인 후 정지 | ✅ |
+| 운영 Smoke(외부, 브라우저 UA GET) | `/` · `/ranking` · `/api/ranking` guess/multi score·games·accuracy·retro·weekly | 전부 200, 행 수·점수 배포 전과 동일(guess 3행 id 10·18·8). **운영 랭킹 상위에 뱃지 선택 회원이 없어 badgeEmoji 는 전후 모두 null** — LAZY 뱃지 렌더는 dev(id 17 👑)·가드 테스트로 증명 | ✅ |
+| 운영 Smoke(서버, 본인 SSH 21:2x KST) | `docker logs quiz-app-green --since 20m` grep | `LazyInitializationException` **0** · ` ERROR ` **0** | ✅ |
+| 운영 Smoke(관리자 화면, 본인) | 관리자 로그인 → `/admin/song`·`/admin/answer` | 장르 열 정상 표시("잘 보여", 21:27 nginx `/admin/song` 302→로그인 뒤 확인) | ✅ |
+| 실험 4(운영 응답시간, nginx `rt=$request_time`) | `grep '"GET /(ranking|api/ranking|admin/song)' access.log` | **전(blue, 07:55)**: `/ranking` 0.150(첫 요청)·0.036·0.036, `/api/ranking` 0.042·0.033 / **후(green, 19:54~21:27)**: `/ranking` 0.312(전환 직후 첫 요청, JIT 콜드), `/api/ranking` 0.083(콜드)·0.019·0.018·0.016·0.016·0.017·0.037·0.031 — **차이 없음(노이즈 범위)**. 회원 46·곡 46 규모에서 N+1 제거는 응답시간으로 안 보인다. 서류에 수치 금지 | ✅(관찰) |
 
 ## 6. 수동 확인 시나리오 (운영 Smoke, 배포 후)
 1. [전제] Actions `Build and Deploy` 성공, 활성 색 전환.
 2. [행동] 브라우저 UA 로 `GET /ranking`·`GET /api/ranking?mode=guess&type=score` · 관리자 로그인 후 `/admin/song`(장르 열)·`/admin/answer`.
 3. [기대 결과] 전부 200, 뱃지 이모지·장르명이 배포 전과 동일, 앱 로그에 `LazyInitializationException` 0건.
 4. 실험 4: 서버 `grep -n log_format /etc/nginx/nginx.conf` 에 `$request_time` 이 있으면 `/admin/song`·`/ranking` 배포 전후 각 5건 비교, 없으면 "확인 안 함".
-- 결과: ☐ 통과 ☐ 실패
+- 결과: ☑ 통과 (2026-10-13 21:30 KST — 외부 curl·서버 로그·관리자 화면·실험 4 모두 §5)
 
 ## 7. checklist 점검
 - 점검함: 1 영향 범위(호출처 전수 — Java·템플릿·배치·스케줄러·STOMP, §4) · 1 매핑 3자(엔티티 ↔ schema.sql — 컬럼 변경 없음, `validate` 통과) · 2 경계(결과 0건은 기존 `SongRepositoryTest`, null 장르·null 뱃지는 AC 4) · 4 트랜잭션(LAZY 를 트랜잭션 밖에서 건드리는 비요청 스레드 — §4 표, 실험 3) · 7 운영(H2 ↔ MariaDB: JPQL 만 바꿨고 native SQL 없음. `LEFT JOIN FETCH`+`countQuery` 는 Hibernate 가 생성 — DB 의존 없음)
@@ -79,8 +83,7 @@
 - 죽은 랭킹 쿼리 3개(`findTopByTotalScore`·`findTopByAccuracy`·`findTopByTotalGames` + `MemberService.getTopRanking*`)는 10-10 기록 §6-4 와 같은 지적 — 손대지 않음.
 
 ## 9. 미검증 영역과 남은 위험
-- 🙋 운영 Smoke(AC 8) — push 뒤.
-- ⬜ 실험 4 운영 응답시간 — nginx 로그 포맷 확인 전. 46곡·46회원 규모라 수치는 서류에 쓰지 않는다(10-10 기록과 같은 원칙).
+- (닫힘) 운영 Smoke·실험 4 — §5. 46곡·46회원 규모라 응답시간 수치는 서류에 쓰지 않는다(10-10 기록과 같은 원칙). O-034 CLOSED.
 - ⬜ Part 2 `GameRound.song/genre`(O-034) — 호출처 62곳, 게임 결과·관리자 이력 화면.
 - 랭킹 쿼리 33개를 일괄 치환했다 — 각 메서드의 ORDER BY·WHERE 는 손대지 않았고(`SELECT m FROM Member m WHERE` → `… LEFT JOIN FETCH m.selectedBadge WHERE` 만), 전체 회귀로 기존 랭킹 테스트(`RankingSnapshotBatchTest` 등)가 통과했다.
 

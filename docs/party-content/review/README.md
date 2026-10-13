@@ -23,7 +23,7 @@ python -m http.server 8090 --bind 127.0.0.1 --directory docs/party-content/revie
 | `index.html` | 검수 화면 |
 | `data.js` | 화면이 읽는 데이터 — `build_review.py` 가 만든다 |
 | `cand-sound.tsv`·`cand-anime.tsv`·`cand-game.tsv` | 후보 원본(`line` = 문제 TSV 줄 번호, `confidence` 상·중·하, `note` 확인할 점) |
-| `picks.tsv` | 듣고 고른 기록(채택·제외). **`line` 은 고른 당시 번호** — SOUND 는 10-13 정리 때 4행(무릎팍·해투·자일리톨·콘푸로스트)을 지워 그 뒤 번호가 당겨졌다(`cand-sound.tsv` 는 새 번호로 맞춤) |
+| `picks.tsv` | 듣고 고른 기록(채택·제외). **`line` 은 고른 당시 번호** — SOUND 는 10-13 정리 때 4행(무릎팍·해투·자일리톨·콘푸로스트), ANIME 는 1행(드래곤볼 Z, 16번)을 지워 그 뒤 번호가 당겨졌다(`cand-*.tsv` 는 새 번호로 맞춤) |
 | `apply_pick.py` · `add_cand.py` | 채택을 TSV 에 넣기 · 후보 추가(임베드 확인, `data.js` 다시 만듦) |
 | `build_review.py` | 후보나 문제 TSV 를 고친 뒤 `python build_review.py` 로 `data.js` 다시 만들기 |
 | `yt_search.py` | 후보 찾기 도우미: `python yt_search.py "검색어"`(상위 6개 + 임베드 가능 여부) · `python yt_search.py --desc 영상ID`(설명·챕터) |

@@ -11,6 +11,7 @@
 
 | 일자 | 기록 | 유형 | 우선순위 | 판정 |
 |---|---|---|---|---|
+| 2026-10-13 | [N+1 제거 Part 1 — `Song.genre`(관리자 곡·정답 목록) · `Member.selectedBadge`(랭킹) (career 【확인 43】)](records/2026-10-13_n-plus-one-part1.md) | 수정 (JPA fetch, 스키마 변경 없음) | P2 | 조건부 — 재현 테스트 전 ❌(곡 목록 7·랭킹 5) → 후 ✅(2·1) · 렌더링 가드 3 ✅ · OSIV 끔 실험(게시판만 깨짐, 기존 LAZY) · 회귀 507 ✅(0 skipped) ✅ · 운영 Smoke 🙋 O-034 · Part 2 ⬜ O-035 |
 | 2026-10-10 | [랭킹 첫 목록 쿼리 인덱스 — `member (status, guess_score)` (career 【확인 42】)](records/2026-10-10_member-ranking-index.md) | 신규 (DB 구조) + 문서 | P2 (운영 반영은 P0 규칙) | **수용 가능**(10-13) — 코드·로컬 DB ✅ · 운영 ALTER·EXPLAIN ✅(ALL+filesort → range·rows 22) · 배포 green→blue·Smoke ✅ · O-032 CLOSED, O-033 은 O-032 로 대체 · 회귀 497 ✅(Redis 11 Skipped, Docker 부재) |
 | 2026-10-02 | [quiz 운영 도구 MCP 서버 — 곡 신고·배치·회원 조회 + confirm 뒤 신고 처리 (Spring AI 1.1.8)](records/2026-10-02_mcp-ops.md) | 신규 | P1 (운영 비활성은 P0) | 수용 가능 — 497 ✅(481 + 16, 0 Skipped) · 실전송 4종 ✅ · 운영 배포 run 36998084920 + Smoke `/sse` 404 ✅(O-031 CLOSED) · Claude Code 대화 ✅(단 confirm 을 모델이 스스로 채운 실측 — §9) |
 | 2026-09-23 | [AWS 시연 — EC2 2대 + ALB + RDS + ElastiCache 실기동 (`session-redis`)](records/2026-09-23_aws-demo.md) | 인프라 | P1 | 수용 가능 — 세션 외부화 양방향 실측 ✅ · RDS TLS 강제 충돌 해소 · 시연 범위는 로그인 세션 한정 |

@@ -23,7 +23,7 @@ python -m http.server 8090 --bind 127.0.0.1 --directory docs/party-content/revie
 | `index.html` | 검수 화면 |
 | `data.js` | 화면이 읽는 데이터 — `build_review.py` 가 만든다 |
 | `cand-sound.tsv`·`cand-anime.tsv`·`cand-game.tsv` | 후보 원본(`line` = 문제 TSV 줄 번호, `confidence` 상·중·하, `note` 확인할 점) |
-| `picks.tsv` | 듣고 고른 기록(채택·제외). **`line` 은 고른 당시 번호** — SOUND 는 10-13 정리 때 4행(무릎팍·해투·자일리톨·콘푸로스트), ANIME 는 1행(드래곤볼 Z, 16번), GAME 은 26행, PERSON 은 4명(김민재·차은우·김수현·뷔, 10-14)을 지워 그 뒤 번호가 당겨졌다(`cand-*.tsv` 는 새 번호로 맞춤) |
+| `picks.tsv` | 듣고 고른 기록(채택·제외). **`line` 은 고른 당시 번호** — SOUND 는 10-13 정리 때 4행(무릎팍·해투·자일리톨·콘푸로스트), ANIME 는 1행(드래곤볼 Z, 16번), GAME 은 26행, PERSON 은 5명(김민재·차은우·김수현·뷔 10-14, 백종원 10-15)·ANIME 장면 1행(마법천자문, 9번, 10-15)을 지워 그 뒤 번호가 당겨졌다(`cand-*.tsv` 는 새 번호로 맞춤) |
 | `photos.html` · `photos.js` · `build_photos.py` | 사진 고르기 화면 · 데이터 · 데이터 만들기(후보 `cand-screen.tsv`·`cand-person.tsv`) |
 | `photo-picks.tsv` · `photo-edits.tsv` | 고른 사진(원본 주소) · **받은 뒤 손볼 사진**(제목 글자 잘라내기 등) |
 | `img_search_daum.py` · `add_img_cand.py` | 사진 후보 찾기(다음 이미지 검색) · 후보 자동 추가(가로·폭 600 이상, 포스터 등 제외) |

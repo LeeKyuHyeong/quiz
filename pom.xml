@@ -111,6 +111,15 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <!-- 게임 설정 화면의 곡 집계·장르 목록 캐시(Caffeine, 프로세스 안). 무효화는 쓰기 경로의 @CacheEvict, TTL 은 안전망 — CacheConfig -->
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-cache</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+        </dependency>
+        <dependency>
             <!-- 운영 도구 MCP 서버(SSE) — Spring AI 1.1.x 는 Boot 3.4.x 지원. 기본 꺼짐(spring.ai.mcp.server.enabled), dev 만 켠다 -->
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-starter-mcp-server-webmvc</artifactId>

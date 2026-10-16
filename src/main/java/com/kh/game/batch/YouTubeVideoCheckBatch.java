@@ -1,5 +1,6 @@
 package com.kh.game.batch;
 
+import com.kh.game.config.CacheConfig;
 import com.kh.game.entity.BatchAffectedSong;
 import com.kh.game.entity.BatchAffectedSong.ActionType;
 import com.kh.game.entity.BatchAffectedSong.AffectedReason;
@@ -12,6 +13,7 @@ import com.kh.game.service.YouTubeValidationService;
 import com.kh.game.service.YouTubeValidationService.ValidationResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +41,7 @@ public class YouTubeVideoCheckBatch {
 
     public static final String BATCH_ID = "BATCH_YOUTUBE_VIDEO_CHECK";
 
+    @CacheEvict(cacheNames = CacheConfig.SONG_CATALOG, allEntries = true) // 곡을 비활성화하므로 게임 설정 화면 집계를 비운다
     @Transactional
     public int execute(BatchExecutionHistory.ExecutionType executionType) {
         long startTime = System.currentTimeMillis();

@@ -1,5 +1,6 @@
 package com.kh.game.service;
 
+import com.kh.game.config.CacheConfig;
 import com.kh.game.entity.BatchAffectedSong;
 import com.kh.game.entity.BatchAffectedSong.ActionType;
 import com.kh.game.entity.BatchAffectedSong.AffectedReason;
@@ -14,6 +15,7 @@ import com.kh.game.repository.SongRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -757,6 +759,7 @@ public class BatchService {
     /**
      * 개별 곡 복구
      */
+    @CacheEvict(cacheNames = CacheConfig.SONG_CATALOG, allEntries = true)
     @Transactional
     public boolean restoreSong(Long affectedId, Member admin) {
         BatchAffectedSong affected = affectedSongRepository.findById(affectedId).orElse(null);
@@ -787,6 +790,7 @@ public class BatchService {
     /**
      * 일괄 복구 (배치 실행 이력 기준)
      */
+    @CacheEvict(cacheNames = CacheConfig.SONG_CATALOG, allEntries = true)
     @Transactional
     public int restoreAllByHistory(Long historyId, Member admin) {
         List<BatchAffectedSong> affectedList = affectedSongRepository.findByHistoryIdOrderByIdDesc(historyId);
@@ -812,6 +816,7 @@ public class BatchService {
     /**
      * 일괄 복구 (배치 ID 기준 - 미복구 전체)
      */
+    @CacheEvict(cacheNames = CacheConfig.SONG_CATALOG, allEntries = true)
     @Transactional
     public int restoreAllByBatchId(String batchId, Member admin) {
         List<BatchAffectedSong> unrestoredList = affectedSongRepository.findUnrestoredByBatchId(batchId);

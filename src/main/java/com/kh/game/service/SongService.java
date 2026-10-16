@@ -1,5 +1,6 @@
 package com.kh.game.service;
 
+import com.kh.game.config.CacheConfig;
 import com.kh.game.dto.GameSettings;
 import com.kh.game.exception.BusinessException;
 import com.kh.game.entity.Song;
@@ -14,6 +15,8 @@ import com.kh.game.repository.SongRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -112,6 +115,7 @@ public class SongService {
         return songRepository.findByUseYn("Y");
     }
 
+    @CacheEvict(cacheNames = CacheConfig.SONG_CATALOG, allEntries = true)
     @Transactional
     public Song save(Song song) {
         return songRepository.save(song);
@@ -121,6 +125,7 @@ public class SongService {
      * 중복 체크 후 저장 (아티스트 + 제목 기준)
      * @throws IllegalArgumentException 중복된 곡이 이미 존재하는 경우
      */
+    @CacheEvict(cacheNames = CacheConfig.SONG_CATALOG, allEntries = true)
     @Transactional
     public Song saveWithDuplicateCheck(Song song) {
         if (isDuplicate(song.getArtist(), song.getTitle())) {
@@ -151,6 +156,7 @@ public class SongService {
         return songRepository.findByArtistAndTitleIgnoreCase(artist, title);
     }
 
+    @CacheEvict(cacheNames = CacheConfig.SONG_CATALOG, allEntries = true)
     @Transactional
     public void deleteById(Long id) {
         // 외래 키 제약조건 해결을 위해 관련 데이터 먼저 정리
@@ -164,6 +170,7 @@ public class SongService {
         songRepository.deleteById(id);
     }
 
+    @CacheEvict(cacheNames = CacheConfig.SONG_CATALOG, allEntries = true)
     @Transactional
     public void toggleUseYn(Long id) {
         songRepository.findById(id).ifPresent(song -> {
@@ -172,6 +179,7 @@ public class SongService {
         });
     }
 
+    @CacheEvict(cacheNames = CacheConfig.SONG_CATALOG, allEntries = true)
     @Transactional
     public void togglePopular(Long id) {
         songRepository.findById(id).ifPresent(song -> {
@@ -180,6 +188,7 @@ public class SongService {
         });
     }
 
+    @CacheEvict(cacheNames = CacheConfig.SONG_CATALOG, allEntries = true)
     @Transactional
     public void updatePopularity(Long id, boolean isPopular) {
         Song song = songRepository.findById(id)
@@ -402,6 +411,7 @@ public class SongService {
     }
 
     // 아티스트 목록 조회 (곡 수 포함, isSolo 정보 포함) - 게임용 (레트로 제외, 대중곡만)
+    @Cacheable(cacheNames = CacheConfig.SONG_CATALOG, key = "'artists'")
     public List<Map<String, Object>> getArtistsWithCount() {
         List<Song> allSongs = findSongsForGame();
         Map<String, Integer> artistCountMap = new TreeMap<>();
@@ -425,7 +435,7 @@ public class SongService {
             artist.put("isSolo", artistSoloMap.get(entry.getKey()));
             artists.add(artist);
         }
-        return artists;
+        return unmodifiableRows(artists);
     }
 
     /**
@@ -476,6 +486,7 @@ public class SongService {
     }
 
     // 아티스트 목록 조회 (곡 수 포함) - 아티스트 챌린지용 (레트로 제외, 매니악 곡 포함)
+    @Cacheable(cacheNames = CacheConfig.SONG_CATALOG, key = "'fanChallengeArtists'")
     public List<Map<String, Object>> getArtistsWithCountForFanChallenge() {
         List<Song> allSongs = findAllSongsForArtistChallenge();
         Map<String, Integer> artistCountMap = new TreeMap<>();
@@ -493,7 +504,7 @@ public class SongService {
             artist.put("count", entry.getValue());
             artists.add(artist);
         }
-        return artists;
+        return unmodifiableRows(artists);
     }
 
     // 아티스트 목록 조회 (곡 수 포함) - 관리자용 (전체 곡 대상, 비활성화 및 매니악 곡 포함)
@@ -511,6 +522,7 @@ public class SongService {
     }
 
     // 연도 목록 조회 (곡 수 포함) - 게임용 (레트로 제외)
+    @Cacheable(cacheNames = CacheConfig.SONG_CATALOG, key = "'years'")
     public List<Map<String, Object>> getYearsWithCount() {
         List<Song> allSongs = findSongsForGame();
         Map<Integer, Integer> yearCountMap = new TreeMap<>(Collections.reverseOrder()); // 최신 연도부터
@@ -528,7 +540,19 @@ public class SongService {
             yearInfo.put("count", entry.getValue());
             years.add(yearInfo);
         }
-        return years;
+        return unmodifiableRows(years);
+    }
+
+    /**
+     * 캐시에 들어가는 목록은 호출자가 바꿀 수 없게 한다 — 같은 인스턴스를 다음 요청도 받기 때문.
+     * (값에 null 이 있을 수 있어 Map.copyOf 대신 unmodifiableMap)
+     */
+    private static List<Map<String, Object>> unmodifiableRows(List<Map<String, Object>> rows) {
+        List<Map<String, Object>> copy = new ArrayList<>(rows.size());
+        for (Map<String, Object> row : rows) {
+            copy.add(Collections.unmodifiableMap(row));
+        }
+        return Collections.unmodifiableList(copy);
     }
 
     // 아티스트 검색 (자동완성용) - 게임용 (레트로 제외)
@@ -1096,6 +1120,7 @@ public class SongService {
     /**
      * Soft Delete - useYn='N'으로 변경
      */
+    @CacheEvict(cacheNames = CacheConfig.SONG_CATALOG, allEntries = true)
     @Transactional
     public void softDeleteSong(Long songId) {
         Song song = songRepository.findById(songId)
@@ -1108,6 +1133,7 @@ public class SongService {
     /**
      * 곡 복구 - useYn='Y'로 변경
      */
+    @CacheEvict(cacheNames = CacheConfig.SONG_CATALOG, allEntries = true)
     @Transactional
     public void restoreSong(Long songId) {
         Song song = songRepository.findById(songId)
@@ -1191,6 +1217,7 @@ public class SongService {
      * @param toArtist 새 아티스트명 (대표명)
      * @return 변경 결과 (테이블별 변경 건수)
      */
+    @CacheEvict(cacheNames = CacheConfig.SONG_CATALOG, allEntries = true)
     @Transactional
     public ArtistMergeResult mergeArtist(String fromArtist, String toArtist) {
         if (fromArtist == null || fromArtist.trim().isEmpty()) {

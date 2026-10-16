@@ -1,5 +1,6 @@
 package com.kh.game.batch;
 
+import com.kh.game.config.CacheConfig;
 import com.kh.game.entity.BatchAffectedSong.ActionType;
 import com.kh.game.entity.BatchAffectedSong.AffectedReason;
 import com.kh.game.entity.BatchConfig;
@@ -9,6 +10,7 @@ import com.kh.game.repository.SongRepository;
 import com.kh.game.service.BatchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +30,7 @@ public class DuplicateSongCheckBatch {
      * 같은 YouTube video ID를 가진 중복 곡을 찾아
      * 더 높은 ID(나중에 생성된 데이터)를 비활성화합니다.
      */
+    @CacheEvict(cacheNames = CacheConfig.SONG_CATALOG, allEntries = true) // 곡을 비활성화하므로 게임 설정 화면 집계를 비운다
     @Transactional
     public int execute(BatchExecutionHistory.ExecutionType executionType) {
         long startTime = System.currentTimeMillis();

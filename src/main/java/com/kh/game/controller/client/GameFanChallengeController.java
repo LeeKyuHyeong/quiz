@@ -58,9 +58,10 @@ public class GameFanChallengeController {
     @GetMapping("/artists")
     @ResponseBody
     public ResponseEntity<List<Map<String, Object>>> getArtistsWithCount() {
-        List<Map<String, Object>> artists = songService.getArtistsWithCountForFanChallenge();
-        // 최소 30곡 이상인 아티스트만 필터링
-        artists.removeIf(artist -> ((Number) artist.get("count")).intValue() < FanChallengeService.CHALLENGE_SONG_COUNT);
+        // 캐시된 목록은 불변이라 제자리에서 지우지 않고 걸러서 새 목록으로 — 최소 곡 수 이상인 아티스트만
+        List<Map<String, Object>> artists = songService.getArtistsWithCountForFanChallenge().stream()
+                .filter(artist -> ((Number) artist.get("count")).intValue() >= FanChallengeService.CHALLENGE_SONG_COUNT)
+                .toList();
         return ResponseEntity.ok(artists);
     }
 
